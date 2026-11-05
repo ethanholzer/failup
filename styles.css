@@ -1,0 +1,1370 @@
+/* fonts bundled locally (OFL) so the prototype works without a CDN */
+@font-face{ font-family:'League Gothic'; font-weight:400; font-style:normal; font-display:swap; src:url('./fonts/league-gothic-latin-400-normal.woff2') format('woff2'); }
+@font-face{ font-family:'Inter'; font-weight:400; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-400-normal.woff2') format('woff2'); }
+@font-face{ font-family:'Inter'; font-weight:500; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-500-normal.woff2') format('woff2'); }
+@font-face{ font-family:'Inter'; font-weight:600; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-600-normal.woff2') format('woff2'); }
+@font-face{ font-family:'Inter'; font-weight:700; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-700-normal.woff2') format('woff2'); }
+@font-face{ font-family:'Inter'; font-weight:800; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-800-normal.woff2') format('woff2'); }
+@font-face{ font-family:'Inter'; font-weight:900; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-900-normal.woff2') format('woff2'); }
+
+/* ==========================================================================
+   FailUp — design tokens + components
+   No build step. Each screen is styled with plain classes so a React rebuild
+   can lift these 1:1 into CSS modules / styled components.
+   ========================================================================== */
+
+:root {
+  /* canvas + surfaces */
+  --bg:        #ebebeb;   /* paper/cream — the gray app canvas */
+  --bg-soft:   #f4f4f5;
+  --surface:   #ffffff;
+  --hair:      #ececee;   /* hairline divider */
+  --track:     #ebebeb;   /* inert control track */
+  --field:     #f2f3f4;
+
+  /* ink */
+  --ink:       #111111;
+  --ink-2:     #141414;
+  --sec:       #6b6f76;   /* secondary label */
+  --sub:       #828282;   /* tertiary / dates */
+  --ghost:     #9fa2a8;
+
+  /* brand / accents */
+  --purple:    #6c5ce7;   /* overload + progress. ALWAYS purple on the tracker. */
+  --purple-dk: #5346c4;
+  --red:       #cf2a0f;   /* highlight only; no longer "exercises" */
+  --navy:      #426e8f;
+
+  /* shape */
+  --r-card:    16px;
+  --r-lg:      20px;
+  --r-pill:    999px;
+  --shadow:    0 8px 24px rgba(20,20,23,.08);
+  --shadow-sm: 0 2px 8px rgba(20,20,23,.10);
+
+  /* type */
+  --sans: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --display: 'League Gothic', 'Inter', sans-serif; /* slide-up modal moments only */
+
+  /* ---- 12 workout colors (cool-forward, all AA 4.9:1 on white for small text) ---- */
+  --wc-slate:   #4573A8;
+  --wc-ocean:   #25799D;
+  --wc-teal:    #177D81;
+  --wc-pine:    #1E805F;
+  --wc-fern:    #258144;
+  --wc-indigo:  #6B64C9;
+  --wc-violet:  #835ACB;
+  --wc-grape:   #A24BBD;
+  --wc-magenta: #BD3F93;
+  --wc-rose:    #C34264;
+  --wc-clay:    #A95C3B;
+  --wc-amber:   #8E6B26;
+}
+
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; }
+body {
+  background:#d9d9dc;
+  font-family: var(--sans);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  display:flex; justify-content:center;
+  min-height:100vh;
+}
+
+/* phone frame on desktop; full-bleed on small screens */
+.device {
+  width:393px; height:852px;
+  background:var(--bg);
+  position:relative; overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+@media (max-width:440px){
+  body{background:var(--bg);}
+  .device{width:100%; height:100vh; height:100dvh; box-shadow:none;}
+}
+
+.app { height:100%; overflow-y:auto; background:var(--bg); -webkit-overflow-scrolling:touch; }
+.app::-webkit-scrollbar{ width:0; height:0; }
+.overlay{ position:absolute; inset:0; }
+.overlay:empty{ display:none; }
+
+button { font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- status bar ---------- */
+.statusbar{
+  height:54px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px 0 28px; background:var(--surface);
+  font-weight:700; font-size:16px;
+}
+.statusbar .sb-right{ display:flex; gap:7px; align-items:center; }
+
+/* ---------- generic nav header ---------- */
+.nav{
+  display:flex; align-items:center; gap:12px;
+  padding:6px 16px 12px; background:var(--surface);
+  position:relative;
+}
+.nav .nav-title{
+  position:absolute; left:50%; transform:translateX(-50%);
+  font-weight:700; font-size:18px; letter-spacing:-.01em; white-space:nowrap;
+}
+.icon-btn{
+  width:44px; height:44px; border-radius:var(--r-pill);
+  background:var(--surface); border:1px solid var(--hair);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:var(--shadow-sm);
+}
+.icon-btn svg{ display:block; }
+
+/* ======================================================================
+   OVERLOAD TRACKER (exercise tracker screen)
+   ====================================================================== */
+.tracker{ background:var(--bg); min-height:852px; }
+
+.tk-hero{ background:var(--surface); padding:0 0 18px; }
+
+.tk-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 16px 10px; gap:12px;
+}
+.tk-title{ font-weight:600; font-size:32px; letter-spacing:-.02em; line-height:1; }
+.tk-sortbtn{
+  width:46px; height:40px; border-radius:var(--r-pill);
+  background:var(--track); display:flex; align-items:center; justify-content:center; flex:none;
+}
+
+.tk-equip{
+  display:flex; align-items:center; gap:12px; padding:2px 16px 4px;
+}
+.tk-equip-img{
+  width:56px; height:48px; border-radius:8px; object-fit:cover; background:#dcdce0; flex:none;
+}
+.tk-equip-text{ flex:1; min-width:0; }
+.tk-equip-label{ font-size:13px; font-weight:500; color:var(--sec); }
+.tk-equip-name{ font-size:16px; font-weight:700; color:#000; letter-spacing:-.01em; }
+
+/* chart */
+.tk-chart{ padding:14px 8px 4px; }
+.tk-chart svg{ display:block; width:100%; height:auto; }
+
+/* goal-displayed row */
+.tk-goalrow{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px 14px; gap:10px;
+  border-top:1px solid var(--hair);
+}
+.tk-goalrow .g-label{ font-size:13px; color:var(--sec); font-weight:500; }
+.tk-goalrow .g-value{ font-size:17px; font-weight:600; letter-spacing:-.01em; margin-top:2px; }
+.tk-goalrow .g-value .lbs{ color:var(--purple); }
+.tk-goalrow .g-actions{ display:flex; gap:8px; }
+.pill-btn{
+  height:42px; padding:0 14px; border-radius:var(--r-pill);
+  background:var(--track); display:flex; align-items:center; gap:7px;
+  font-weight:600; font-size:14px;
+}
+.pill-btn.circle{ width:42px; padding:0; justify-content:center; }
+
+/* segmented range control */
+.tk-seg{
+  margin:4px 16px 0; height:42px; border-radius:var(--r-pill);
+  background:var(--track); display:flex; padding:4px; gap:2px;
+}
+.tk-seg button{
+  flex:1; border-radius:var(--r-pill);
+  font-weight:800; font-size:13px; color:var(--ink);
+  display:flex; align-items:center; justify-content:center;
+}
+.tk-seg button.on{ background:var(--ink); color:#fff; }
+
+/* legend */
+.tk-legend{
+  display:flex; gap:22px; align-items:center; justify-content:center;
+  padding:16px 16px 20px; background:var(--surface);
+}
+.tk-legend .lg{ display:flex; align-items:center; gap:8px; font-size:14px; }
+.tk-legend .lg .swatch-line{ width:22px; height:4px; border-radius:2px; background:var(--purple); }
+.tk-legend .lg .swatch-dot{ width:10px; height:10px; border-radius:50%; background:var(--purple); }
+.tk-legend .lg .sub{ color:var(--sec); font-size:12px; }
+
+/* explanation + history (on gray) */
+.tk-body{ padding:16px; display:flex; flex-direction:column; gap:18px; }
+.card{
+  background:var(--surface); border-radius:var(--r-card); box-shadow:var(--shadow);
+}
+.tk-explain{ padding:18px 18px 20px; }
+.tk-explain h3{ margin:0 0 10px; font-size:18px; font-weight:600; }
+.tk-explain p{ margin:0; font-size:16px; line-height:1.5; color:var(--ink); }
+
+.tk-month{ font-size:20px; font-weight:800; letter-spacing:-.01em; margin:4px 2px 0; }
+.tk-history{ padding:4px 16px; }
+.tk-hrow{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 0; border-bottom:1px solid var(--hair);
+}
+.tk-hrow:last-child{ border-bottom:none; }
+.tk-hrow .h-weight{ font-size:17px; font-weight:600; letter-spacing:-.01em; }
+.tk-hrow .h-date{ font-size:14px; color:var(--sub); margin-top:2px; }
+.tk-hrow .h-delta{ display:flex; align-items:center; gap:6px; font-size:14px; font-weight:600; color:var(--purple); }
+.tk-hrow .h-delta.first{ color:var(--sec); font-weight:500; }
+
+/* ======================================================================
+   SLIDE-UP MODAL (set tracker / volume filter) — League Gothic moment
+   ====================================================================== */
+.scrim{
+  position:absolute; inset:0; background:rgba(13,13,18,.45);
+  display:flex; align-items:flex-end; z-index:20;
+  animation:fade .18s ease;
+}
+@keyframes fade{ from{opacity:0} to{opacity:1} }
+.sheet{
+  width:100%; background:var(--surface);
+  border-radius:26px 26px 0 0;
+  box-shadow:0 -6px 28px rgba(0,0,0,.18);
+  padding:0 0 28px; animation:rise .24s cubic-bezier(.22,.61,.36,1);
+}
+@keyframes rise{ from{transform:translateY(100%)} to{transform:translateY(0)} }
+.sheet-grab{ width:40px; height:5px; border-radius:3px; background:#dcdce0; margin:10px auto 2px; }
+
+.sheet-head{ padding:10px 20px 6px; }
+.sheet-title{
+  font-family:var(--display); font-weight:400; font-size:42px; line-height:.92;
+  text-transform:uppercase; letter-spacing:.01em;
+}
+.sheet-sub{ font-size:14px; color:var(--sec); margin-top:6px; }
+
+.sheet-summary{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px 8px; gap:12px;
+}
+.sheet-summary .ss-main{ font-size:16px; font-weight:600; }
+.sheet-summary .ss-main .lbs{ color:var(--purple); }
+.sheet-summary .ss-sub{ font-size:13px; color:var(--sec); margin-top:3px; }
+.sheet-summary .ss-icon{
+  width:46px; height:46px; border-radius:var(--r-pill); background:var(--track);
+  display:flex; align-items:center; justify-content:center; flex:none;
+}
+
+/* steppers */
+.stepper-group{ display:flex; gap:12px; padding:16px 16px 8px; }
+.stepper{ flex:1; text-align:center; }
+.stepper .st-label{ font-size:14px; color:var(--sec); font-weight:500; margin-bottom:8px; }
+.stepper .st-row{ display:flex; align-items:center; justify-content:center; gap:9px; }
+.st-btn{
+  width:46px; height:46px; border-radius:var(--r-pill); background:var(--track);
+  display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:500; color:var(--ink);
+}
+.st-value{
+  min-width:62px; height:58px; border-radius:15px; background:var(--ink); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:25px; font-weight:700;
+}
+
+/* sheet footer buttons */
+.sheet-actions{ display:flex; gap:12px; padding:18px 16px 0; }
+.btn{
+  height:56px; border-radius:16px; font-weight:700; font-size:16px;
+  display:flex; align-items:center; justify-content:center; flex:1;
+}
+.btn.ghost{ background:var(--surface); border:1.5px solid var(--ink); color:var(--ink); }
+.btn.solid{ background:var(--ink); color:#fff; }
+
+/* ======================================================================
+   EXERCISE SELECTION (browse + facet filtering)
+   ====================================================================== */
+.ex-screen{ background:var(--surface); min-height:852px; }
+
+.nav .nav-create{
+  margin-left:auto; height:40px; padding:0 18px; border-radius:var(--r-pill);
+  background:var(--surface); border:1px solid var(--hair); box-shadow:var(--shadow-sm);
+  font-weight:600; font-size:16px;
+}
+
+.ex-search{
+  margin:4px 16px 0; height:50px; border-radius:var(--r-pill);
+  border:1.5px solid var(--ink); background:var(--surface);
+  display:flex; align-items:center; gap:10px; padding:0 18px;
+}
+.ex-search svg{ flex:none; }
+.ex-search input{
+  border:none; outline:none; background:none; flex:1; min-width:0;
+  font-family:inherit; font-size:16px; color:var(--ink);
+}
+.ex-search input::placeholder{ color:#9a9da3; }
+
+.ex-filters{ display:flex; flex-wrap:wrap; gap:8px; padding:14px 16px 4px; }
+.chip-drop{
+  height:36px; padding:0 12px 0 14px; border-radius:var(--r-pill);
+  background:var(--surface); border:1px solid #d8d8dc;
+  display:flex; align-items:center; gap:6px; font-weight:600; font-size:14px;
+}
+.chip-drop.active{ border-color:var(--red); color:var(--red); }
+.chip-active{
+  height:36px; padding:0 10px 0 14px; border-radius:var(--r-pill);
+  background:var(--red); color:#fff; display:flex; align-items:center; gap:8px;
+  font-weight:600; font-size:14px;
+}
+.chip-active button{ display:flex; color:#fff; opacity:.9; }
+
+.ex-sectionrow{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 8px;
+}
+.ex-sectionrow .sec-label{ font-size:14px; color:var(--sec); font-weight:500; }
+.ex-sectionrow .sec-sort{ font-size:13px; font-weight:800; color:var(--ink); display:flex; gap:3px; align-items:center; }
+
+.ex-row{
+  display:flex; align-items:center; gap:14px; padding:12px 16px;
+  border-bottom:1px solid var(--hair); width:100%; text-align:left;
+}
+.ex-row .ex-tile{
+  width:48px; height:48px; border-radius:10px; background:#e9e9ec; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:12px; color:#8a8d93; letter-spacing:.02em;
+}
+.ex-row .ex-meta{ flex:1; min-width:0; }
+.ex-row .ex-name{ display:block; font-weight:700; font-size:16px; letter-spacing:-.01em; color:#000; }
+.ex-row .ex-sub{ display:block; font-size:14px; color:var(--sec); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ex-row .ex-sub .mus{ color:var(--red); font-weight:600; }
+.ex-row .ex-chev{ flex:none; }
+
+.ex-showmore{
+  width:100%; text-align:center; font-weight:700; font-size:16px;
+  padding:18px 0; border-bottom:1px solid var(--hair);
+}
+.ex-empty{ padding:40px 24px; text-align:center; color:var(--sec); font-size:15px; }
+
+/* filter sheet (muscle / equipment) */
+.sheet.filter{ max-height:88%; display:flex; flex-direction:column; }
+.filter-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 20px 6px;
+}
+.filter-title{
+  font-family:var(--display); font-weight:400; font-size:42px; line-height:.92;
+  text-transform:uppercase; color:var(--red);
+}
+.filter-clear{
+  height:40px; padding:0 18px; border-radius:var(--r-pill);
+  background:var(--track); font-weight:700; font-size:16px;
+}
+.filter-sub{ padding:0 20px 8px; font-size:14px; color:var(--sec); }
+.filter-list{ overflow-y:auto; padding:0 4px; }
+.filter-list::-webkit-scrollbar{ width:0; }
+.fl-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px; border-bottom:1px solid var(--hair);
+}
+.fl-row .fl-name{ font-weight:700; font-size:17px; }
+.fl-row .fl-right{ display:flex; align-items:center; gap:16px; }
+.fl-row .fl-count{ font-size:15px; color:var(--sec); }
+.fl-check{
+  width:26px; height:26px; border-radius:6px; border:2px solid #cdced2; background:var(--surface);
+  display:flex; align-items:center; justify-content:center; flex:none;
+}
+.fl-check.on{ background:var(--red); border-color:var(--red); }
+
+/* ======================================================================
+   CREATE A WORKOUT (workout builder + 12-color picker)
+   ====================================================================== */
+.cw-screen{ background:var(--bg); min-height:852px; display:flex; flex-direction:column; }
+.cw-body{ flex:1; overflow-y:auto; padding:16px 16px 120px; }
+.cw-body::-webkit-scrollbar{ width:0; }
+
+.cw-label{ font-size:13px; font-weight:500; color:var(--sec); }
+.cw-name{ display:flex; align-items:center; gap:10px; margin:6px 0 20px; }
+.cw-name .cw-name-text{ font-size:26px; font-weight:600; letter-spacing:-.02em; color:var(--ink-2); }
+.cw-name .cw-pencil{ display:flex; opacity:.8; }
+
+.cw-fields{ display:flex; gap:16px; margin-bottom:22px; }
+.cw-field{ width:106px; }
+.cw-field .cw-label{ margin-bottom:8px; }
+.cw-swatch{
+  width:100%; height:64px; border-radius:12px; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.cw-swatch .cw-chev{ position:absolute; right:10px; bottom:8px; display:flex; color:#fff; opacity:.9; }
+.cw-swatch.icon{ background:var(--surface); border:2px solid var(--cw-current,#4573A8); }
+.cw-swatch.icon .cw-chev{ color:var(--cw-current,#4573A8); }
+
+.cw-listlabel{ font-size:13px; font-weight:500; color:var(--sec); margin-bottom:10px; }
+
+.cw-ex-card{ background:var(--surface); border-radius:16px; box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden; }
+.cw-ex-row{ display:flex; align-items:center; gap:14px; padding:14px; width:100%; text-align:left; }
+.cw-badge{
+  width:44px; height:44px; border-radius:8px; background:var(--surface);
+  border:2px solid var(--cw-current,#4573A8); color:var(--cw-current,#4573A8);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:18px; flex:none;
+}
+.cw-ex-meta{ flex:1; min-width:0; }
+.cw-ex-name{ display:block; font-weight:600; font-size:16px; color:var(--ink); letter-spacing:-.01em; }
+.cw-ex-sub{ display:block; font-size:14px; color:var(--sec); font-weight:500; margin-top:2px; }
+.cw-ex-sub .lbs{ color:var(--purple); font-weight:600; }
+.cw-ex-caret{ flex:none; color:#8a8d93; display:flex; }
+
+.cw-ex-detail{ padding:4px 16px 16px; border-top:1px solid var(--hair); }
+.cw-eq{ display:flex; align-items:flex-end; justify-content:space-between; padding:14px 0 6px; gap:10px; }
+.cw-eq .cw-eq-text .cw-label{ margin-bottom:3px; }
+.cw-eq .cw-eq-name{ font-size:16px; font-weight:700; color:#000; letter-spacing:-.01em; }
+.cw-eq .cw-eq-swap{ width:40px; height:40px; border-radius:var(--r-pill); background:var(--track); display:flex; align-items:center; justify-content:center; flex:none; }
+
+.cw-steppers{ display:flex; gap:12px; padding:10px 0 4px; }
+.cw-stepper{ flex:1; }
+.cw-stepper .cw-st-label{ font-size:13px; color:var(--sec); font-weight:500; margin-bottom:6px; }
+.cw-st-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.cw-st-btn{ width:44px; height:44px; border-radius:var(--r-pill); background:var(--track); display:flex; align-items:center; justify-content:center; font-size:24px; color:var(--ink); flex:none; }
+.cw-st-val{ flex:1; text-align:center; font-size:28px; font-weight:600; color:var(--ink-2); }
+
+.cw-goal{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 0 10px; }
+.cw-goal .cw-goal-text .cw-label{ margin-bottom:3px; }
+.cw-goal .cw-goal-val{ font-size:16px; font-weight:600; letter-spacing:-.01em; }
+.cw-goal .cw-goal-val .lbs{ color:var(--purple); }
+.cw-edit{ height:40px; padding:0 16px; border-radius:var(--r-pill); background:var(--track); display:flex; align-items:center; gap:7px; font-weight:600; font-size:14px; }
+
+.cw-actions{ display:flex; gap:8px; padding-top:4px; }
+.cw-act{ flex:1; height:40px; border-radius:10px; background:var(--field); display:flex; align-items:center; justify-content:center; gap:5px; font-weight:600; font-size:13px; color:var(--ink-2); }
+.cw-act.del{ color:var(--red); }
+
+.cw-add{ width:100%; background:var(--surface); border-radius:16px; box-shadow:var(--shadow); padding:18px; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:600; font-size:15px; }
+
+.cw-footer{
+  position:absolute; left:0; right:0; bottom:0; display:flex; gap:12px;
+  padding:14px 16px 28px; background:var(--bg); border-top:1px solid var(--hair);
+}
+
+/* color picker sheet */
+.color-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:14px 20px 4px; }
+.color-cell{ aspect-ratio:1; border-radius:14px; position:relative; display:flex; align-items:center; justify-content:center; }
+.color-cell.on{ box-shadow:0 0 0 3px #fff, 0 0 0 6px currentColor; }
+.color-name{ text-align:center; font-size:11px; color:var(--sec); margin-top:6px; font-weight:500; }
+.color-cellwrap{ display:flex; flex-direction:column; }
+
+/* icon picker sheet */
+.icon-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:14px 20px 4px; }
+.icon-cell{ aspect-ratio:1; border-radius:14px; background:var(--field); display:flex; align-items:center; justify-content:center; }
+.icon-cell.on{ background:var(--surface); box-shadow:inset 0 0 0 2px var(--cw-current,#4573A8); }
+
+/* ======================================================================
+   WIZARD (stepped creation flows — Exercise, Equipment, Plan)
+   ====================================================================== */
+.wiz-screen{ background:var(--surface); min-height:852px; display:flex; flex-direction:column; }
+.wiz-header{ display:flex; align-items:center; gap:12px; padding:8px 16px 10px; }
+.wiz-progress{ display:flex; gap:5px; flex:1; }
+.wiz-seg{ flex:1; height:5px; border-radius:3px; background:var(--hair); }
+.wiz-seg.on{ background:var(--ink); }
+.wiz-count{ font-size:13px; color:var(--sec); font-weight:500; white-space:nowrap; }
+
+.wiz-body{ flex:1; overflow-y:auto; padding:14px 20px 130px; }
+.wiz-body::-webkit-scrollbar{ width:0; }
+.wiz-title{ font-size:26px; font-weight:600; letter-spacing:-.02em; color:var(--ink); line-height:1.2; }
+.wiz-help{ font-size:15px; color:var(--sec); margin-top:7px; line-height:1.45; }
+
+.wiz-input{
+  width:100%; height:56px; border-radius:14px; border:1.5px solid var(--ink);
+  background:var(--surface); padding:0 16px; margin-top:22px;
+  font-family:inherit; font-size:17px; font-weight:600; color:var(--ink); outline:none;
+}
+.wiz-input::placeholder{ color:#9a9da3; font-weight:400; }
+
+.wiz-quick{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.wiz-quick .qchip{ height:38px; padding:0 15px; border-radius:var(--r-pill); border:1px solid var(--hair); background:var(--surface); font-weight:600; font-size:14px; }
+
+.wiz-list{ margin-top:20px; border-top:1px solid var(--hair); }
+.wiz-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 2px; border-bottom:1px solid var(--hair); width:100%; text-align:left; }
+.wiz-row .wr-name{ font-weight:600; font-size:17px; color:var(--ink); }
+.wiz-rowright{ display:flex; align-items:center; gap:14px; }
+.wiz-row .wr-count{ font-size:14px; color:var(--sec); }
+.wiz-radio{ width:24px; height:24px; border-radius:50%; border:2px solid #cdced2; display:flex; align-items:center; justify-content:center; flex:none; }
+.wiz-radio.on{ border-color:var(--ink); }
+.wiz-dot{ width:12px; height:12px; border-radius:50%; background:var(--ink); }
+.wiz-check{ width:26px; height:26px; border-radius:7px; border:2px solid #cdced2; background:var(--surface); display:flex; align-items:center; justify-content:center; flex:none; }
+.wiz-check.on{ background:var(--ink); border-color:var(--ink); }
+
+.wiz-img{
+  width:100%; aspect-ratio:1/1; max-height:320px; margin-top:22px;
+  border-radius:18px; background:var(--field); border:1.5px dashed #d3d4d8;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--sec);
+}
+.wiz-addphoto{ height:48px; padding:0 22px; border-radius:12px; background:var(--ink); color:#fff; font-weight:600; font-size:15px; display:flex; align-items:center; gap:8px; }
+
+.wiz-footer{
+  position:absolute; left:0; right:0; bottom:0; display:flex; gap:12px;
+  padding:14px 16px 28px; background:var(--surface); border-top:1px solid var(--hair);
+}
+.wiz-footer .btn.back{ flex:0 0 112px; }
+
+/* ---- wizard corrections to match Figma (Exercise creation) ---- */
+.wiz-screen{ background:var(--bg); }
+.wiz-seg.on{ background:var(--ink); }
+.wiz-title{ font-weight:700; font-size:25px; line-height:1.2; }
+.wiz-input{ border:none; box-shadow:var(--shadow); }
+.wiz-input::placeholder{ color:#9a9da3; font-weight:500; }
+
+.wiz-grouplabel{ font-size:15px; font-weight:700; color:var(--ink); margin:22px 0 10px; }
+.wiz-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.wiz-card{
+  background:var(--surface); border-radius:14px; box-shadow:var(--shadow);
+  border:2px solid transparent; padding:22px 12px; text-align:center;
+  font-weight:700; font-size:16px; color:var(--ink);
+}
+.wiz-card.on{ border-color:var(--red); }
+
+/* equipment step */
+.wiz-eqcard{ background:var(--surface); border-radius:18px; box-shadow:var(--shadow); padding:16px; margin-top:22px; }
+.wiz-eqnote{ display:flex; align-items:flex-start; gap:12px; justify-content:space-between; padding-bottom:4px; }
+.wiz-eqnote p{ margin:0; font-size:13px; color:var(--sec); line-height:1.4; }
+.wiz-eqadd{ height:40px; padding:0 16px; border-radius:var(--r-pill); background:var(--track); font-weight:600; font-size:14px; flex:none; }
+.wiz-eqsection{ display:flex; align-items:center; justify-content:space-between; padding:14px 0 2px; }
+.wiz-eqsection .lbl{ font-size:13px; color:var(--sec); font-weight:500; }
+.wiz-eqsection .sort{ font-size:12px; font-weight:800; color:var(--ink); }
+.wiz-eqrow{ display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--hair); width:100%; text-align:left; }
+.wiz-eqrow .eqimg{ width:48px; height:48px; border-radius:8px; background:#e9e9ec; flex:none; display:flex; align-items:center; justify-content:center; }
+.wiz-eqrow .eqtext{ flex:1; min-width:0; }
+.wiz-eqrow .eqname{ display:block; font-weight:700; font-size:16px; color:var(--ink); }
+.wiz-eqrow .eqloc{ display:block; font-size:13px; color:var(--sec); margin-top:1px; }
+.wiz-check.red.on{ background:var(--red); border-color:var(--red); }
+
+/* image step */
+.wiz-imgcard{ background:var(--surface); border-radius:18px; box-shadow:var(--shadow); padding:40px 24px; margin-top:22px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; }
+.wiz-imgcard .imgglyph{ width:64px; height:64px; border-radius:14px; border:2px solid #c7c9ce; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+.wiz-imgcard .imgt1{ font-weight:600; font-size:16px; color:var(--ink); }
+.wiz-imgcard .imgt2{ font-size:13px; color:var(--sec); max-width:230px; line-height:1.4; }
+.wiz-imgcard .imgbtn{ margin-top:14px; height:46px; padding:0 22px; border-radius:12px; background:var(--red); color:#fff; font-weight:600; font-size:15px; display:flex; align-items:center; }
+
+/* ======================================================================
+   EQUIPMENT creation wizard (Save Equipment)
+   ====================================================================== */
+.wiz-locard{
+  width:100%; background:var(--surface); border-radius:14px; box-shadow:var(--shadow);
+  border:2px solid transparent; padding:20px 16px; text-align:center;
+  font-weight:700; font-size:16px; color:var(--ink); margin-bottom:12px;
+}
+.wiz-locard.on{ border-color:var(--ink); }
+.wiz-locard.add{
+  box-shadow:none; border:1.5px dashed #c9cace; background:transparent;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.wiz-loclist{ margin-top:22px; }
+
+.wiz-namecard{ background:var(--surface); border-radius:14px; box-shadow:var(--shadow); padding:16px; margin-top:22px; }
+.wiz-namecard input{ width:100%; border:none; outline:none; background:none; font-family:inherit; font-size:18px; font-weight:700; color:var(--ink); }
+.wiz-namecard input::placeholder{ color:#9a9da3; font-weight:500; }
+.wiz-namecard .loc{ font-size:13px; color:var(--sec); margin-top:5px; }
+
+.wiz-unitcard{ background:var(--surface); border-radius:16px; box-shadow:var(--shadow); padding:16px; margin-top:22px; }
+.wiz-unitcard .ulbl{ font-size:13px; color:var(--sec); font-weight:500; margin-bottom:12px; }
+.unit-pills{ display:flex; flex-wrap:wrap; gap:10px; }
+.unit-pill{ height:44px; padding:0 18px; border-radius:var(--r-pill); background:var(--track); font-weight:600; font-size:15px; color:var(--ink); }
+.unit-pill.on{ background:var(--red); color:#fff; }
+
+/* ======================================================================
+   PLAN creation wizard (Create a Plan)
+   ====================================================================== */
+/* step 2 — split length stepper */
+.plan-stepper{ display:flex; flex-direction:column; align-items:center; margin-top:28px; }
+.plan-stepper .ps-label{ font-size:13px; color:var(--sec); font-weight:500; margin-bottom:10px; }
+.plan-stepper .ps-row{ display:flex; align-items:center; gap:18px; }
+.plan-info{
+  display:flex; align-items:center; gap:12px; margin-top:28px;
+  background:var(--surface); border:1.5px solid var(--navy); border-radius:14px; padding:14px 16px;
+}
+.plan-info .pi-icon{ width:40px; height:40px; border-radius:var(--r-pill); background:#e6edf2; display:flex; align-items:center; justify-content:center; flex:none; }
+.plan-info .pi-t1{ font-weight:700; font-size:15px; color:var(--ink); }
+.plan-info .pi-t2{ font-size:12.5px; color:var(--sec); margin-top:1px; }
+
+/* step 3 — assign days */
+.plan-daycard{ background:var(--surface); border-radius:18px; box-shadow:var(--shadow); padding:4px 0; margin-top:22px; overflow:hidden; }
+.plan-dayrow{ display:flex; align-items:center; gap:13px; padding:13px 16px; width:100%; text-align:left; border-top:1px solid var(--hair); }
+.plan-dayrow:first-child{ border-top:none; }
+.plan-daybadge{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex:none; }
+.plan-daybadge.work{ color:#fff; }                 /* bg set inline to workout color */
+.plan-daybadge.rest{ background:var(--surface); border:2px solid var(--navy); color:var(--navy); }
+.plan-daybadge.empty{ background:var(--field); color:var(--sec); }
+.plan-daytext{ flex:1; min-width:0; }
+.plan-dayname{ display:block; font-weight:600; font-size:16px; color:var(--ink); }
+.plan-dayname.empty{ color:var(--ghost); }
+.plan-daysub{ display:block; font-size:13px; color:var(--sec); margin-top:1px; }
+.plan-daychev{ flex:none; color:#b9bbc0; display:flex; }
+
+/* step 4 — dates */
+.plan-datefields{ display:flex; gap:12px; margin-top:22px; }
+.plan-datefield{ flex:1; background:var(--surface); border-radius:13px; box-shadow:var(--shadow); border:2px solid transparent; padding:12px 14px; }
+.plan-datefield.on{ border-color:var(--ink); }
+.plan-datefield .pf-label{ font-size:12px; color:var(--sec); font-weight:500; }
+.plan-datefield .pf-value{ font-size:17px; font-weight:700; margin-top:3px; letter-spacing:-.01em; }
+
+.cal-card{ background:var(--surface); border-radius:20px; box-shadow:var(--shadow); padding:14px 10px 12px; margin-top:16px; }
+.cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px 0; }
+.cal-cell{ aspect-ratio:1; display:flex; align-items:center; justify-content:center; position:relative; }
+.cal-num{ width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; color:#000; }
+.cal-num.dim{ color:#c2c4c9; }
+.cal-num.range{ background:#d7e0e7; }
+.cal-num.end{ background:var(--navy); color:#fff; font-weight:700; }
+.cal-today-dot{ position:absolute; bottom:3px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:#000; }
+.cal-dows{ display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid var(--hair); margin-top:8px; padding-top:8px; }
+.cal-dows span{ text-align:center; font-size:12px; color:var(--sec); }
+.cal-foot{ display:flex; align-items:center; justify-content:space-between; padding:12px 6px 2px; }
+.cal-month{ font-size:20px; font-weight:800; letter-spacing:-.01em; }
+.cal-nav{ display:flex; background:var(--track); border-radius:var(--r-pill); }
+.cal-nav button{ width:46px; height:36px; display:flex; align-items:center; justify-content:center; }
+.cal-nav button:first-child{ border-right:1px solid #dcdce0; }
+
+/* step 5 — review */
+.plan-review{ display:flex; flex-direction:column; gap:14px; margin-top:22px; }
+.plan-rcard{ background:var(--surface); border-radius:16px; box-shadow:var(--shadow); padding:16px; }
+.plan-rhead{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.plan-rcard .rc-label{ font-size:12.5px; color:var(--sec); font-weight:500; }
+.plan-rcard .rc-value{ font-size:18px; font-weight:700; letter-spacing:-.01em; margin-top:3px; }
+.plan-rcard .rc-sub{ font-size:13px; color:var(--navy); font-weight:600; margin-top:2px; }
+.plan-redit{ height:36px; padding:0 14px; border-radius:var(--r-pill); background:var(--track); display:flex; align-items:center; gap:7px; font-weight:700; font-size:13px; flex:none; }
+.plan-lineup{ margin-top:12px; }
+.plan-lurow{ display:flex; align-items:center; gap:12px; padding:9px 0; border-top:1px solid var(--hair); }
+.plan-lurow:first-child{ border-top:none; }
+.plan-luname{ font-weight:600; font-size:15px; }
+.plan-luname.rest{ color:var(--sec); }
+
+/* day-assignment picker (plan builder) */
+.pick-row{ display:flex; align-items:center; gap:13px; padding:14px 20px; width:100%; text-align:left; border-top:1px solid var(--hair); }
+.pick-row:first-of-type{ border-top:none; }
+.pick-dot{ width:14px; height:14px; border-radius:50%; flex:none; }
+.pick-text{ flex:1; min-width:0; }
+.pick-name{ display:block; font-weight:600; font-size:16px; color:var(--ink); }
+.pick-sub{ display:block; font-size:13px; color:var(--sec); margin-top:1px; }
+.pick-radio{ width:24px; height:24px; border-radius:50%; border:2px solid #cdced2; background:var(--surface); display:flex; align-items:center; justify-content:center; flex:none; }
+.pick-radio.on{ background:var(--navy); border-color:var(--navy); }
+.pick-rest .pick-dot{ background:#e7e9ec; display:flex; align-items:center; justify-content:center; }
+
+/* ======================================================================
+   WORKOUT SESSION (live set logging)
+   ====================================================================== */
+.sess-screen{ background:var(--bg); min-height:852px; display:flex; flex-direction:column; }
+.sess-top{ background:var(--surface); padding:0 0 10px; }
+
+.sess-exhead{ padding:14px 16px 0; }
+.sess-excard{ display:flex; align-items:center; gap:13px; }
+.sess-exbadge{
+  width:44px; height:44px; border-radius:8px; background:var(--surface);
+  border:2px solid var(--sess-color,#cf2a0f); color:var(--sess-color,#cf2a0f);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; flex:none;
+}
+.sess-exmeta{ flex:1; min-width:0; }
+.sess-exname{ display:block; font-weight:700; font-size:18px; letter-spacing:-.01em; }
+.sess-exmuscle{ display:block; font-size:13px; color:var(--sess-color,#cf2a0f); font-weight:600; margin-top:1px; }
+.sess-exsub{ display:block; font-size:13px; color:var(--sec); }
+.sess-excaret{ flex:none; color:#8a8d93; display:flex; }
+
+.sess-exdetail{ margin:12px 0 0; border-top:1px solid var(--hair); }
+.sess-drow{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; }
+.sess-drow + .sess-drow{ border-top:1px solid var(--hair); }
+.sess-drow .dlabel{ font-size:13px; color:var(--sec); font-weight:500; }
+.sess-drow .dval{ font-size:16px; font-weight:700; color:#000; margin-top:2px; }
+.sess-drow .dval.goal{ color:var(--purple); }
+.sess-drow .dimg{ width:46px; height:46px; border-radius:8px; background:#e9e9ec; display:flex; align-items:center; justify-content:center; flex:none; }
+.sess-dpill{ width:40px; height:40px; border-radius:var(--r-pill); background:var(--track); display:flex; align-items:center; justify-content:center; flex:none; }
+.sess-dleft{ display:flex; align-items:center; gap:12px; min-width:0; }
+
+/* progress + transport */
+.sess-prog{ display:flex; gap:5px; padding:16px 16px 6px; }
+.sess-progseg{ flex:1; height:6px; border-radius:3px; background:#d4d5da; }
+.sess-progseg.done{ background:var(--sess-color,#cf2a0f); }
+.sess-progseg.cur{ background:var(--ink); }
+.sess-transport{ display:flex; align-items:center; gap:12px; padding:0 16px 14px; }
+.sess-exlabel{ font-size:14px; color:var(--sec); font-weight:500; flex:1; }
+.sess-tbtn{ width:48px; height:48px; border-radius:50%; background:var(--surface); border:1px solid var(--hair); box-shadow:var(--shadow-sm); display:flex; align-items:center; justify-content:center; }
+.sess-tbtn.sq{ border-radius:13px; }
+
+/* set list */
+.sess-sets{ flex:1; overflow-y:auto; padding:18px 16px 110px; display:flex; flex-direction:column; gap:12px; }
+.sess-sets::-webkit-scrollbar{ width:0; }
+.sess-setrow{ display:flex; align-items:center; gap:14px; }
+.sess-setbadge{ width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:none; }
+.sess-setbadge.pending{ background:#dfe0e3; color:#9a9da3; }
+.sess-setbadge.done{ background:var(--ink); color:#fff; }
+.sess-setbadge.warm{ background:#c9ccd1; color:#fff; }
+.sess-settext{ font-size:17px; font-weight:600; }
+.sess-setrow.pending .sess-settext{ color:#a9acb2; font-weight:500; }
+.sess-setrow .feeltag{ margin-left:auto; font-size:12px; font-weight:700; padding:3px 9px; border-radius:var(--r-pill); }
+
+.sess-footer{
+  position:absolute; left:0; right:0; bottom:0; display:flex; gap:16px;
+  padding:14px 16px 28px; background:var(--bg); border-top:1px solid var(--hair);
+}
+.sess-footer .btn{ flex:1; height:64px; border-radius:var(--r-pill); }
+.sess-footer .btn.warm{ border-width:2px; }
+.sess-footer .btn.setbtn{ background:var(--sess-color,#cf2a0f); border:none; color:#fff; }
+
+/* ---- SetWidget sheet (log a set) ---- */
+.sw-label{ font-size:13px; font-weight:700; color:var(--sec); letter-spacing:.04em; padding:12px 20px 0; }
+.sw-hint{ margin:10px 20px 2px; border:1.5px solid #ddd8f7; border-radius:12px; padding:12px 14px; color:var(--purple); font-weight:600; font-size:14px; }
+.sw-group{ padding:14px 16px 2px; }
+.sw-glabel{ text-align:center; font-size:14px; color:var(--sec); font-weight:500; margin-bottom:10px; }
+.sw-grow{ display:flex; align-items:center; justify-content:center; gap:10px; }
+.sw-adj{ height:52px; min-width:52px; padding:0 14px; border-radius:var(--r-pill); background:var(--track); font-weight:700; font-size:16px; color:var(--ink); display:flex; align-items:center; justify-content:center; }
+.sw-val{ min-width:96px; height:62px; border-radius:16px; background:var(--ink); color:#fff; display:flex; align-items:baseline; justify-content:center; gap:4px; font-size:24px; font-weight:900; }
+.sw-val .u{ font-size:14px; font-weight:600; opacity:.7; }
+
+.sw-feelwrap{ padding:16px 16px 4px; }
+.sw-feel{
+  position:relative; height:54px; border-radius:var(--r-pill); overflow:hidden; cursor:pointer;
+  background:linear-gradient(90deg, #ffffff 0%, #c8c2f3 45%, #6c5ce7 100%);
+  border:1.5px solid #e4e1f6;
+}
+.sw-feel .ff-text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; letter-spacing:.04em; color:#6b6f76; pointer-events:none; }
+.sw-feel .ff-f{ position:absolute; right:18px; top:50%; transform:translateY(-50%); font-weight:800; font-size:18px; color:#fff; pointer-events:none; }
+.sw-feel .ff-thumb{ position:absolute; top:4px; bottom:4px; width:46px; border-radius:var(--r-pill); background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+.sw-done{ display:flex; justify-content:flex-end; padding:16px 16px 0; }
+.sw-donebtn{ height:54px; padding:0 36px; border-radius:16px; background:var(--ink); color:#fff; font-weight:700; font-size:16px; }
+
+/* choose a workout (session entry) */
+.qs-screen{ background:var(--bg); min-height:852px; }
+.qs-body{ padding:16px; }
+.qs-title{ font-size:26px; font-weight:700; letter-spacing:-.02em; }
+.qs-help{ font-size:15px; color:var(--sec); margin-top:6px; }
+.qs-seclabel{ font-size:13px; color:var(--sec); font-weight:500; margin:20px 2px 10px; }
+.qs-card{ background:var(--surface); border-radius:16px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+.qs-top{ display:flex; align-items:flex-start; gap:13px; }
+.qs-icon{ width:46px; height:46px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:none; color:#fff; }
+.qs-name{ font-weight:700; font-size:18px; letter-spacing:-.01em; }
+.qs-sub{ font-size:14px; color:var(--sec); margin-top:2px; }
+.qs-meta{ font-size:14px; color:var(--sec); }
+.qs-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
+.qs-btn{ height:42px; padding:0 20px; border-radius:var(--r-pill); font-weight:700; font-size:15px; }
+.qs-btn.details{ background:var(--track); color:var(--ink); }
+.qs-btn.start{ background:var(--ink); color:#fff; }
+
+/* ---- session fidelity fixes (contained card, left-aligned) ---- */
+.sess-screen{ background:var(--bg); }
+.sess-card{ background:var(--surface); border-radius:16px; box-shadow:var(--shadow); margin:14px 16px 2px; overflow:hidden; }
+.sess-exrow{ display:flex; align-items:center; gap:13px; padding:15px 16px; width:100%; text-align:left; }
+.sess-exrow .sess-exmeta{ flex:1; min-width:0; text-align:left; }
+.sess-exrow .sess-exname{ display:block; font-weight:700; font-size:18px; color:var(--ink); letter-spacing:-.01em; }
+.sess-exrow .sess-exmuscle{ display:block; font-size:13px; font-weight:600; color:var(--sess-color,#cf2a0f); margin-top:1px; }
+.sess-exrow .sess-exsub{ display:block; font-size:13px; color:var(--sec); }
+.sess-exdetail{ margin:0; padding:0 16px 14px; border-top:1px solid var(--hair); }
+.sess-exdetail .sess-drow:first-child{ padding-top:14px; }
+.sess-prog{ padding:18px 16px 8px; }
+.sess-transport{ padding:0 16px 10px; }
+
+/* ---- SetWidget fidelity fixes (rounded-rect adjust buttons) ---- */
+.sw-adj{ border-radius:16px; height:50px; min-width:56px; background:#efefef; font-weight:700; }
+.sw-val{ min-width:92px; }
+
+/* ======================================================================
+   SESSION + SETWIDGET — exact match to Figma 83461 / 85237
+   ====================================================================== */
+/* one white full-width widget grouping exercise card + progress + transport */
+.sess-widget{ background:var(--surface); box-shadow:0 2px 6px rgba(0,0,0,.10); padding:0 0 10px; }
+.sess-exrow{ display:flex; align-items:center; gap:13px; width:100%; text-align:left; padding:16px 16px 14px; }
+.sess-exdetail{ margin:0; padding:0 16px 8px; border-top:1px solid var(--hair); }
+.sess-exdetail .sess-drow:first-child{ padding-top:14px; }
+.sess-prog{ padding:14px 16px 10px; }
+.sess-transport{ padding:0 16px 4px; }
+.sess-sets{ padding-top:20px; }
+
+/* SetWidget: circular 48px adjust buttons */
+.sw-group{ padding:16px 16px 4px; }
+.sw-grow{ gap:12px; }
+.sw-adj{ width:48px; min-width:48px; height:48px; border-radius:999px; background:#ebebeb; padding:0; font-weight:700; font-size:14px; }
+/* value boxes: centered content */
+.sw-val{ min-width:100px; height:64px; border-radius:14px; align-items:center; gap:3px; }
+.sw-val .u{ font-size:13px; }
+/* effort slider: 64px tall pill */
+.sw-feelwrap{ padding:18px 16px 4px; }
+.sw-feel{ height:64px; }
+.sw-feel .ff-thumb{ top:5px; bottom:5px; width:48px; }
+/* DONE: pill */
+.sw-done{ padding:18px 16px 0; }
+.sw-donebtn{ border-radius:999px; height:48px; padding:0 36px; }
+
+/* ======================================================================
+   OVERLOAD GOAL modal (adjust goal weight) — Figma 82940
+   ====================================================================== */
+.sheet-title.purple{ color:var(--purple); }
+.goal-card{
+  margin:14px 16px 0; background:var(--surface); border-radius:16px; box-shadow:var(--shadow);
+  padding:18px 16px; text-align:center;
+}
+.goal-exname{ font-weight:700; font-size:18px; letter-spacing:-.01em; color:var(--ink); }
+.goal-exmeta{ font-size:14px; color:var(--sec); margin-top:5px; }
+.goal-exmeta .mus{ color:var(--red); font-weight:600; }
+.goal-exequip{ font-size:14px; color:var(--sec); margin-top:2px; }
+.goal-wlabel{ text-align:center; font-size:10px; font-weight:700; color:var(--purple); letter-spacing:.07em; margin:18px 0 12px; }
+
+/* keep League Gothic modal titles on one line like Figma */
+.sheet-title{ white-space:nowrap; }
+
+/* progress segments: PR (overload hit) = purple, done = dark, current = workout color */
+.sess-progseg.pr{ background:var(--purple); }
+.sess-progseg.done{ background:#2e2e33; }
+.sess-progseg.cur{ background:var(--sess-color,#cf2a0f); }
+
+/* ======================================================================
+   SESSION — exercise cell is a distinct shadowed card inside the white
+   widget; progress + transport below it (Figma 83461). Exact.
+   ====================================================================== */
+.sess-widget{ background:var(--surface); box-shadow:0 2px 8px rgba(0,0,0,.08); padding:14px 16px 14px; }
+.sess-excard{ display:block; background:var(--surface); border-radius:16px; box-shadow:0 0 8px rgba(20,20,23,.20); overflow:hidden; }
+.sess-exrow{ display:flex; align-items:center; gap:13px; width:100%; text-align:left; padding:15px 16px; }
+.sess-exdetail{ margin:0; padding:0 16px 12px; border-top:1px solid var(--hair); }
+.sess-exdetail .sess-drow:first-child{ padding-top:14px; }
+.sess-prog{ padding:18px 0 8px; }
+.sess-transport{ padding:0 0 2px; }
+.sess-sets{ padding:20px 16px 110px; }
+
+/* ---- effort slider: 10 discrete color bands (Figma 85237 "Frame 740") ---- */
+.sw-feel{ position:relative; height:64px; border-radius:999px; overflow:hidden; display:flex; cursor:pointer; background:none; border:none; }
+.sw-feel .ff-seg{ flex:1; height:100%; }
+.sw-feel .ff-text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:13px; letter-spacing:.04em; pointer-events:none; }
+/* white moving handle */
+.sw-feel .ff-thumb{ position:absolute; top:4px; width:56px; height:56px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.25); pointer-events:none; }
+/* fixed "Failure" terminus: a purple circle with a navy "F" at the right end */
+.sw-feel .ff-end{ position:absolute; right:0; top:0; width:64px; height:64px; border-radius:50%; background:#6c5ce7; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+.sw-feel .ff-f{ position:static; transform:none; color:#fff; font-family:'Inter',sans-serif; font-weight:700; font-size:26px; line-height:1; }
+
+/* ======================================================================
+   Workout lists — Quick Select / Logs / Assign to Plan (Figma 84765, 84838, 84897)
+   ====================================================================== */
+.wl-screen{ background:var(--bg); min-height:852px; }
+.wl-body{ display:flex; flex-direction:column; gap:24px; padding:24px 16px 48px; }
+.wl-titleblock{ display:flex; flex-direction:column; gap:6px; }
+.wl-title{ font-size:26px; font-weight:600; line-height:31px; color:#141414; }
+.wl-help{ font-size:15px; font-weight:400; line-height:21px; color:#6b6f76; }
+.wl-list{ display:flex; flex-direction:column; gap:12px; }
+.wl-label{ font-size:13px; font-weight:500; line-height:16px; color:#6b6f76; }
+
+/* shared workout card: white, r16, 137 tall */
+.wcard{ background:#fff; border-radius:16px; padding:16px; box-shadow:0 8px 24px rgba(20,20,23,.08), 0 1px 2px rgba(20,20,23,.05); }
+.wcard-top{ display:flex; align-items:flex-start; gap:12px; }
+.wcard-tile{ width:46px; height:46px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center; color:#fff; }
+.wcard-text{ flex:1; min-width:0; }
+.wcard-name{ font-size:16px; font-weight:600; line-height:19px; color:#111; }
+.wcard-sub{ font-size:14px; font-weight:500; line-height:17px; color:#737373; }
+.wcard-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+
+/* 32px pills */
+.wpill{ height:32px; padding:0 20px; border-radius:999px; background:#ebebeb; color:#141414; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; flex:none; }
+.wpill.dark{ background:#111; color:#fff; }
+
+/* rest-day option: 78 tall, 2px white outline, no fill */
+.wl-rest{ display:flex; align-items:center; gap:12px; padding:14px; border:2px solid #fff; border-radius:14px; }
+.wl-moon{ width:46px; height:46px; border-radius:12px; background:#fff; flex:none; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:500; color:#6b6f76; }
+.wl-resttext{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.wl-restname{ font-size:16px; font-weight:600; line-height:19px; color:#141414; }
+.wl-restsub{ font-size:12.5px; font-weight:500; line-height:15px; color:#6b6f76; }
+.statusbar{ color:var(--ink); }
+.statusbar.light{ background:transparent; color:#fff; }
+
+/* equipment photo tiles (Figma: 64×64 image) */
+.sess-drow .dimg{ width:64px; height:64px; border-radius:8px; overflow:hidden; background:none; }
+.sess-drow .dimg img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+/* ======================================================================
+   Start Page / home (Figma 1164:85363)
+   ====================================================================== */
+.home{ position:relative; height:852px; background:#111; overflow:hidden; color:#fff; }
+.home-hero{ position:absolute; left:0; top:0; width:393px; height:666px; object-fit:cover; }
+.home-top{ position:absolute; left:0; right:0; top:0; height:132px; background:#111; }
+.home-top .statusbar{ height:54px; }
+.home-bar{ position:absolute; left:20px; right:20px; top:64px; height:48px; display:flex; align-items:center; gap:10px; }
+.home-logo{ flex:1; font-family:'League Gothic',sans-serif; font-size:48px; line-height:48px; color:#fff; }
+.home-logo .fail{ color:#6c5ce7; }
+.home-icons{ display:flex; gap:10px; }
+.home-ibtn{ width:48px; height:48px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; }
+.home-headline{ position:absolute; left:16px; right:32px; top:152px; font-family:'League Gothic',sans-serif; font-size:72px; line-height:70px; color:#fff; }
+.home-headline .hl{ color:#8e80ff; }
+.home-panel{ position:absolute; left:0; right:0; top:636px; bottom:0; background:#111; padding:24px 16px 0; display:flex; flex-direction:column; gap:16px; }
+.home-cta{ height:58px; border-radius:8px; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; gap:4px; font-size:15px; font-weight:600; box-shadow:0 8px 24px rgba(20,20,23,.08), 0 1px 2px rgba(20,20,23,.05); }
+.home-cta.quick{ background:#f5b82e; }
+
+/* ======================================================================
+   Exercise cards — shared by Create A Workout + Today's Lineup (Figma 1164:84197)
+   ====================================================================== */
+.cw-ex-card{ margin-bottom:12px; box-shadow:0 8px 24px rgba(20,20,23,.08), 0 1px 2px rgba(20,20,23,.05); }
+.cw-ex-row{ padding:16px; gap:12px; }
+.cw-badge{ width:44px; height:44px; border-radius:8px; border:4px solid var(--cw-current,#4573A8); background:none; color:#111; font-size:16px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:none; }
+.cw-ex-name{ line-height:19px; }
+.cw-ex-sub{ line-height:17px; margin-top:0; }
+.cw-ex-caret{ color:#1c1b1f; }
+.cw-ex-card.open .cw-ex-row{ border-bottom:1px solid #ebebeb; }
+.cw-ex-detail{ padding:0 0 16px; border-top:none; }
+.cw-detail-main{ border-bottom:1px solid #ebebeb; padding-bottom:16px; margin-bottom:24px; display:flex; flex-direction:column; gap:12px; }
+.cw-eq{ padding:12px 16px 12px; align-items:center; }
+.cw-eq .cw-eq-text .cw-label{ margin-bottom:4px; }
+.cw-eq .cw-eq-name{ font-weight:600; }
+.cw-eq .cw-eq-swap{ width:24px; height:24px; background:none; }
+.cw-steppers{ padding:0 16px; gap:14px; }
+.cw-stepper .cw-st-label{ margin-bottom:4px; }
+.cw-st-row{ height:48px; border-radius:999px; background:#f2f3f4; padding:7px; gap:0; }
+.cw-st-btn{ width:34px; height:34px; background:#fff; }
+.cw-st-val{ font-size:28px; font-weight:600; color:#141414; line-height:1; }
+.cw-goal{ padding:0 16px; }
+.cw-goal .cw-goal-val{ font-weight:500; color:#111; }
+.cw-goal .cw-goal-val .lbs{ font-weight:600; }
+.cw-edit{ height:40px; padding:0 16px; gap:4px; background:#ebebeb; font-size:16px; }
+.cw-actions{ padding:0 16px; gap:8px; }
+.cw-act{ height:40px; border-radius:11px; background:#f6f7f8; gap:7px; font-size:12.5px; color:#141414; }
+.cw-act.del{ color:#cf2a0f; }
+.cw-add{ height:52px; padding:0; gap:9px; box-shadow:0 8px 24px rgba(20,20,23,.08), 0 1px 2px rgba(20,20,23,.05); }
+
+/* Today's Lineup header */
+.lu-screen .cw-body{ padding:24px 16px 48px; }
+.lu-head{ display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.lu-titlerow{ display:flex; align-items:center; gap:8px; }
+.lu-tile{ width:46px; height:46px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center; color:#fff; }
+.lu-title{ font-size:26px; font-weight:600; line-height:31px; color:#141414; }
+.lu-loc{ display:flex; align-items:center; gap:12px; padding:16px 0; }
+.lu-loctext{ flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.lu-locname{ font-size:16px; font-weight:600; line-height:19px; color:#000; }
+.lu-locpill{ width:55px; height:40px; border-radius:999px; background:#fff; display:flex; align-items:center; justify-content:center; flex:none; }
+.lu-screen .cw-listlabel{ margin-bottom:12px; }
+.cw-tile{ margin:8px 0 20px; }
+
+/* ======================================================================
+   Logged sets (Figma 1164:85036 / 84982)
+   ====================================================================== */
+.sess-sets{ gap:0; }
+.set-list{ border-radius:8px; box-shadow:0 0 8px rgba(0,0,0,.2); overflow:hidden; margin-bottom:10px; }
+.set-cell{ height:52px; padding:8px; display:flex; align-items:center; gap:12px; background:#fff; }
+.set-badge{ width:36px; height:36px; border-radius:4px; flex:none; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:#fff; background:#111; }
+.set-badge.working{ background:#6c5ce7; }
+.set-badge.warm{ background:#828282; }
+.set-text{ flex:1; min-width:0; display:flex; align-items:baseline; gap:4px; color:#111; }
+.set-text b{ font-size:16px; font-weight:500; }
+.set-text i{ font-style:normal; font-size:14px; font-weight:400; }
+.set-tag{ height:28px; padding:0 10px; border-radius:4px; border:1px solid #6c5ce7; color:#8174e7; font-size:12px; font-weight:700; display:flex; align-items:center; flex:none; background:#fff; }
+.set-tag.fail{ width:28px; padding:0; justify-content:center; background:#6c5ce7; color:#fff; border-width:2px; }
+.set-cell.ghost{ background:none; opacity:.3; }
+.set-cell.ghost .set-text b{ font-weight:600; }
+.set-extra{ margin-top:6px; height:52px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600; color:#111; box-shadow:0 8px 24px rgba(20,20,23,.08), 0 1px 2px rgba(20,20,23,.05); }
+
+/* footer: Set X is black in Figma; Warmup is a 2px #111 outline */
+.sess-footer{ background:#ebebeb; padding:16px 16px 32px; border-top:none; }
+.sess-footer .btn.setbtn{ background:#111; color:#fff; border:none; }
+.sess-footer .btn.warm{ background:none; border:2px solid #111; }
+.sess-footer .btn.nextbtn{ flex:1; gap:4px; font-size:16px; font-weight:700; }
+
+/* Exercise list + filter sheets — Figma 1164:87743 / 87836 / 87978 */
+.ex-row{ height:72px; padding:12px 16px; gap:10px; border-bottom:1px solid #ebebeb; background:#fff; }
+.ex-row .ex-tile{ width:48px; height:48px; border-radius:8px; background:#ebebeb; font-size:13px; font-weight:800; color:#737373; letter-spacing:0; }
+.ex-row .ex-name{ font-weight:800; font-size:16px; line-height:19px; color:#111; letter-spacing:0; }
+.ex-row .ex-sub{ font-size:14px; font-weight:500; line-height:17px; margin-top:0; color:#737373; }
+.ex-row .ex-sub .mus{ font-weight:500; color:#cf2a0f; }
+.ex-row .ex-chev{ display:flex; }
+.fl-row{ height:72px; padding:12px 16px; border-bottom:1px solid #ebebeb; }
+.fl-row .fl-name{ font-weight:800; font-size:16px; color:#111; }
+.fl-row .fl-right{ gap:12px; }
+.fl-row .fl-count{ font-size:14px; font-weight:500; color:#737373; }
+.fl-check{ width:24px; height:24px; border-radius:4px; display:flex; align-items:center; justify-content:center; }
+.fl-check.on{ background:#cf2a0f; border-color:#cf2a0f; }
+.fl-check.on svg{ width:18px; height:18px; }
+.sheet.filter{ overflow:hidden; }
+.filter-list{ flex:1; min-height:0; padding:0; }
+.fl-row{ background:#fff; }
+.overlay.settled .scrim, .overlay.settled .sheet{ animation:none; }
+
+/* ======================================================================
+   Exercise detail (Figma 1164:85595)
+   ====================================================================== */
+.xd-screen{ background:#ebebeb; min-height:852px; }
+.xd-hero{ position:relative; height:300px; background:#fff; display:flex; align-items:center; justify-content:center; }
+.xd-hero .statusbar{ position:absolute; top:0; left:0; right:0; }
+.xd-back{ position:absolute; left:16px; top:62px; }
+.xd-empty{ width:240px; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; margin-top:34px; }
+.xd-empty-title{ font-size:16px; font-weight:600; color:#595c63; }
+.xd-empty-help{ font-size:13px; line-height:16px; color:#6b6f76; }
+.xd-addphoto{ height:39px; padding:0 18px; border-radius:12px; background:#cf2a0f; color:#fff; font-size:14px; font-weight:600; }
+.xd-content{ padding:16px 16px 28px; display:flex; flex-direction:column; gap:14px; }
+.xd-card{ background:#fff; border-radius:20px; box-shadow:0 8px 24px rgba(20,20,23,.08); }
+.xd-details{ padding:20px; display:flex; flex-direction:column; gap:14px; }
+.xd-name{ font-size:24px; font-weight:600; line-height:30px; color:#141414; }
+.xd-tags{ display:flex; flex-wrap:wrap; gap:8px; }
+.xd-tag{ height:27px; padding:0 11px; border-radius:9px; background:#f6f7f8; font-size:12.5px; font-weight:500; color:#4d5259; display:inline-flex; align-items:center; }
+.xd-rule{ height:1px; background:#ececee; }
+.xd-kv{ display:flex; justify-content:space-between; gap:8px; font-size:14px; font-weight:500; line-height:17px; color:#141414; }
+.xd-kv span:first-child{ color:#6b6f76; }
+.xd-kv .mus{ color:#cf2a0f; }
+.xd-logged{ padding:20px 16px 16px; display:flex; flex-direction:column; gap:14px; }
+.xd-hgroup{ display:flex; flex-direction:column; gap:3px; padding-left:4px; }
+.xd-h{ font-size:19px; font-weight:600; line-height:23px; color:#141414; }
+.xd-sub{ font-size:13.5px; line-height:16px; color:#6b6f76; }
+.xd-stats{ display:flex; gap:12px; }
+.xd-stat{ flex:1; background:#f7f8f9; border-radius:14px; padding:13px 14px; display:flex; flex-direction:column; gap:8px; align-items:flex-start; min-height:80px; }
+.xd-statlabel{ font-size:15px; font-weight:600; color:#141414; }
+.xd-statval{ font-size:16px; font-weight:700; color:#737373; }
+.xd-statval.purple{ color:#6c5ce7; }
+.xd-related{ padding:20px 0 0; overflow:hidden; }
+.xd-relhead{ display:flex; align-items:flex-start; justify-content:space-between; gap:3px; padding:0 16px; }
+.xd-relhead .xd-hgroup{ padding-left:0; }
+.xd-add{ height:40px; padding:0 16px; border-radius:999px; background:#ebebeb; font-size:16px; font-weight:600; color:#111; flex:none; }
+.xd-sechdr{ display:flex; justify-content:space-between; padding:14px 16px 0; margin-top:24px; font-size:11px; font-weight:700; letter-spacing:1px; color:#737373; }
+.xd-sechdr + .xd-eqrow{ margin-top:0; }
+.xd-sechdr .sort{ color:#111; letter-spacing:0; }
+.xd-eqrow{ width:100%; height:96px; padding:16px; display:flex; align-items:center; gap:12px; text-align:left; }
+.xd-eqimg{ width:64px; height:64px; border-radius:4px; object-fit:cover; flex:none; }
+.xd-eqimg.generic{ background:#949494; }
+.xd-eqtext{ flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.xd-eqname{ font-size:16px; font-weight:600; line-height:19px; color:#000; }
+.xd-eqsub{ font-size:13px; font-weight:500; line-height:16px; color:#6b6f76; }
+.xd-eqsub .goals{ color:#6c5ce7; }
+.xd-chev{ display:flex; flex:none; }
+.xd-actions{ padding-bottom:40px; }
+.xd-act{ width:100%; height:72px; padding:12px 16px; display:flex; align-items:center; gap:10px; text-align:left; border-bottom:1px solid #ebebeb; font-size:16px; font-weight:600; color:#111; }
+.xd-act > span:nth-child(2){ flex:1; }
+.xd-acticon{ width:48px; height:48px; border-radius:999px; background:#e0e0e0; display:flex; align-items:center; justify-content:center; flex:none; }
+.xd-acticon.del{ background:#eecece; }
+.wiz-eqrow .eqimg img{ width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
+.xd-empty-help{ max-width:200px; }
+.xd-sechdr{ margin-top:10px; }
+
+/* ======================================================================
+   Saved equipment list + equipment detail (Figma 1164:85478 / 82231)
+   ====================================================================== */
+.eql-screen{ background:#fff; min-height:852px; }
+.eql-head{ padding:16px 16px 12px; display:flex; flex-direction:column; gap:7px; }
+.eql-title{ font-size:26px; font-weight:600; line-height:32px; color:#141414; }
+.eql-help{ font-size:15px; line-height:21px; color:#6b6f76; }
+.eql-listhdr{ display:flex; justify-content:space-between; align-items:center; padding:14px 16px 0; font-size:13px; font-weight:500; color:#6b6f76; }
+.eql-listhdr .sort{ font-size:12px; font-weight:600; color:#111; }
+.eql-listhdr .sort i{ font-style:normal; font-size:11px; color:#737373; }
+.eqd-hero{ background:#000; overflow:hidden; display:block; }
+.eqd-hero img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.eqd-hero .statusbar{ z-index:1; }
+.eqd-hero .xd-back{ z-index:1; }
+.eqd-name{ text-align:center; }
+.eqd-loc{ width:100%; background:#fff; border-radius:16px; box-shadow:0 0 8px rgba(0,0,0,.2); padding:16px; display:flex; flex-direction:column; gap:4px; text-align:left; }
+.eqd-locval{ font-size:16px; font-weight:600; color:#000; }
+.eqd-units{ padding:20px 16px; display:flex; flex-direction:column; gap:12px; }
+.eqd-units .xd-hgroup{ padding-left:0; }
+.eqd-unitslbl{ margin-top:12px; }
+.eqd-unitrow{ display:flex; flex-wrap:wrap; gap:12px 10px; }
+.eqd-unit{ height:40px; padding:0 16px; border-radius:999px; background:#ebebeb; font-size:16px; font-weight:600; color:#111; }
+.eqd-unit.on{ background:#cf2a0f; color:#fff; }
+.eqd-exlist{ padding:12px 0; }
+.eqd-exrow{ width:100%; padding:16px; display:flex; align-items:center; gap:10px; text-align:left; border-bottom:1px solid #ebebeb; background:#fff; }
+.eqd-exrow:last-child{ border-bottom:none; }
+.eqd-exrow .ex-tile{ width:48px; height:48px; border-radius:8px; background:#ebebeb; flex:none; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:#737373; }
+.eqd-extext{ flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.eqd-exname{ font-size:16px; font-weight:600; line-height:19px; color:#111; }
+.eqd-chips{ display:flex; gap:8px; }
+.eqd-chip{ height:29px; padding:0 10px; border-radius:4px; background:rgba(108,92,231,.2); color:#6c5ce7; font-size:14px; font-weight:700; display:inline-flex; align-items:center; }
+.home-logo{ min-width:0; }
+
+/* ======================================================================
+   Equipment Swap (Figma 1164:88151)
+   ====================================================================== */
+.swp-screen{ background:#ebebeb; min-height:852px; }
+.swp-body{ padding:18px 16px 40px; display:flex; flex-direction:column; gap:16px; }
+.swp-current{ display:flex; align-items:center; gap:12px; padding:16px; height:96px; }
+.swp-h{ font-size:18px; font-weight:800; color:#111; line-height:22px; }
+.swp-list{ padding:20px 0 0; overflow:hidden; }
+.swp-help{ display:flex; align-items:center; justify-content:space-between; gap:3px; padding:0 16px; font-size:13.5px; line-height:16px; color:#6b6f76; }
+.swp-help span{ max-width:262px; }
+.swp-hdr{ display:flex; justify-content:space-between; align-items:center; padding:16px 16px 8px; margin-top:10px; font-size:13px; font-weight:500; color:#6b6f76; }
+.swp-hdr .sort{ font-size:12px; font-weight:600; color:#111; }
+.swp-hdr .sort i{ font-style:normal; font-size:11px; color:#737373; }
+.swp-generic{ width:100%; height:72px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #ebebeb; font-size:16px; font-weight:800; color:#111; text-align:left; background:#fff; }
+.swp-generic:last-child{ border-bottom:none; }
+
+/* Update Goal Weight sheet (Figma 1164:85154) */
+.ug-body{ padding:12px 16px 32px; display:flex; flex-direction:column; gap:48px; }
+.ug-titleblock{ display:flex; flex-direction:column; gap:4px; }
+.ug-title{ font-family:'League Gothic',sans-serif; font-size:54px; line-height:48px; color:#6c5ce7; text-transform:uppercase; }
+.ug-text{ font-size:14px; font-weight:500; line-height:17px; color:#737373; }
+.ug-graphic{ position:relative; width:291px; height:136px; margin:0 auto; }
+.ug-kb{ position:absolute; }
+.ug-kb.big{ left:0; top:0; }
+.ug-kb.small{ left:199px; top:24px; }
+.ug-kb span{ position:absolute; left:0; right:0; text-align:center; color:#fff; font-weight:700; display:flex; flex-direction:column; }
+.ug-kb span b{ color:#6c5ce7; font-weight:700; }
+.ug-kb.big span{ top:57px; font-size:24px; line-height:24px; }
+.ug-kb.small span{ top:45px; font-size:16px; line-height:16px; }
+.ug-arrow{ position:absolute; left:124px; top:61px; }
+.ug-summary{ text-align:center; font-size:20px; font-weight:700; color:#111; line-height:24px; }
+.ug-summary span{ color:#6c5ce7; }
+.ug-actions{ display:flex; gap:16px; }
+.ug-btn{ flex:1; height:56px; border-radius:16px; background:#fff; border:1px solid #ececee; font-size:16px; font-weight:600; color:#141414; }
+.ug-btn.dark{ background:#141414; color:#fff; border-color:#141414; }
+
+/* Workout Details — read-only exercise cards (Figma 1164:87271) */
+.cw-ex-card.ro .cw-ex-detail{ padding-bottom:0; }
+.cw-ex-card.ro .cw-detail-main{ border-bottom:none; margin-bottom:0; }
+.cw-stepper.ro{ flex:none; }
+.cw-st-row.ro{ width:66px; justify-content:center; padding:0; }
+
+/* ======================================================================
+   Wizards — exact Figma specs (Create an Exercise 1164:85816…86900; shared by
+   Save Equipment and Create a Plan)
+   ====================================================================== */
+.wiz-body{ padding:14px 16px 130px; }
+.wiz-title{ font-size:26px; font-weight:600; line-height:32px; letter-spacing:0; color:#141414; }
+.wiz-help{ font-size:15px; font-weight:400; line-height:21px; color:#6b6f76; margin-top:0; }
+.wiz-input{ height:54px; border-radius:14px; border:none; box-shadow:0 8px 24px rgba(20,20,23,.08); font-size:17px; font-weight:600; color:#141414; margin-top:20px; }
+.wiz-grouplabel{ font-size:18px; font-weight:800; line-height:22px; color:#111; margin:20px 0 12px; }
+.wiz-card{ font-size:16px; font-weight:800; color:#111; border-radius:12px; }
+.wiz-footer{ padding:16px 16px 32px; gap:12px; background:#fff; border-top:none; box-shadow:0 0 4px rgba(0,0,0,.25); }
+.wiz-footer .btn{ flex:1; height:53px; border-radius:16px; font-size:16px; font-weight:600; }
+.wiz-footer .btn.back{ flex:1; background:#fff; border:1px solid #ececee; color:#141414; }
+.wiz-footer .btn.solid{ background:#141414; }
+/* equipment step */
+.wiz-eqcard{ border-radius:20px; box-shadow:0 8px 24px rgba(20,20,23,.08); padding:20px 0 0; margin-top:20px; overflow:hidden; }
+.wiz-eqnote{ padding:0 16px; }
+.wiz-eqnote p{ font-size:13.5px; line-height:16px; color:#6b6f76; max-width:262px; }
+.wiz-eqsection{ padding:16px 16px 8px; }
+.wiz-eqrow{ height:96px; padding:16px; border-top:none; gap:12px; }
+.wiz-eqrow .eqimg{ width:64px; height:64px; border-radius:4px; }
+.wiz-eqrow .eqname{ font-size:16px; font-weight:600; color:#000; line-height:19px; }
+.wiz-eqrow .eqloc{ font-size:13px; font-weight:500; color:#6b6f76; margin-top:4px; }
+.wiz-eqrow.generic{ height:72px; padding:12px 16px; border-bottom:1px solid #ebebeb; background:#fff; }
+.wiz-eqrow.generic:last-child{ border-bottom:none; }
+.wiz-eqrow.generic .eqname{ font-weight:800; color:#111; }
+.wiz-check{ width:24px; height:24px; border-radius:4px; border:2px solid #dbdbdb; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.wiz-check.on, .wiz-check.red.on{ background:#cf2a0f; border-color:#cf2a0f; }
+.wiz-check.on svg{ width:18px; height:18px; }
+.wiz-imgcard{ height:300px; padding:0 60px; border-radius:8px; box-shadow:none; justify-content:center; gap:12px; margin-top:20px; }
+.wiz-imgcard .imgt1{ font-size:16px; font-weight:600; color:#595c63; }
+.wiz-imgcard .imgt2{ font-size:13px; line-height:16px; color:#6b6f76; max-width:200px; }
+.wiz-imgcard .imgbtn{ height:39px; padding:0 18px; border-radius:12px; background:#cf2a0f; color:#fff; font-size:14px; font-weight:600; }
+/* Save Equipment location options (Figma 1164:85890): 72 tall, r8, 16 gap */
+.wiz-loclist{ margin-top:20px; display:flex; flex-direction:column; gap:16px; }
+.wiz-locard{ height:72px; margin:0; border-radius:8px; font-size:16px; font-weight:800; color:#111; }
+.wiz-locard.add{ background:transparent; border:2px solid #fff; gap:16px; }
+/* Create a Plan — day badges are navy for every workout (Figma 1164:86257) */
+.plan-daycard{ border-radius:16px; padding:4px 0; }
+.plan-dayrow{ padding:13px 14px; gap:12px; border-top:1px solid #ececee; }
+.plan-daybadge{ width:30px; height:30px; border-radius:15px; font-size:13px; font-weight:600; }
+.plan-daybadge.work{ background:#426e8f; color:#fff; border:none; }
+.plan-daybadge.rest{ background:none; border:2px solid #426e8f; color:#111; }
+.plan-daybadge.empty{ background:#f2f3f4; color:#6b6f76; border:none; }
+.plan-dayname{ font-size:15px; font-weight:600; color:#141414; }
+.plan-dayname.empty{ font-weight:500; color:#9ea1a8; }
+.plan-daysub{ font-size:12.5px; font-weight:500; color:#6b6f76; }
+.plan-daychev svg{ width:18px; height:18px; }
+.plan-redit{ height:32px; padding:0 8px 0 20px; gap:0; font-size:12.5px; font-weight:600; color:#141414; background:#ebebeb; }
+
+/* ======================================================================
+   Volume sheet (Figma 1164:82713 / 83574 / 83727) + Choose a color / icon
+   (1164:84652 / 84561)
+   ====================================================================== */
+.vs-body{ padding:12px 16px 32px; display:flex; flex-direction:column; gap:55px; }
+.vs-top{ display:flex; flex-direction:column; gap:32px; }
+.vs-titleblock{ display:flex; flex-direction:column; gap:4px; }
+.vs-title{ font-family:'League Gothic',sans-serif; font-size:54px; line-height:48px; color:#111; text-transform:uppercase; }
+.vs-sub{ font-size:14px; font-weight:500; line-height:17px; color:#737373; }
+.vs-info{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.vs-main{ font-size:15px; font-weight:500; color:#111; line-height:20px; }
+.vs-main .lbs{ color:#6c5ce7; font-weight:600; }
+.vs-meta{ font-size:13px; color:#6b6f76; line-height:16px; }
+.vs-graph{ width:56px; height:40px; border-radius:999px; background:#ebebeb; display:flex; align-items:center; justify-content:center; flex:none; }
+.vs-steppers{ display:flex; flex-direction:column; gap:12px; }
+.vs-group{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+.vs-label{ font-size:10px; font-weight:700; letter-spacing:.08em; color:#bbb; text-transform:uppercase; }
+.vs-row{ display:flex; align-items:center; gap:20px; }
+.vs-val{ width:100px; height:64px; border-radius:16px; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; }
+
+.pk-body{ padding:12px 16px 32px; display:flex; flex-direction:column; gap:48px; }
+.pk-titleblock{ display:flex; flex-direction:column; }
+.pk-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:22px 16px; margin-top:-26px; }
+.pk-swatch{ height:64px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:4px solid transparent; }
+.pk-swatch.on{ border-color:#111; }
+.pk-check{ width:38px; height:38px; border-radius:999px; background:#fff; display:flex; align-items:center; justify-content:center; }
+.pk-check svg{ width:20px; height:20px; }
+.pk-check svg path{ fill:#111; }
+.pk-icon{ height:64px; border-radius:8px; border:1px solid #737373; background:#fff; display:flex; align-items:center; justify-content:center; color:#111; }
+.pk-icon svg{ width:32px; height:32px; }
+.pk-icon.on{ border:4px solid #000; }
+.pk-icon.empty{ border-style:dashed; border-color:#d6d6d6; background:#fafafa; }
+.pk-actions{ display:flex; gap:10px; }
+.pk-btn{ flex:1; height:64px; border-radius:999px; border:2px solid #111; background:#fff; font-size:16px; font-weight:700; color:#111; }
+.pk-btn.dark{ background:#111; color:#fff; }
+
+/* ======================================================================
+   Photos, locations, delete & merge
+   ====================================================================== */
+label.xd-addphoto, label.imgbtn{ display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+.xd-heroimg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.xd-hero .statusbar, .xd-hero .xd-back{ z-index:1; }
+.xd-changephoto{ position:absolute; right:16px; bottom:16px; z-index:1; height:36px; padding:0 14px; border-radius:999px; background:rgba(255,255,255,.92); color:#111; font-size:13px; font-weight:600; display:inline-flex; align-items:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+.eqd-hero:not(:has(img)){ background:#fff; display:flex; }
+.ex-tile.photo{ padding:0; overflow:hidden; }
+.ex-tile.photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.wiz-imgcard.filled{ position:relative; padding:0; overflow:hidden; }
+.wiz-imgcard.filled img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+
+.loc-body{ gap:24px; }
+.loc-body .wiz-loclist{ margin-top:0; }
+.loc-body .wiz-locard{ background:#f6f7f8; box-shadow:none; }
+.loc-body .wiz-locard.on{ background:#fff; border-color:#111; }
+.loc-body .wiz-locard.add{ background:transparent; border:2px solid #ebebeb; }
+
+.cf-body{ gap:40px; }
+.vs-title.danger{ color:#cf2a0f; }
+.ug-btn.danger{ background:#cf2a0f; border-color:#cf2a0f; color:#fff; }
+
+.mg-search{ margin:8px 16px 12px; height:48px; border-radius:999px; border:2px solid #111; display:flex; align-items:center; gap:8px; padding:0 16px; }
+.mg-search input{ flex:1; border:none; outline:none; font:inherit; font-size:16px; background:none; }
+.mg-empty{ padding:24px 16px; color:#6b6f76; font-size:14px; }
+
+/* ============================================================================
+   Release 1.0 system: persistence-era components
+   ============================================================================ */
+button:disabled{ opacity:.4; cursor:default; }
+.toast{ position:absolute; left:50%; bottom:110px; transform:translate(-50%,12px); background:#111; color:#fff; font-size:14px; font-weight:600; padding:12px 18px; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50; max-width:340px; text-align:center; }
+.toast.on{ opacity:1; transform:translate(-50%,0); }
+.wiz-err{ margin-top:10px; color:var(--red); font-size:14px; font-weight:600; line-height:19px; }
+
+/* sets: black by default, purple when they meet the overload goal */
+button.set-cell{ width:100%; text-align:left; font:inherit; border:0; border-bottom:1px solid #f1f1f3; }
+.set-list .set-cell:last-child{ border-bottom:0; }
+.set-badge.working{ background:#111; }
+.set-badge.pr{ background:#6c5ce7; }
+.sess-tip{ text-align:center; font-size:12px; color:#9fa2a8; margin-top:12px; }
+.sess-progseg{ border:0; padding:0; cursor:pointer; }
+.sess-drow .dimg.generic{ background:#e0e0e0; }
+.dval.sm{ font-size:14px; font-weight:500; }
+.sess-tbtn:disabled{ opacity:.3; }
+
+/* set sheet: typeable values */
+.sw-val{ cursor:text; }
+.sw-in{ width:64px; background:none; border:0; outline:0; color:#fff; font:inherit; font-size:24px; font-weight:900; text-align:center; padding:0; font-variant-numeric:tabular-nums; }
+.sw-val:has(.u) .sw-in{ width:58px; text-align:right; }
+.sw-delete{ display:block; margin:6px auto 22px; color:var(--red); font-size:15px; font-weight:600; padding:10px 16px; }
+.sheet .sw-in::selection{ background:#6c5ce7; }
+
+/* pause sheet extras */
+.pz-more{ display:flex; justify-content:center; gap:24px; margin-top:-24px; }
+.pz-link{ font-size:15px; font-weight:600; color:#111; padding:8px 4px; text-decoration:underline; text-underline-offset:3px; }
+.pz-link.danger{ color:var(--red); }
+
+/* exercise picker */
+.ex-hint{ margin:0 16px 4px; padding:10px 12px; border-radius:10px; background:#f2f3f4; font-size:13px; color:#6b6f76; }
+.ex-row.picked{ background:#f4f2ff; }
+.ex-screen.has-footer{ padding-bottom:110px; }
+.ex-screen .cw-footer{ background:#fff; }
+.wiz-eqempty, .swp-empty{ padding:12px 4px 16px; font-size:14px; color:#6b6f76; }
+
+/* workout editor + lineup */
+.cw-name{ cursor:text; }
+.cw-name-input{ flex:1; min-width:0; border:0; outline:0; background:none; font:inherit; font-size:26px; font-weight:600; letter-spacing:-.02em; color:var(--ink-2); padding:0; }
+.cw-name-input::placeholder{ color:#b5b7bc; }
+.cw-empty{ padding:22px 16px; text-align:center; color:#6b6f76; font-size:14px; background:#fff; border-radius:16px; margin-bottom:12px; }
+.cw-eq-loc, .tk-equip-loc{ font-weight:500; color:#6b6f76; }
+.lu-count{ font-size:14px; font-weight:500; color:#6b6f76; margin-top:2px; }
+.lu-help{ font-size:13px; color:#6b6f76; margin:-4px 0 12px; }
+.lu-screen.has-footer .cw-body{ padding-bottom:130px; }
+.cw-footer .btn.lu-go, .cw-footer .btn{ height:56px; border-radius:999px; font-size:16px; font-weight:700; }
+.lu-go{ flex:1; letter-spacing:.02em; }
+
+/* workout lists */
+.wcard-kebab{ width:36px; height:36px; margin:-6px -8px 0 0; display:flex; align-items:center; justify-content:center; border-radius:999px; flex:none; }
+.wl-tabs{ margin:0; }
+.wl-hist{ width:100%; display:flex; align-items:center; gap:12px; padding:12px 14px; background:#fff; border-radius:14px; text-align:left; box-shadow:0 8px 24px rgba(20,20,23,.06); }
+.wl-histtext{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.wl-edited{ display:inline-block; margin-left:8px; padding:2px 6px; border-radius:4px; background:#ebebeb; color:#6b6f76; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; vertical-align:2px; }
+.hm-date{ width:44px; height:48px; border-radius:6px; border:2px solid var(--wc,#111); background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; flex:none; color:#111; }
+.hm-date span{ font-size:9px; font-weight:800; letter-spacing:.06em; color:var(--wc,#111); line-height:11px; }
+.hm-date b{ font-size:20px; font-weight:900; line-height:22px; }
+
+.nav-create.icon{ width:44px; padding:0; display:flex; align-items:center; justify-content:center; }
+
+/* exercise history */
+.hx-screen{ background:#ebebeb; }
+.hx-screen .eql-head{ background:#fff; padding-bottom:16px; }
+.hx-fails{ color:#6c5ce7; font-weight:600; }
+.hx-list{ padding:16px; display:flex; flex-direction:column; gap:18px; padding-bottom:40px; }
+.hx-date{ display:flex; justify-content:space-between; font-size:13px; font-weight:700; color:#111; margin:0 4px 8px; }
+.hx-date span{ font-weight:500; color:#6b6f76; }
+.hx-card{ background:#fff; border-radius:12px; padding:12px 8px 4px; }
+.hx-head{ font-size:12px; font-weight:700; color:#6b6f76; padding:0 6px 6px; }
+.hx-card .set-list{ box-shadow:none; }
+
+/* exercise detail: logged card is tappable */
+button.xd-logged{ width:100%; text-align:left; font:inherit; color:inherit; border:0; }
+.xd-hrow{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.eqd-nogoal{ font-size:12px; color:#9fa2a8; }
+.mg-empty.sm{ padding:12px 0; }
+.mg-empty{ text-align:center; line-height:20px; }
+.tk-note{ margin-top:12px !important; color:#6b6f76 !important; font-size:14px !important; }
+
+/* option menus */
+.mn-head{ padding:12px 16px 8px; display:flex; flex-direction:column; gap:2px; }
+.mn-list{ padding-bottom:28px; }
+.mn-list .xd-act:last-child{ border-bottom:0; }
+
+/* plan calendar is tappable */
+button.cal-cell{ padding:0; font:inherit; }
+button.plan-datefield{ text-align:left; font:inherit; color:inherit; }
+
+/* settings */
+.st-content{ gap:14px; }
+.st-act{ cursor:pointer; }
+.st-act > span:nth-child(2){ display:flex; flex-direction:column; gap:2px; }
+.st-label{ font-size:16px; font-weight:600; }
+.st-sub{ font-size:13px; font-weight:500; color:#6b6f76; }
+.st-card{ padding:20px 16px; }
+.st-stats{ margin-top:12px; font-size:14px; font-weight:600; }
+.st-warn{ background:#fdeceb; color:#a1220c; border-radius:12px; padding:12px 14px; font-size:14px; font-weight:600; line-height:19px; }
+.st-screen .eqd-unitrow .eqd-unit{ flex:1; }
+.mn-head .vs-title{ white-space:normal; line-height:.95; }
+
+/* ---- real phones: drop the mock status bar, respect the notch and home bar ---- */
+@media (max-width:440px){
+  .statusbar{ height:max(env(safe-area-inset-top), 12px); padding:0; }
+  .statusbar > *, .statusbar .sb-right{ display:none !important; }
+  .home-top{ height:calc(max(env(safe-area-inset-top), 12px) + 78px); }
+  .home-bar{ top:calc(max(env(safe-area-inset-top), 12px) + 10px); }
+  .home-headline{ top:calc(max(env(safe-area-inset-top), 12px) + 98px); }
+  .xd-back{ top:calc(max(env(safe-area-inset-top), 12px) + 8px) !important; }
+  .cw-footer, .wiz-footer, .sess-footer, .wc-footer{ padding-bottom:max(env(safe-area-inset-bottom), 16px); }
+  .sheet{ padding-bottom:env(safe-area-inset-bottom); }
+  .app, .device{ min-height:0; }
+  input, textarea{ font-size:max(16px, 1em); }   /* stops iOS zooming into fields */
+}
+@media (max-width:440px){
+  .home:not(.withplan){ height:100%; min-height:600px; }
+  .home-hero{ width:100%; }
+}
+@media (max-width:389px){
+  .home-icons{ gap:8px; }
+  .home-ibtn{ width:44px; height:44px; }
+  .home-logo{ font-size:42px; }
+  .sw-grow{ gap:6px !important; }
+  .sw-adj{ width:46px !important; min-width:46px !important; height:46px !important; font-size:14px; }
+  .sw-val{ min-width:86px !important; }
+}
+
+/* ---- Release 1.0 flows in the Dev File style ---- */
+/* home: same hero + dark panel as the Start Page; plan and today are white cards */
+.home-panel{ top:auto; bottom:0; padding:20px 16px 34px; }
+.home.withplan{ height:auto; min-height:852px; }
+.home.withplan .home-panel{ gap:14px; }
+.hm-card{ box-shadow:none; }
+.hm-card .wcard-actions{ align-items:center; }
+.hm-planhead{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.hm-planname{ font-size:26px; font-weight:600; line-height:31px; color:#fff; }
+.hm-planmeta{ font-size:15px; line-height:21px; color:#9fa2a8; margin-top:2px; }
+.hm-kebab{ width:44px; height:44px; border-radius:999px; background:#fff; display:flex; align-items:center; justify-content:center; flex:none; }
+.hm-label{ font-size:13px; font-weight:500; line-height:16px; color:#9fa2a8; margin-bottom:-4px; }
+.hm-resttile{ background:#ebebeb; color:#6b6f76; font-size:20px; }
+.hm-done{ margin-right:auto; display:flex; align-items:center; gap:6px; color:#6c5ce7; font-size:14px; font-weight:600; }
+@media (max-width:440px){ .home.withplan{ height:auto; min-height:100%; } }
+
+/* My Workouts history rows */
+.wl-hist .wcard-tile{ flex:none; }
+.wl-edited{ margin-left:8px; vertical-align:2px; font-size:11px; }
+
+/* Workout Complete / past workout */
+.wc-screen{ background:#ebebeb; min-height:100%; padding-bottom:110px; }
+.wc-body{ padding-top:20px; gap:16px; }
+.wc-navbtn{ margin-left:auto; }
+.wc-list{ display:flex; flex-direction:column; gap:12px; }
+.wc-card{ background:#fff; border-radius:16px; box-shadow:0 8px 24px rgba(20,20,23,.08), 0 1px 2px rgba(20,20,23,.05); padding-bottom:12px; overflow:hidden; }
+.wc-goal{ padding:0 16px 12px !important; }
+.wc-card .set-list{ margin:0 12px; box-shadow:none; border:1px solid #ececee; }
+.wc-screen .cw-footer .btn{ flex:1; }
+.wc-screen .sess-tip{ margin-top:0; }
+
+/* pause sheet: second row of actions */
+.pz-stack{ display:flex; flex-direction:column; gap:12px; }
+.ug-btn.danger-ghost{ color:#cf2a0f; }
