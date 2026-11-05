@@ -160,6 +160,9 @@ export function TrackerScreen() {
       </div>
       ${history}
     </div>
+    <div class="xd-actions tk-actions">
+      <button class="xd-act" data-action="open-exhistory" data-id="${t.exId}"><span class="xd-acticon">${I.history}</span><span>Exercise History</span>${I.smChevR}</button>
+    </div>
   </div>`;
 }
 
@@ -511,18 +514,17 @@ export function ExerciseDetailScreen() {
         <div class="xd-rule"></div>
         <div class="xd-kv"><span>Listing Type</span><span>${e.custom ? 'User Added' : 'Default Set'}</span></div>
       </div>
-      <button class="xd-card xd-logged" data-action="open-exhistory" data-id="${e.id}" ${st.logged ? '' : 'disabled'}>
+      <div class="xd-card xd-logged">
         <div class="xd-hgroup xd-hrow">
           <div><div class="xd-h">${st.logged ? `Logged ${st.logged} time${st.logged === 1 ? '' : 's'}` : 'Not logged yet'}</div>
-          <div class="xd-sub">${st.logged ? `Across ${st.setups} setup${st.setups === 1 ? '' : 's'} · Tap to see your history` : 'Log a set to start tracking this exercise'}</div></div>
-          ${st.logged ? `<span class="xd-chev">${I.smChevR}</span>` : ''}
+          <div class="xd-sub">${st.logged ? `Across ${st.setups} setup${st.setups === 1 ? '' : 's'}` : 'Log a set to start tracking this exercise'}</div></div>
         </div>
         <div class="xd-stats">
           ${stat('Total Sets', `<div class="xd-statval">${st.totalSets}</div>`)}
           ${stat('Earned Fails', `<div class="xd-statval purple">${st.fails}</div>`)}
         </div>
         ${stat('Avg. RPE', st.rpe ? `<span class="set-tag">${st.rpe >= 10 ? 'F' : 'RPE ' + st.rpe}</span>` : '<div class="xd-statval">—</div>')}
-      </button>
+      </div>
       <div class="xd-card xd-related">
         <div class="xd-relhead">
           <div class="xd-hgroup"><div class="xd-h">Related Equipment</div><div class="xd-sub">This is the list of equipment you can quickly swap between mid-workout. Tap one to see its Overload Tracker.</div></div>

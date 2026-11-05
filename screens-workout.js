@@ -12,6 +12,8 @@ import { eqImg } from './screens-library.js';
 
 /* ------------------------------ shared logic ------------------------------ */
 export const exInfo = it => { const x = exById(it.exId); return x ? { name: x.name, muscle: x.muscle } : { name: it.name || 'Exercise', muscle: it.muscle || '' }; };
+// the number on the slider thumb: 1–9, then F
+export const rpeNum = feel => { const b = Math.min(9, Math.floor(feel * 10)); return b === 9 ? 'F' : String(b + 1); };
 export function rpeOf(feel) {
   const band = Math.min(9, Math.floor(feel * 10));
   return band === 9 ? 'F' : `RPE ${band + 1}`;
@@ -157,7 +159,6 @@ export function LineupScreen() {
     <div class="nav">
       <button class="icon-btn" data-action="back">${I.chevL}</button>
       <span class="nav-title">${pre ? 'Today’s Plan' : 'Today’s Lineup'}</span>
-      ${s.workoutId && db.workouts.some(w => w.id === s.workoutId) ? '<button class="nav-create" data-action="lineup-edit">Edit</button>' : ''}
     </div>
     <div class="cw-body">
       <div class="lu-head">
@@ -171,7 +172,6 @@ export function LineupScreen() {
         </div>
       </div>
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
-      ${pre ? '<div class="lu-help">Changes here only apply to today. Edit the workout to change it for good.</div>' : ''}
       ${exerciseCards(ctx)}
       <button class="cw-add" data-action="add-exercise">${I.plus20} Add exercise</button>
     </div>
@@ -314,41 +314,15 @@ export function QuickSelectScreen() {
     </div>
   </div>`;
 }
-// My Workouts: Library + History tabs
+// My Workouts: your saved workouts
 export function WorkoutsScreen() {
-  const tab = state.workoutsTab || 'library';
-  const tabs = `<div class="tk-seg wl-tabs"><button class="${tab === 'library' ? 'on' : ''}" data-action="workouts-tab" data-tab="library">Library</button><button class="${tab === 'history' ? 'on' : ''}" data-action="workouts-tab" data-tab="history">History</button></div>`;
-  let body;
-  if (tab === 'library') body = workoutList({ label: 'Start', action: 'start-workout', needsExercises: true }, { menu: true });
-  else {
-    const list = [...db.sessions].reverse();
-    const groups = [];
-    for (const s of list) {
-      const m = D.month(new Date(s.finishedAt));
-      if (!groups.length || groups[groups.length - 1].m !== m) groups.push({ m, items: [] });
-      groups[groups.length - 1].items.push(s);
-    }
-    body = groups.map(g => `
-      <div class="wl-list">
-        <div class="wl-label">${g.m}</div>
-        ${g.items.map(s => {
-          const st = sessionStats(s), d = new Date(s.finishedAt);
-          return `
-          <button class="wl-hist" data-action="view-session" data-id="${s.id}">
-            <div class="wcard-tile" style="background:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
-            <div class="wl-histtext">
-              <div class="wcard-name">${esc(s.workoutName)}${s.edited ? '<span class="eqd-chip wl-edited">Edited</span>' : ''}</div>
-              <div class="wcard-sub">${D.dow(d)} · ${plural(st.exercises, 'exercise')} · ${plural(st.sets, 'set')}${st.fails ? ` · ${st.fails} to failure` : ''}</div>
-            </div>
-            <span class="xd-chev">${I.smChevR}</span>
-          </button>`;
-        }).join('')}
-      </div>`).join('') || '<div class="mg-empty">Finished workouts show up here.</div>';
-  }
   return `
   <div class="wl-screen">
     ${statusBar()}${workoutsNav('My Workouts')}
-    <div class="wl-body">${tabs}${body}</div>
+    <div class="wl-body">
+      <div class="wl-titleblock"><div class="wl-title">Saved Workouts</div><div class="wl-help">Start one, or tap Details to see and edit it.</div></div>
+      ${workoutList({ label: 'Start', action: 'start-workout', needsExercises: true }, { menu: true })}
+    </div>
   </div>`;
 }
 export function AssignDayScreen() {
@@ -408,11 +382,7 @@ export function WorkoutSessionScreen() {
       <div class="sess-drow">
         <div><div class="dlabel">Overload Goal</div><div class="dval goal">${ex.goal.weight != null ? `${wtTight(ex.goal.weight, u)} at volume or to failure` : 'No Goal Yet'}</div>
         ${ex.goal.weight == null ? `<div class="dlabel" style="margin-top:2px">Finish ${ex.goal.sets} × ${ex.goal.reps} to set your first goal</div>` : ''}</div>
-        <button class="sess-dpill" data-action="open-goal" data-owner="session" aria-label="Edit overload goal">${I.graph}</button>
-      </div>
-      <div class="sess-drow">
-        <div><div class="dlabel">Exercise History</div><div class="dval sm">${lastTxt}</div></div>
-        <button class="sess-dpill" data-action="open-exhistory" data-id="${ex.exId}" aria-label="Exercise history">${I.history}</button>
+        <button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>
       </div>
     </div>`;
   const working = workingSets(ex);
@@ -458,7 +428,6 @@ export function WorkoutSessionScreen() {
       ${logged ? `<div class="set-list">${logged}</div>` : ''}
       ${ghosts}
       ${complete ? `<button class="set-extra" data-action="sess-log" data-type="working">${I.plus20} Extra Set</button>` : ''}
-      ${logged ? '<div class="sess-tip">Tap a set to change or delete it.</div>' : ''}
     </div>
     <div class="sess-footer">${footer}</div>
   </div>`;
@@ -497,9 +466,9 @@ export function ActiveSetSheet() {
       <div class="sw-feelwrap">
         <div class="sw-feel" data-feelbar>
           ${['#c8c4e7', '#beb9e7', '#b4ade7', '#aaa2e7', '#9f96e7', '#958be7', '#8b7fe7', '#8174e7', '#7768e7', '#426e8f'].map(c => `<span class="ff-seg" style="background:${c}"></span>`).join('')}
-          <div class="ff-text">${a.touched ? (rpeOf(a.feel) === 'F' ? 'FAILURE' : rpeOf(a.feel)) : 'HOW DID IT FEEL?'}</div>
+          <div class="ff-text">${!a.touched ? 'HOW DID IT FEEL?' : rpeOf(a.feel) === 'F' ? 'FAILURE' : ''}</div>
           <div class="ff-end"><span class="ff-f">F</span></div>
-          <div class="ff-thumb" style="left:${thumbLeft}"></div>
+          <div class="ff-thumb" style="left:${thumbLeft}"><span class="ff-num">${rpeNum(a.feel)}</span></div>
         </div>
       </div>
       <div class="sw-done"><button class="sw-donebtn" data-action="sw-done">DONE</button></div>
@@ -595,6 +564,7 @@ export function SessionLogScreen() {
   const s = db.sessions.find(x => x.id === state.log.sid);
   if (!s) return '';
   const complete = state.log.mode === 'complete', st = sessionStats(s), d = new Date(s.finishedAt);
+  const hits = s.exercises.filter((e, i) => (derived().outcomes[`${s.id}:${i}`] || {}).type === 'hit').length;
   const cards = s.exercises.map((e, i) => {
     if (!e.sets.length) return '';
     const info = exInfo(e), u = eqUnits(e.equip);
@@ -614,16 +584,24 @@ export function SessionLogScreen() {
     <div class="nav">
       ${complete ? '' : `<button class="icon-btn" data-action="back">${I.chevL}</button>`}
       <span class="nav-title">${complete ? 'Workout Complete' : 'Workout'}</span>
-      <button class="icon-btn wc-navbtn" data-action="${complete ? 'share-session' : 'session-menu'}" aria-label="${complete ? 'Share' : 'Workout options'}">${complete ? I.share : I.kebab}</button>
+      ${complete ? '' : `<button class="icon-btn wc-navbtn" data-action="session-menu" aria-label="Workout options">${I.kebab}</button>`}
     </div>
     <div class="wl-body wc-body">
+      ${complete ? `
+      <div class="wc-hero">
+        <div class="wc-anim" data-lottie="complete" aria-hidden="true"></div>
+        <div class="wc-cheer">Nice work!</div>
+        <div class="wc-cheersub">${esc(s.workoutName)} is in the books${hits ? `, and you hit ${plural(hits, 'overload goal')}` : ''}.</div>
+      </div>` : ''}
       <div class="wl-titleblock">
         <div class="wl-title">${esc(s.workoutName)}${s.edited ? '<span class="eqd-chip wl-edited">Edited</span>' : ''}</div>
         <div class="wl-help">${D.dow(d)}, ${d.getFullYear()} · ${plural(st.exercises, 'exercise')} · ${plural(st.sets, 'set')} · ${st.fails} to failure</div>
       </div>
-      ${complete ? `<button class="cw-add" data-action="add-more">${I.plus20} Add more exercises</button>` : ''}
+      ${complete ? `<div class="wc-actions">
+        <button class="cw-add" data-action="add-more">${I.plus20} Add more exercises</button>
+        <button class="wc-share" data-action="share-session" aria-label="Share workout">${I.share}</button>
+      </div>` : ''}
       <div class="wc-list">${cards || '<div class="mg-empty">No sets were logged.</div>'}</div>
-      <div class="sess-tip">Tap a set to fix it.</div>
     </div>
     ${complete ? '<div class="cw-footer"><button class="btn solid wc-home" data-action="complete-home">Back to the Homepage</button></div>' : ''}
   </div>`;

@@ -29,6 +29,7 @@ refreshed visual design:
 - `screens-library.js`: exercises, exercise history, equipment, Overload Tracker, wizards, locations, merge, Settings
 - `app.js`: navigation, every action (one delegated click handler), share image, boot
 - `ui.js`: icons exported from Figma, formatting helpers
+- `vendor/lottie_light.min.js`: lottie-web player (MIT) for the Workout Complete animation in `assets/complete.json`
 - `data.js`: workout colors + the in-memory UI state
 - `exercises.js`: the 502-movement library (generated from `goodfail_library.json`)
 - `styles.css`, `fonts/`, `assets/`
@@ -80,12 +81,10 @@ Barbell, 3 × 8).
 - **Workout Complete:** per-exercise sets with "first goal set" / "goal hit" notes,
   Add More Exercises (multi-select Quick Add reopens the workout), Share (a PNG
   through the phone's share sheet, or a download on desktop), Back to the Homepage.
-- **My Workouts:** Library (completed counts, options menu to edit/delete) and
-  History (by month, Edited tag). A past workout can be shared, fixed set by set,
-  or deleted.
+- **My Workouts:** your saved workouts, with an options menu to edit or delete.
 - **Swap Exercise:** opens the library filtered to the same muscle group, with
   Create for making a new exercise on the spot.
-- **Exercise History:** from the session's history row or the exercise's logged card.
+- **Exercise History:** from the bottom of the Overload Tracker.
 - **Locations:** the workout's location sets each exercise's default equipment
   (a saved machine of the same kind there, otherwise the generic type).
 - **Plans:** 1 to 10 day split, real calendar with month navigation, edit or end

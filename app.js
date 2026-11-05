@@ -21,7 +21,7 @@ import {
 import {
   HomeScreen, QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, PauseSheet, SessionLogScreen, PlanWizard,
-  listCtx, keepCurrentExercise, vol, exInfo, workingSets, nextTarget, rpeOf, setPurple, sessionStats,
+  listCtx, keepCurrentExercise, vol, exInfo, workingSets, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY } from './data.js';
 
@@ -85,7 +85,23 @@ function render() {
   lastModal = state.modal;
   if (state.screen !== lastScreen) app.scrollTop = goingBack ? (scrollMemory[state.screen] || 0) : 0;
   lastScreen = state.screen; goingBack = false;
+  mountLottie();
   if (!save() && !state.warnedStorage) { state.warnedStorage = true; toast('Couldn’t save. This browser is blocking storage.'); }
+}
+
+/* ---- "complete" animation (Lottie, bundled in vendor/) ---- */
+let lottieData = null, lottiePlayed = null, lottieAnim = null;
+function mountLottie() {
+  if (lottieAnim) { lottieAnim.destroy(); lottieAnim = null; }
+  const el = app.querySelector('[data-lottie]');
+  if (!el || !window.lottie) return;
+  const play = data => {
+    const anim = lottieAnim = window.lottie.loadAnimation({ container: el, renderer: 'svg', loop: false, autoplay: false, animationData: data });
+    const still = lottiePlayed === state.log.sid || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (still) anim.goToAndStop(anim.totalFrames - 1, true); else { lottiePlayed = state.log.sid; anim.play(); }
+  };
+  if (lottieData) play(lottieData);
+  else fetch('./assets/complete.json').then(r => r.json()).then(d => { lottieData = d; if (el.isConnected) play(d); }).catch(() => {});
 }
 
 /* ------------------------------ session logic ------------------------------ */
@@ -163,10 +179,10 @@ function setDraft(type, si) {
   }
   if (type === 'warmup') {
     const base = warm.length ? warm[warm.length - 1].weight : e.goal.weight ?? lastTop;
-    return { type, setNum: warm.length + 1, weight: warm.length ? base : base ? Math.round((base * 0.5) / inc) * inc : 0, reps: e.goal.reps + 2, feel: 0.1, unit: u, hint };
+    return { type, setNum: warm.length + 1, weight: warm.length ? base : base ? Math.round((base * 0.5) / inc) * inc : 0, reps: e.goal.reps + 2, feel: 0, unit: u, hint };
   }
   const weight = working.length ? working[working.length - 1].weight : e.goal.weight ?? lastTop ?? 0;
-  return { type, setNum: working.length + 1, weight, reps: e.goal.reps, feel: 0.08, unit: u, hint };
+  return { type, setNum: working.length + 1, weight, reps: e.goal.reps, feel: 0, unit: u, hint };
 }
 
 /* --------------------------------- helpers --------------------------------- */
@@ -309,14 +325,6 @@ function downloadBlob(blob, name) {
 
 /* ---- the delegated click handler (≈ React onClick) ---- */
 device.addEventListener('click', (e) => {
-  // effort slider ("How did it feel?") — set value by click position
-  const fb = e.target.closest('[data-feelbar]');
-  if (fb && state.setDraft) {
-    const r = fb.getBoundingClientRect();
-    state.setDraft.feel = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    state.setDraft.touched = true;
-    render(); return;
-  }
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
   if (el.classList.contains('scrim') && e.target.closest('[data-stop]')) return;
@@ -544,6 +552,7 @@ function handle(a, d, el, ex) {
       setGoal(g.exId, g.equip, g.sets, g.reps, g.weight);
       syncAllGoals(); state.modal = null; toast('Overload goal saved'); break;
     }
+    case 'session-tracker': { const it = cur(); state.tracker = { exId: it.exId, equip: it.equip, range: 'All', volume: { sets: it.goal.sets, reps: it.goal.reps } }; go('tracker'); break; }
     case 'open-exhistory': state.exHistory = d.id; go('exhistory'); break;
     case 'view-session': state.log = { sid: d.id, mode: 'view' }; go('log'); break;
     case 'share-session': { const ls = db.sessions.find(x => x.id === state.log.sid); if (ls) shareSession(ls); return false; }
@@ -797,6 +806,37 @@ function handle(a, d, el, ex) {
     default: return false;
   }
 }
+
+/* ---- "How did it feel?" slider: drag the white thumb; its number counts 1–9, then F ---- */
+let feelDrag = null;
+function feelFromPointer(bar, x) {
+  const r = bar.getBoundingClientRect(), thumb = 56;
+  return Math.min(1, Math.max(0, (x - r.left - thumb / 2) / (r.width - thumb)));
+}
+function paintFeel(bar, feel) {
+  const pct = Math.round(feel * 100);
+  const th = bar.querySelector('.ff-thumb');
+  th.style.left = `calc(${pct}% - ${(pct * 0.56).toFixed(1)}px)`;
+  th.querySelector('.ff-num').textContent = rpeNum(feel);
+  bar.querySelector('.ff-text').textContent = rpeOf(feel) === 'F' ? 'FAILURE' : '';
+}
+device.addEventListener('pointerdown', (e) => {
+  const bar = e.target.closest('[data-feelbar]');
+  if (!bar || !state.setDraft) return;
+  e.preventDefault();
+  feelDrag = bar;
+  try { bar.setPointerCapture(e.pointerId); } catch {}
+  state.setDraft.feel = feelFromPointer(bar, e.clientX); state.setDraft.touched = true;
+  paintFeel(bar, state.setDraft.feel);
+});
+device.addEventListener('pointermove', (e) => {
+  if (!feelDrag || !state.setDraft) return;
+  state.setDraft.feel = feelFromPointer(feelDrag, e.clientX);
+  paintFeel(feelDrag, state.setDraft.feel);
+});
+const endFeel = () => { if (feelDrag) { feelDrag = null; render(); } };
+device.addEventListener('pointerup', endFeel);
+device.addEventListener('pointercancel', endFeel);
 
 /* ---- text inputs (update state without re-rendering, so focus survives) ---- */
 device.addEventListener('input', (e) => {
