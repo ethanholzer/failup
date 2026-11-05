@@ -10,6 +10,23 @@
   <meta name="apple-mobile-web-app-title" content="FailUp">
   <title>FailUp</title>
   <link rel="stylesheet" href="./styles.css">
+  <script>
+    // iPhone Text Size: Safari exposes it through the -apple-system-body font (17px at the default
+    // setting). Scale the root size from that so every rem in the app follows the user's setting.
+    (function () {
+      if (!window.CSS || !CSS.supports('font', '-apple-system-body')) return;
+      function apply() {
+        var p = document.createElement('div');
+        p.style.font = '-apple-system-body'; p.style.position = 'absolute'; p.style.visibility = 'hidden';
+        document.documentElement.appendChild(p);
+        var px = parseFloat(getComputedStyle(p).fontSize) || 17;
+        p.remove();
+        document.documentElement.style.fontSize = (16 * px / 17) + 'px';
+      }
+      apply();
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) apply(); });
+    })();
+  </script>
 </head>
 <body>
   <!-- The prototype renders inside a phone frame so it reads like the real device on desktop.

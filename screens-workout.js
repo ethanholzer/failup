@@ -72,7 +72,9 @@ function exSub(it) {
 }
 export function exerciseCards(ctx) {
   if (!ctx.items.length) return `<div class="cw-empty">${ctx.readOnly ? 'No exercises in this workout yet.' : 'No exercises yet. Add your first one below.'}</div>`;
+  const seen = {};
   return ctx.items.map((it, i) => {
+    const nth = seen[it.exId] = (seen[it.exId] || 0) + 1;   // stable key, so reordering can animate
     const open = ctx.ui.expanded === i, v = vol(it), ro = ctx.readOnly;
     const g = itemGoal(it), u = eqUnits(it.equip), sv = eqById(it.equip);
     const stepper = (label, field) => ro ? `
@@ -107,7 +109,7 @@ export function exerciseCards(ctx) {
         </div>`}
       </div>`;
     return `
-      <div class="cw-ex-card${open ? ' open' : ''}${ro ? ' ro' : ''}">
+      <div class="cw-ex-card${open ? ' open' : ''}${ro ? ' ro' : ''}" data-anim="${ctx.owner}-${it.exId}-${nth}">
         <button class="cw-ex-row" data-action="toggle-ex" data-i="${i}">
           <span class="cw-badge tnum">${i + 1}</span>
           <span class="cw-ex-meta"><span class="cw-ex-name">${esc(exInfo(it).name)}</span><span class="cw-ex-sub">${exSub(it)}${logged ? ` · ${plural(workingSets(it).length, 'set')} logged` : ''}</span></span>
@@ -231,6 +233,18 @@ function todayCard(pt, plan) {
   if (!w) return card(restTile, 'Rest day', [`Day ${pt.index + 1} of ${plan.splitDays}${day && day.type === 'workout' ? ' · that workout was deleted' : ''}`]);
   return workoutCard(w, { label: 'Start', action: 'start-workout', needsExercises: true }, { done: doneToday(w.id) });
 }
+// Home quotes (shown when nothing is paused and no plan is running).
+export const QUOTES = [
+  ['The last three or four reps is what makes the muscle grow.', 'Arnold Schwarzenegger'],
+  ['Strength does not come from winning. Your struggles develop your strengths.', 'Arnold Schwarzenegger'],
+  ['The worst thing I can be is the same as everybody else.', 'Arnold Schwarzenegger'],
+  ['The Iron never lies to you.', 'Henry Rollins'],
+  ['The Iron is the best antidepressant I have ever found.', 'Henry Rollins'],
+  ['Strong people are harder to kill than weak people, and more useful in general.', 'Mark Rippetoe'],
+  ['Yeah buddy! Light weight, baby!', 'Ronnie Coleman'],
+  ['Ain’t nothin’ but a peanut.', 'Ronnie Coleman'],
+  ['Stimulate, don’t annihilate.', 'Lee Haney'],
+];
 export function HomeScreen() {
   const plan = db.plan, pt = planToday();
   const top = `
@@ -241,31 +255,29 @@ export function HomeScreen() {
         <button class="home-ibtn" data-action="home-go" data-to="exercises" aria-label="Exercises">${I.barbell}</button>
         <button class="home-ibtn" data-action="home-go" data-to="equipment" aria-label="Equipment">${I.equipment}</button>
         <button class="home-ibtn" data-action="home-go" data-to="settings" aria-label="Settings">${I.gear}</button>
-      </div></div></div>
-    <div class="home-headline">REACH <span class="hl">FAILURE</span><br>GET <span class="hl">STRONGER</span></div>`;
+      </div></div></div>`;
+  // the middle of the photo: paused workout and/or today's plan day, otherwise a quote
+  let center = resumeCard();
+  if (plan) center += `<div class="hm-label">Today · ${D.dow(new Date())}</div>${todayCard(pt, plan)}`;
+  if (!center) {
+    const [q, who] = QUOTES[(state.quoteIdx || 0) % QUOTES.length];
+    center = `<figure class="home-quote"><blockquote>“${esc(q)}”</blockquote><figcaption>${esc(who)}</figcaption></figure>`;
+  }
   const quick = `<button class="home-cta quick" data-action="home-go" data-to="quickselect">${I.quickstart}<span>Quickstart</span></button>`;
-  if (!plan) return `
-  <div class="home">${top}
-    <div class="home-panel">
-      ${resumeCard()}
-      ${quick}
-      <button class="home-cta" data-action="home-go" data-to="planwiz">${I.addCircle}<span>Create a Workout Plan</span></button>
-    </div>
-  </div>`;
   return `
-  <div class="home withplan">${top}
+  <div class="home${plan ? ' withplan' : ''}">${top}
+    <div class="home-center">${center}</div>
     <div class="home-panel">
-      ${resumeCard()}
+      ${plan ? `
       <div class="hm-planhead">
         <div>
           <div class="hm-planname">${esc(plan.name)}</div>
           <div class="hm-planmeta">${plan.splitDays} day split · ${D.short(parseDay(plan.start))} to ${D.long(parseDay(plan.end))}</div>
         </div>
         <button class="hm-kebab" data-action="plan-menu" aria-label="Plan options">${I.kebab}</button>
-      </div>
-      <div class="hm-label">Today · ${D.dow(new Date())}</div>
-      ${todayCard(pt, plan)}
+      </div>` : ''}
       ${quick}
+      ${plan ? '' : `<button class="home-cta" data-action="home-go" data-to="planwiz">${I.addCircle}<span>Create a Workout Plan</span></button>`}
     </div>
   </div>`;
 }
@@ -357,11 +369,11 @@ export function WorkoutSessionScreen() {
   const total = s.exercises.length;
   const segs = s.exercises.map((e, i) => {
     let cls = 'sess-progseg';
-    if (i === s.exIndex && !exComplete(e)) cls += ' cur';
+    // the exercise you're on stays "current" until you move on; then it fills in (or blinks purple)
+    if (i === s.exIndex) cls += ' cur';
     else if (exPurple(e)) cls += ' pr';
     else if (exComplete(e)) cls += ' done';
-    else if (i === s.exIndex) cls += ' cur';
-    return `<button class="${cls}" data-action="sess-jump" data-i="${i}" aria-label="Exercise ${i + 1}"></button>`;
+    return `<span class="${cls}"></span>`;
   }).join('');
   const last = lastDone(ex.exId, ex.equip);
   const lastTxt = last ? (() => { const w = workingSets(last.e); const top = w.length ? w.reduce((a, b) => (b.weight > a.weight ? b : a)) : null; return top ? `Last time: ${wt(top.weight, eqUnits(last.e.equip))} × ${top.reps} · ${D.short(new Date(last.s.finishedAt))}` : 'Logged before'; })() : 'Not logged yet';
@@ -403,7 +415,7 @@ export function WorkoutSessionScreen() {
   <div class="sess-screen" style="--sess-color:${s.color}">
     ${statusBar()}
     <div class="sess-widget">
-      <div class="sess-excard">
+      <div class="sess-excard" data-anim="sess-${s.exIndex}">
         <button class="sess-exrow" data-action="sess-toggle">
           <span class="sess-exbadge tnum">${s.exIndex + 1}</span>
           <span class="sess-exmeta">
@@ -438,7 +450,7 @@ export function ActiveSetSheet() {
   const a = state.setDraft;
   const [big, small] = steps(a.unit), ul = unitLabel(a.unit);
   const pct = Math.round(a.feel * 100);
-  const thumbLeft = `calc(${pct}% - ${(pct * 0.56).toFixed(1)}px)`;
+  const thumbLeft = `calc(4px + (100% - 64px) * ${a.feel.toFixed(4)})`;  // 4px inset at both ends, same as top/bottom
   return `
   <div class="scrim" data-action="sess-cancelset">
     <div class="sheet" data-stop>
@@ -548,15 +560,17 @@ export function PauseSheet() {
 /* ---- Workout Complete + past workout log (same layout) ----
    Release 1.0 content in the Dev File layout: nav header, title block, white
    exercise cards with the session's set list. */
+// Bottom band on a Workout Complete card: goal reached (with the new goal), or first goal set.
 function outcomeLine(s, i, e) {
   const o = derived().outcomes[`${s.id}:${i}`];
   if (!o || o.type === 'miss') return '';
-  const u = eqUnits(e.equip);
+  const u = eqUnits(e.equip), hit = o.type === 'hit';
   return `
-        <div class="cw-goal wc-goal">
-          <div class="cw-goal-text">
-            <div class="cw-label">${o.type === 'first' ? 'First Overload Goal Set' : 'Goal Hit · Next Overload Goal'}</div>
-            <div class="cw-goal-val tnum">${e.goal.sets} Sets · ${e.goal.reps} Reps · <span class="lbs">${wtTight(o.after, u)}</span></div>
+        <div class="wc-band${hit ? ' hit' : ''}">
+          <span class="wc-band-icon">${hit ? I.checkW : I.graph}</span>
+          <div class="wc-band-text">
+            <div class="wc-band-label">${hit ? 'Goal Reached' : 'First Goal Set'}</div>
+            <div class="wc-band-val tnum">${hit ? 'New goal: ' : ''}${e.goal.sets} Sets · ${e.goal.reps} Reps · <b>${wtTight(o.after, u)}</b></div>
           </div>
         </div>`;
 }
@@ -573,9 +587,10 @@ export function SessionLogScreen() {
         <div class="cw-ex-row wc-exrow">
           <span class="cw-badge tnum" style="--cw-current:${s.color}">${i + 1}</span>
           <span class="cw-ex-meta"><span class="cw-ex-name">${esc(info.name)}</span><span class="cw-ex-sub"><span class="mus">${esc(info.muscle)}</span> · ${esc(e.equipName || eqLabel(e.equip))}</span></span>
+          ${e.exId && exById(e.exId) ? `<button class="sess-dpill wc-trk" data-action="log-tracker" data-ei="${i}" aria-label="Open Overload Tracker">${I.graph}</button>` : ''}
         </div>
-        ${outcomeLine(s, i, e)}
         <div class="set-list">${setList(e, u, si => `data-action="edit-logged-set" data-ei="${i}" data-si="${si}"`)}</div>
+        ${outcomeLine(s, i, e)}
       </div>`;
   }).join('');
   return `
@@ -593,9 +608,17 @@ export function SessionLogScreen() {
         <div class="wc-cheer">Nice work!</div>
         <div class="wc-cheersub">${esc(s.workoutName)} is in the books${hits ? `, and you hit ${plural(hits, 'overload goal')}` : ''}.</div>
       </div>` : ''}
-      <div class="wl-titleblock">
-        <div class="wl-title">${esc(s.workoutName)}${s.edited ? '<span class="eqd-chip wl-edited">Edited</span>' : ''}</div>
-        <div class="wl-help">${D.dow(d)}, ${d.getFullYear()} · ${plural(st.exercises, 'exercise')} · ${plural(st.sets, 'set')} · ${st.fails} to failure</div>
+      <div class="wc-stats">
+        <div class="wc-stat"><b class="tnum">${st.sets}</b><span>Sets</span></div>
+        <div class="wc-stat"><b class="tnum">${st.fails}</b><span>Fails</span></div>
+        <div class="wc-stat goal"><b class="tnum">${hits}</b><span>Goals Reached</span></div>
+      </div>
+      <div class="wc-titlerow">
+        <div class="wcard-tile wc-tile" style="background:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
+        <div class="wl-titleblock">
+          <div class="wl-title">${esc(s.workoutName)}${s.edited ? '<span class="eqd-chip wl-edited">Edited</span>' : ''}</div>
+          <div class="wl-help">${D.dow(d)}, ${d.getFullYear()} · ${plural(st.exercises, 'exercise')}</div>
+        </div>
       </div>
       ${complete ? `<div class="wc-actions">
         <button class="cw-add" data-action="add-more">${I.plus20} Add more exercises</button>

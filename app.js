@@ -33,7 +33,8 @@ state.stack = [];
 let goingBack = false;
 function go(to) { state.stack.push(state.screen); state.screen = to; state.modal = null; }
 function back() { goingBack = true; state.screen = state.stack.pop() || 'home'; state.modal = null; }
-function home() { state.stack = []; state.screen = 'home'; state.modal = null; }
+function home() { goingBack = true; if (state.screen !== 'home') state.quoteIdx = (state.quoteIdx || 0) + 1 + Math.floor(Math.random() * 3); state.stack = []; state.screen = 'home'; state.modal = null; }
+state.quoteIdx = Math.floor(Math.random() * 100);
 
 /* ---------------------------------- render --------------------------------- */
 const app = document.getElementById('app');
@@ -76,17 +77,117 @@ function render() {
   if (lastScreen && state.screen !== lastScreen) scrollMemory[lastScreen] = app.scrollTop;
   const sameModal = state.modal && state.modal === lastModal;
   const scrolls = sameModal ? [...overlay.querySelectorAll('*')].filter(el => el.scrollTop > 0).map(el => [el.className, el.scrollTop]) : [];
+  const flip = state.screen === lastScreen ? measureExpandables() : null;
+  const pipFrom = state.screen === 'session' && lastScreen === 'session' && state.session ? lastExIndex : null;
   app.innerHTML = screenHTML();
+  if (flip) animateExpandables(flip);
+  if (pipFrom != null && state.session && state.session.exIndex !== pipFrom) { slideCurrentPip(pipFrom, state.session.exIndex); animatePip(pipFrom); }
+  lastExIndex = state.session ? state.session.exIndex : null;
   let modal = '';
   try { modal = state.modal && MODALS[state.modal] ? MODALS[state.modal]() : ''; } catch (err) { console.error(err); state.modal = null; }
   overlay.innerHTML = modal;
   overlay.classList.toggle('settled', !!sameModal);
   for (const [cls, top] of scrolls) { const el = [...overlay.querySelectorAll('*')].find(x => x.className === cls); if (el) el.scrollTop = top; }
   lastModal = state.modal;
-  if (state.screen !== lastScreen) app.scrollTop = goingBack ? (scrollMemory[state.screen] || 0) : 0;
+  if (state.screen !== lastScreen) {
+    app.scrollTop = goingBack ? (scrollMemory[state.screen] || 0) : 0;
+    if (lastScreen) pageTransition(goingBack);
+  }
   lastScreen = state.screen; goingBack = false;
   mountLottie();
   if (!save() && !state.warnedStorage) { state.warnedStorage = true; toast('Couldn’t save. This browser is blocking storage.'); }
+}
+
+/* ---- page transitions: forward slides in from the right, back from the left ---- */
+function pageTransition(isBack) {
+  if (reduceMotion()) return;
+  const dx = isBack ? -40 : 40;
+  app.animate([{ opacity: 0, transform: `translateX(${dx}px)` }, { opacity: 1, transform: 'none' }],
+    { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' });
+}
+
+/* ---- expand / collapse: animate the card from its old height to its new one ---- */
+const EASE = 'cubic-bezier(.2,.8,.2,1)';
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isOpen = el => !!el.querySelector('.cw-ex-detail, .sess-exdetail');
+function measureExpandables() {
+  const m = new Map();
+  for (const el of app.querySelectorAll('[data-anim]')) m.set(el.dataset.anim, { h: el.offsetHeight, open: isOpen(el), top: el.getBoundingClientRect().top });
+  return m;
+}
+function animateExpandables(before) {
+  if (reduceMotion()) return;
+  for (const el of app.querySelectorAll('[data-anim]')) {
+    const was = before.get(el.dataset.anim), open = isOpen(el);
+    if (!was) continue;
+    // reorder (Up / Down): slide each card from where it was; the one you moved lifts a little
+    const dy = was.top - el.getBoundingClientRect().top;
+    if (Math.abs(dy) > 1 && was.open === open && Math.abs(dy) > Math.abs(was.h - el.offsetHeight)) {
+      const lifted = open;
+      el.style.position = 'relative'; el.style.zIndex = lifted ? 2 : 1;
+      const a = el.animate(lifted
+        ? [{ transform: `translateY(${dy}px)` }, { transform: `translateY(${dy / 2}px) scale(1.02)`, boxShadow: '0 16px 36px rgba(20,20,23,.18)' }, { transform: 'none' }]
+        : [{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 340, easing: EASE });
+      a.onfinish = () => { el.style.zIndex = ''; el.style.position = ''; };
+      continue;
+    }
+    if (was.open === open) continue;
+    const h = el.offsetHeight;
+    el.animate([{ height: was.h + 'px', overflow: 'hidden' }, { height: h + 'px', overflow: 'hidden' }], { duration: 280, easing: EASE });
+    const detail = el.querySelector('.cw-ex-detail, .sess-exdetail');
+    if (detail) detail.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, delay: 40, easing: EASE, fill: 'backwards' });
+    const caret = el.querySelector('.cw-ex-caret, .sess-excaret');
+    if (caret) caret.animate([{ transform: 'rotate(180deg)' }, { transform: 'rotate(0)' }], { duration: 280, easing: EASE });
+  }
+}
+
+/* ---- progress pips: the workout color slides (and stretches) from one pip to the next ---- */
+const SLIDE_MS = 380;
+function slideCurrentPip(from, to) {
+  if (reduceMotion()) return;
+  const bar = app.querySelector('.sess-prog'), pips = bar && bar.querySelectorAll('.sess-progseg');
+  if (!pips || !pips[from] || !pips[to]) return;
+  const box = bar.getBoundingClientRect(), a = pips[from].getBoundingClientRect(), b = pips[to].getBoundingClientRect();
+  const color = getComputedStyle(pips[to]).backgroundColor;
+  const blob = document.createElement('span');
+  blob.className = 'sess-pipblob';
+  blob.style.cssText = `top:${a.top - box.top}px;height:${a.height}px;background:${color}`;
+  bar.appendChild(blob);
+  const L = r => r.left - box.left, lo = Math.min(L(a), L(b)), span = Math.max(L(a) + a.width, L(b) + b.width) - lo;
+  blob.animate([
+    { left: L(a) + 'px', width: a.width + 'px' },
+    { left: lo + 'px', width: span + 'px', offset: .5 },
+    { left: L(b) + 'px', width: b.width + 'px' },
+  ], { duration: SLIDE_MS, easing: 'cubic-bezier(.65,0,.35,1)' }).onfinish = () => blob.remove();
+  // the destination pip stays empty until the color lands
+  pips[to].animate([{ backgroundColor: '#fff' }, { backgroundColor: '#fff' }], { duration: SLIDE_MS - 20 });
+}
+
+/* ---- progress pips: when you move on, a finished exercise fills in; a purple one blinks ---- */
+let lastExIndex = null;
+function animatePip(i) {
+  if (reduceMotion()) return;
+  const pip = app.querySelectorAll('.sess-progseg')[i];
+  if (!pip) return;
+  if (pip.classList.contains('pr')) {
+    pip.animate([{ opacity: 1 }, { opacity: .2 }, { opacity: 1 }, { opacity: .2 }, { opacity: 1 }, { opacity: .2 }, { opacity: 1 }],
+      { duration: 1400, delay: SLIDE_MS / 2, easing: 'ease-in-out' });
+  } else if (pip.classList.contains('done')) {
+    const from = '#fff';
+    pip.animate([
+      { backgroundColor: from, backgroundImage: 'linear-gradient(#5a5961,#5a5961)', backgroundRepeat: 'no-repeat', backgroundSize: '0% 100%' },
+      { backgroundColor: from, backgroundImage: 'linear-gradient(#5a5961,#5a5961)', backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' },
+    ], { duration: 900, delay: SLIDE_MS / 2, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'backwards' });
+  }
+}
+
+/* ---- Workout Complete stat cards slide up into place, one after another ---- */
+function slideInStats() {
+  app.querySelectorAll('.wc-stat').forEach((el, i) => {
+    const y = i === 1 ? 14 : 0;   // the middle card rests a little lower
+    el.animate([{ opacity: 0, transform: `translateY(${y + 48}px)` }, { opacity: 1, transform: `translateY(${y}px)` }],
+      { duration: 520, delay: 450 + i * 90, easing: 'cubic-bezier(.2,.9,.25,1.15)', fill: 'backwards' });
+  });
 }
 
 /* ---- "complete" animation (Lottie, bundled in vendor/) ---- */
@@ -98,7 +199,8 @@ function mountLottie() {
   const play = data => {
     const anim = lottieAnim = window.lottie.loadAnimation({ container: el, renderer: 'svg', loop: false, autoplay: false, animationData: data });
     const still = lottiePlayed === state.log.sid || matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (still) anim.goToAndStop(anim.totalFrames - 1, true); else { lottiePlayed = state.log.sid; anim.play(); }
+    if (still) anim.goToAndStop(anim.totalFrames - 1, true);
+    else { lottiePlayed = state.log.sid; anim.play(); slideInStats(); }
   };
   if (lottieData) play(lottieData);
   else fetch('./assets/complete.json').then(r => r.json()).then(d => { lottieData = d; if (el.isConnected) play(d); }).catch(() => {});
@@ -276,7 +378,7 @@ async function shareSession(s) {
   const g = c.getContext('2d');
   const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
   g.fillStyle = '#ebebeb'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#6b6f76'; g.font = '600 34px Inter'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#5f636b'; g.font = '600 34px Inter'; g.textBaseline = 'alphabetic';
   g.fillText('Workout Complete', P, 170);
   g.fillStyle = '#fff'; rr(P, 200, W - P * 2, 130, 12); g.fill();
   g.fillStyle = s.color; g.fillRect(P, 200, 14, 130);
@@ -288,7 +390,7 @@ async function shareSession(s) {
     const info = exInfo(e), u = eqUnits(e.equip), h = cardHead + e.sets.length * rowH + 10;
     g.fillStyle = '#fff'; rr(P, y, W - P * 2, h, 20); g.fill();
     g.fillStyle = '#111'; g.font = '700 46px Inter'; g.fillText(info.name, P + 32, y + 66);
-    g.fillStyle = '#6b6f76'; g.font = '700 24px Inter'; g.fillText(`${info.muscle} • ${e.equipName || eqLabel(e.equip)}`.toUpperCase(), P + 32, y + 104);
+    g.fillStyle = '#5f636b'; g.font = '700 24px Inter'; g.fillText(`${info.muscle} • ${e.equipName || eqLabel(e.equip)}`.toUpperCase(), P + 32, y + 104);
     let n = 0, ry = y + cardHead;
     for (const set of e.sets) {
       const warm = set.type === 'warmup', label = warm ? 'W' : String(++n);
@@ -309,7 +411,7 @@ async function shareSession(s) {
   }
   g.font = '64px "League Gothic"'; g.fillStyle = PURPLE; g.fillText('Fail', P, H - 60);
   g.fillStyle = '#111'; g.fillText('Up', P + g.measureText('Fail').width, H - 60);
-  g.fillStyle = '#6b6f76'; g.font = '500 26px Inter'; g.textAlign = 'right'; g.fillText(D.long(new Date(s.finishedAt)), W - P, H - 66); g.textAlign = 'left';
+  g.fillStyle = '#5f636b'; g.font = '500 26px Inter'; g.textAlign = 'right'; g.fillText(D.long(new Date(s.finishedAt)), W - P, H - 66); g.textAlign = 'left';
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   const file = new File([blob], `failup-${s.workoutName.replace(/\W+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -553,6 +655,11 @@ function handle(a, d, el, ex) {
       syncAllGoals(); state.modal = null; toast('Overload goal saved'); break;
     }
     case 'session-tracker': { const it = cur(); state.tracker = { exId: it.exId, equip: it.equip, range: 'All', volume: { sets: it.goal.sets, reps: it.goal.reps } }; go('tracker'); break; }
+    case 'log-tracker': {
+      const ls = db.sessions.find(x => x.id === state.log.sid), le = ls.exercises[+d.ei];
+      state.tracker = { exId: le.exId, equip: le.equip, range: 'All', volume: { sets: le.goal.sets, reps: le.goal.reps } };
+      go('tracker'); break;
+    }
     case 'open-exhistory': state.exHistory = d.id; go('exhistory'); break;
     case 'view-session': state.log = { sid: d.id, mode: 'view' }; go('log'); break;
     case 'share-session': { const ls = db.sessions.find(x => x.id === state.log.sid); if (ls) shareSession(ls); return false; }
@@ -810,13 +917,12 @@ function handle(a, d, el, ex) {
 /* ---- "How did it feel?" slider: drag the white thumb; its number counts 1–9, then F ---- */
 let feelDrag = null;
 function feelFromPointer(bar, x) {
-  const r = bar.getBoundingClientRect(), thumb = 56;
-  return Math.min(1, Math.max(0, (x - r.left - thumb / 2) / (r.width - thumb)));
+  const r = bar.getBoundingClientRect(), inset = 4 + 28;      // 4px gap + half the 56px thumb
+  return Math.min(1, Math.max(0, (x - r.left - inset) / (r.width - inset * 2)));
 }
 function paintFeel(bar, feel) {
-  const pct = Math.round(feel * 100);
   const th = bar.querySelector('.ff-thumb');
-  th.style.left = `calc(${pct}% - ${(pct * 0.56).toFixed(1)}px)`;
+  th.style.left = `calc(4px + (100% - 64px) * ${feel.toFixed(4)})`;
   th.querySelector('.ff-num').textContent = rpeNum(feel);
   bar.querySelector('.ff-text').textContent = rpeOf(feel) === 'F' ? 'FAILURE' : '';
 }

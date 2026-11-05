@@ -60,7 +60,7 @@ export function overloadChart(series, goalWeight, unit) {
   if (empty) return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet">
     ${grid}${goalWeight != null ? yLabels : ''}
-    <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Inter" font-weight="500" font-size="16" fill="#6b6f76" text-anchor="middle">No Data Yet</text>
+    <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Inter" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
   </svg>`;
   const band = goalWeight == null ? '' : `
     <rect x="${goalX.toFixed(1)}" y="${y(goalWeight).toFixed(1)}" width="${(plotR - goalX).toFixed(1)}" height="${(plotB - y(goalWeight)).toFixed(1)}" fill="url(#goalgrad)"/>
@@ -105,7 +105,7 @@ export function TrackerScreen() {
         ${m.items.map(it => `
           <div class="tk-hrow">
             <div><div class="h-weight tnum">${wtTight(it.weight, unit)}</div><div class="h-date">${D.dow(new Date(it.at))}</div></div>
-            ${it.first ? `<div class="h-delta first">${I.plusCircle('#6b6f76')} First Logged</div>`
+            ${it.first ? `<div class="h-delta first">${I.plusCircle('#5f636b')} First Logged</div>`
               : `<div class="h-delta">${I.trendUp(PURPLE)} ${it.delta >= 0 ? '+' : ''}${wtTight(it.delta, unit)}</div>`}
           </div>`).join('')}
       </div>
@@ -669,7 +669,7 @@ export function EquipmentSwapScreen(currentRef) {
         <span class="xd-chev">${I.exchange}</span>
       </div>
       <div class="swp-h">Swapping to...</div>
-      <div class="xd-card swp-list">
+      ${db.equipment.length ? `<div class="xd-card swp-list">
         <div class="swp-help"><span>Select the equipment you are using for this exercise</span><button class="xd-add" data-action="swap-add">Add</button></div>
         <div class="swp-hdr"><span>Saved (${saved.length})</span></div>
         ${saved.map(sv => `
@@ -678,6 +678,19 @@ export function EquipmentSwapScreen(currentRef) {
           <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">At ${esc(sv.location)}</span></span>
           <span class="xd-chev">${I.smChevR}</span>
         </button>`).join('') || '<div class="swp-empty">No saved equipment yet.</div>'}
+      ` : `
+      <div class="swp-cta">
+        <div class="swp-cta-icon">${I.equipment}</div>
+        <div class="swp-cta-title">Save the machines you train on</div>
+        <div class="swp-cta-text">No two cable stacks or leg presses feel the same. Save a specific machine and it gets its own overload goals, so your progress stays honest from gym to gym.</div>
+        <ul class="swp-cta-points">
+          <li>${I.checkC('#6c5ce7')} Goals tracked per machine</li>
+          <li>${I.checkC('#6c5ce7')} Picked automatically at that location</li>
+        </ul>
+        <button class="btn solid swp-cta-btn" data-action="swap-add">Save a Machine</button>
+      </div>
+      <div class="xd-card swp-list">
+      `}
         <div class="swp-hdr"><span>Generic Equipment (${generic.length})</span></div>
         ${generic.map(n => `<button class="swp-generic" data-action="swap-pick" data-ref="${n}"><span>${n}</span>${I.smChevR}</button>`).join('')}
       </div>

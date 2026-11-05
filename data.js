@@ -3,21 +3,21 @@
 // Constants + the mutable UI state. Saved user data lives in store.js.
 // ============================================================================
 
-// 12 workout colors — cool-forward, each tuned to 4.9:1 on white (WCAG AA small text).
+// 12 workout colors: bright and saturated. Includes the three starter workout colors.
 export const WORKOUT_COLORS = [
-  { name: 'Slate',   hex: '#4573A8' },
-  { name: 'Ocean',   hex: '#25799D' },
-  { name: 'Teal',    hex: '#177D81' },
-  { name: 'Pine',    hex: '#1E805F' },
-  { name: 'Fern',    hex: '#258144' },
-  { name: 'Indigo',  hex: '#6B64C9' },
-  { name: 'Violet',  hex: '#835ACB' },
-  { name: 'Grape',   hex: '#A24BBD' },
-  { name: 'Magenta', hex: '#BD3F93' },
-  { name: 'Rose',    hex: '#C34264' },
-  { name: 'Clay',    hex: '#A95C3B' },
-  { name: 'Amber',   hex: '#8E6B26' },
-];
+  { name: 'Red',     hex: '#CF2A0F' },
+  { name: 'Orange',  hex: '#F25C05' },
+  { name: 'Amber',   hex: '#F5A400' },
+  { name: 'Lime',    hex: '#5DB80F' },
+  { name: 'Green',   hex: '#0FA958' },
+  { name: 'Teal',    hex: '#00A6A6' },
+  { name: 'Sky',     hex: '#1E90F0' },
+  { name: 'Steel',   hex: '#426E8F' },
+  { name: 'Purple',  hex: '#6C5CE7' },
+  { name: 'Violet',  hex: '#A23BEC' },
+  { name: 'Magenta', hex: '#E5309B' },
+  { name: 'Pink',    hex: '#FF4F6D' },
+]
 
 export const PURPLE = '#6c5ce7'; // overload / progress — always purple on the tracker
 

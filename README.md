@@ -92,6 +92,12 @@ Barbell, 3 × 8).
 - **Settings:** weight units for generic equipment, back up / restore (a JSON file
   that includes photos), clear exercise data, reset.
 
+## Accessibility
+- Text sizes are in `rem`, and `index.html` reads the iPhone's Text Size setting (through Safari's
+  `-apple-system-body` font) to scale the root size. The default setting looks exactly like the design.
+- Minimum text size is 13px; secondary labels are 14px. Small text meets WCAG AA contrast (4.5:1).
+- Buttons and controls have at least a 44 × 44px tap area.
+
 ## Dev shortcuts
 `#home`, `#quickselect`, `#workouts`, `#exercises`, `#equipment`, `#settings`,
 `#session` (resumes the workout in progress). `window.__failup` exposes the store

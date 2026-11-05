@@ -15,7 +15,7 @@ export function equipSummary(list) {
 
 /* ---------------------------------- icons --------------------------------- */
 export const I = {
-  chevL: `<svg width="11" height="18" viewBox="0 0 11 18" fill="none"><path d="M9 1 2 9l7 8" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  chevL: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9.7999 12L14.3999 16.6L12.9999 18L6.9999 12L12.9999 6L14.3999 7.4L9.7999 12Z" fill="#111111"/></svg>`,   // Icon/SmallChevronLeft
   sort: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 7 9 3l4 4M5 11l4 4 4-4" stroke="#111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   filter: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M13 9V7H16V3H18V7H21V9H13ZM16 21V11H18V21H16ZM6 21V17H3V15H11V17H8V21H6ZM6 13V3H8V13H6Z" fill="#1C1B1F"/></svg>`,
   pencil: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.2 2.3l2.5 2.5M2 14l.7-3 8-8a1.3 1.3 0 0 1 1.9 0l1.4 1.4a1.3 1.3 0 0 1 0 1.9l-8 8-3 .7z" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
