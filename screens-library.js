@@ -156,7 +156,7 @@ export function TrackerScreen() {
       <div class="card tk-explain">
         <h3>Progressive Overload</h3>
         <p>The dots on this graph show each time you have reached an overload goal for ${esc(ex.name)} using ${esc(eqLabel(t.equip))}. Each dot represents a workout in which you completed ${v.sets} sets of ${v.reps} reps of your overload goal weight.</p>
-        ${goal == null ? `<p class="tk-note">Finish ${v.sets} sets of ${v.reps} reps on this setup and the weight you used becomes your first goal. Every time you hit it, the goal goes up ${unit === 'simple' ? 'one step' : wt(increment(unit), unit)}.</p>` : ''}
+        ${goal == null ? `<p class="tk-note">No goal yet for ${v.sets} sets of ${v.reps} reps on this setup. Set one with the pencil, or finish a workout and FailUp will suggest one.</p>` : ''}
       </div>
       ${history}
     </div>

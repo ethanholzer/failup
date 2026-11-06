@@ -393,7 +393,7 @@ export function WorkoutSessionScreen() {
       </div>
       <div class="sess-drow">
         <div><div class="dlabel">Overload Goal</div><div class="dval goal">${ex.goal.weight != null ? `${wtTight(ex.goal.weight, u)} at volume or to failure` : 'No Goal Yet'}</div>
-        ${ex.goal.weight == null ? `<div class="dlabel" style="margin-top:2px">Finish ${ex.goal.sets} × ${ex.goal.reps} to set your first goal</div>` : ''}</div>
+        ${ex.newGoal != null ? `<div class="dlabel" style="margin-top:2px">Next time: ${wtTight(ex.newGoal, u)}</div>` : ex.goal.weight == null ? `<div class="dlabel" style="margin-top:2px">Finish ${ex.goal.sets} × ${ex.goal.reps} and FailUp will suggest one</div>` : ''}</div>
         <button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>
       </div>
     </div>`;
@@ -536,6 +536,49 @@ export function UpdateGoalSheet() {
   </div>`;
 }
 
+// "Set an overload goal?" — offered when the required sets are done (see goalPrompt in app.js)
+export function GoalAskSheet() {
+  const g = state.goalAsk, e = state.session.exercises[state.session.exIndex], u = eqUnits(e.equip), name = esc(exInfo(e).name);
+  const raise = g.kind === 'raise', light = g.kind === 'light';
+  const [big, small] = steps(u), ul = unitLabel(u);
+  const text = raise
+    ? `Every set of ${name} hit ${e.goal.reps} reps at ${wt(g.from, u)} without failing. Ready to aim for ${wt(g.weight, u)} next time?`
+    : light
+      ? `Every set of ${name} hit ${e.goal.reps} reps at ${wt(g.from, u)}, and it felt easy. Set a heavier goal for next time.`
+      : `You took your last two sets of ${name} to failure at ${wt(g.weight, u)}. Make it your goal: ${e.goal.sets} sets of ${e.goal.reps} reps at ${wt(g.weight, u)}, without failing.`;
+  const graphic = light ? `
+        <div class="ga-picker">
+          <div class="goal-wlabel">NEXT GOAL${ul ? ` (${ul.toUpperCase()})` : ''}</div>
+          <div class="sw-grow">
+            <button class="sw-adj" data-action="goalask-adj" data-d="-${big}">&minus;${big}</button>
+            <button class="sw-adj" data-action="goalask-adj" data-d="-${small}">&minus;${small}</button>
+            <label class="sw-val tnum"><input class="sw-in" data-goalaskfield inputmode="decimal" value="${fmt(g.weight)}" aria-label="Next goal weight"></label>
+            <button class="sw-adj" data-action="goalask-adj" data-d="${small}">+${small}</button>
+            <button class="sw-adj" data-action="goalask-adj" data-d="${big}">+${big}</button>
+          </div>
+          <div class="ga-from">Today: ${wt(g.from, u)}</div>
+        </div>` : raise ? `
+        <div class="ug-graphic raise">
+          <div class="ug-kb small">${I.kbSmall}<span><b>${fmt(g.from)}</b>${unitWord(u)}</span></div>
+          <div class="ug-arrow">${I.kbArrow}</div>
+          <div class="ug-kb big">${I.kbBig}<span><b>${fmt(g.weight)}</b>${unitWord(u)}</span></div>
+        </div>` : `
+        <div class="ug-graphic one"><div class="ug-kb big">${I.kbBig}<span><b>${fmt(g.weight)}</b>${unitWord(u)}</span></div></div>`;
+  const tooLow = light && g.weight <= g.from;
+  return `
+  <div class="scrim" data-action="goalask-no">
+    <div class="sheet ug-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="ug-body">
+        <div class="ug-titleblock"><div class="ug-title">${raise ? 'Raise your goal?' : light ? 'Too light?' : 'Set an overload goal?'}</div><div class="ug-text">${text}</div></div>
+        ${graphic}
+        <div class="ug-summary">${e.goal.sets} sets · ${e.goal.reps} reps · <span>${wtTight(g.weight, u)}</span></div>
+        <div class="ug-actions"><button class="ug-btn" data-action="goalask-no">${light ? 'It’s Fine' : 'Not Now'}</button><button class="ug-btn dark" data-action="goalask-yes" ${tooLow ? 'disabled' : ''}>Set Goal</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // Pause (Release 1.0): confirm → home; the workout resumes from the home screen.
 export function PauseSheet() {
   const st = sessionStats(state.session);
@@ -567,13 +610,13 @@ export function PauseSheet() {
 function outcomeLine(s, i, e) {
   const o = derived().outcomes[`${s.id}:${i}`];
   if (!o || o.type === 'miss') return '';
-  const u = eqUnits(e.equip), hit = o.type === 'hit';
+  const u = eqUnits(e.equip), hit = o.type === 'hit', v = `${e.goal.sets} Sets · ${e.goal.reps} Reps · `;
   return `
         <div class="wc-band${hit ? ' hit' : ''}">
           <span class="wc-band-icon">${hit ? I.checkW : I.graph}</span>
           <div class="wc-band-text">
-            <div class="wc-band-label">${hit ? 'Goal Reached' : 'First Goal Set'}</div>
-            <div class="wc-band-val tnum">${hit ? 'New goal: ' : ''}${e.goal.sets} Sets · ${e.goal.reps} Reps · <b>${wtTight(o.after, u)}</b></div>
+            <div class="wc-band-label">${hit ? 'Goal Reached' : 'New Goal Set'}</div>
+            <div class="wc-band-val tnum">${hit ? (o.newGoal != null ? `New goal: ${v}<b>${wtTight(o.newGoal, u)}</b>` : `${v}<b>${wtTight(o.before, u)}</b>`) : `${v}<b>${wtTight(o.newGoal, u)}</b>`}</div>
           </div>
         </div>`;
 }

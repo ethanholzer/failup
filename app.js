@@ -20,7 +20,7 @@ import {
 } from './screens-library.js';
 import {
   HomeScreen, QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
-  WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, PauseSheet, SessionLogScreen, PlanWizard,
+  WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
   listCtx, keepCurrentExercise, vol, exInfo, workingSets, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY } from './data.js';
@@ -61,7 +61,7 @@ const SCREENS = {
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
   color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet,
-  updategoal: UpdateGoalSheet, location: LocationSheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
+  updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
 };
 const NEEDS_SESSION = ['session', 'lineup'];
 function screenHTML() {
@@ -95,8 +95,29 @@ function render() {
   }
   lastScreen = state.screen; goingBack = false;
   mountLottie();
+  blendHeader();
   if (!save() && !state.warnedStorage) { state.warnedStorage = true; toast('Couldn’t save. This browser is blocking storage.'); }
 }
+
+/* ---- headers: on a white screen the header blends in, and lifts once you scroll ---- */
+const isWhite = c => /^rgba?\(255, 255, 255(, 1)?\)$/.test(c);
+function bgOf(el) {
+  for (let n = el; n && n !== app.parentElement; n = n.parentElement) {
+    const c = getComputedStyle(n).backgroundColor;
+    if (c && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)') return c;
+  }
+  return '';
+}
+function blendHeader() {
+  const root = app.firstElementChild;
+  if (!root) return;
+  const head = root.querySelector(':scope > .wiz-header') || root.querySelector(':scope > .nav');
+  const below = head && head.nextElementSibling;
+  const blend = !!below && isWhite(bgOf(below));
+  root.classList.toggle('blend-top', blend);
+  root.classList.toggle('raised', app.scrollTop > 2);
+}
+app.addEventListener('scroll', () => { const r = app.firstElementChild; if (r) r.classList.toggle('raised', app.scrollTop > 2); }, { passive: true });
 
 /* ---- page transitions: forward slides in from the right, back from the left ---- */
 function pageTransition(isBack) {
@@ -267,7 +288,7 @@ function finishSession() {
   const rec = {
     id: s.id, workoutId: s.workoutId, workoutName: s.workoutName, color: s.color, icon: s.icon, location: s.location,
     startedAt: s.startedAt, finishedAt: new Date().toISOString(), edited: !!s.edited,
-    exercises: done.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, equip: e.equip, equipName: eqLabel(e.equip), goal: { ...e.goal }, sets: e.sets.map(x => ({ ...x })) })),
+    exercises: done.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, equip: e.equip, equipName: eqLabel(e.equip), goal: { ...e.goal }, newGoal: e.newGoal ?? null, sets: e.sets.map(x => ({ ...x })) })),
   };
   db.sessions.push(rec);
   state.session = null;
@@ -289,7 +310,7 @@ function setDraft(type, si) {
   const working = workingSets(e), warm = e.sets.filter(x => x.type === 'warmup');
   const last = lastDone(e.exId, e.equip);
   const lastTop = last ? Math.max(0, ...workingSets(last.e).map(x => x.weight)) : null;
-  const hint = type === 'working' ? (e.goal.weight != null ? `Goal: ${wt(e.goal.weight, u)} × ${e.goal.reps} reps, or to failure` : `Finish ${e.goal.sets} × ${e.goal.reps} to set your first overload goal`) : '';
+  const hint = type === 'working' ? (e.goal.weight != null ? `Goal: ${wt(e.goal.weight, u)} × ${e.goal.reps} reps, or to failure` : `No goal yet. Finish ${e.goal.sets} × ${e.goal.reps} and FailUp will suggest one`) : '';
   if (si != null) {
     const st = e.sets[si];
     const num = st.type === 'working' ? working.indexOf(st) + 1 : 0;
@@ -301,6 +322,30 @@ function setDraft(type, si) {
   }
   const weight = working.length ? working[working.length - 1].weight : e.goal.weight ?? lastTop ?? 0;
   return { type, setNum: working.length + 1, weight, reps: e.goal.reps, feel: 0, unit: u, hint };
+}
+
+// The goal prompts:
+//  • last two working sets went to failure → goal = that weight (reach the volume without failing)
+//  • all required sets hit the reps, none failed, all RPE 7+ → goal = that weight + one increment
+//  • same, but it felt easy (any set RPE 6 or lower) → "too light?" and you pick the new weight
+function goalPrompt(e) {
+  if (e.goalAsked) return null;
+  const w = workingSets(e);
+  if (w.length < e.goal.sets) return null;
+  const g = e.goal.weight, inc = increment(eqUnits(e.equip));
+  const last2 = w.slice(-2);
+  if (last2.length === 2 && last2.every(isFail)) {
+    const W = last2[1].weight;
+    return W > 0 && g !== W ? { kind: 'fail', weight: W } : null;
+  }
+  const req = w.slice(0, e.goal.sets), rpe = x => Math.min(10, Math.floor(x.feel * 10) + 1);
+  if (req.every(x => !isFail(x) && x.reps >= e.goal.reps)) {
+    const W = Math.min(...req.map(x => x.weight)), to = W + inc;
+    if (!(W > 0) || (g != null && g >= to)) return null;
+    // felt hard (RPE 7+) → offer one increment; felt easy → "too light?" with a weight you pick
+    return req.every(x => rpe(x) > 6) ? { kind: 'raise', from: W, weight: to } : { kind: 'light', from: W, weight: to };
+  }
+  return null;
 }
 
 /* --------------------------------- helpers --------------------------------- */
@@ -627,6 +672,11 @@ function handle(a, d, el, ex) {
       const it = cur();
       if (a.edit) { it.sets[a.edit.si] = rec; break; }
       it.sets.push(rec);
+      // offer to set (or raise) an overload goal once the required sets are done
+      if (a.type === 'working') {
+        const ask = goalPrompt(it);
+        if (ask) { it.goalAsked = true; state.goalAsk = ask; state.modal = 'goalask'; break; }
+      }
       // Figma "Weight Adjustment Edgecase": reduced weight, goal volume, RPE 7+
       const r = rpeOf(a.feel), rpe = r === 'F' ? 10 : +r.slice(4);
       if (a.type === 'working' && it.goal.weight != null && a.weight < it.goal.weight && a.reps >= it.goal.reps && rpe >= 7 && !it.goalPrompted) {
@@ -645,6 +695,14 @@ function handle(a, d, el, ex) {
         if (!ls.exercises.length) { db.sessions.splice(db.sessions.indexOf(ls), 1); back(); toast('Workout removed from history'); }
       } else cur().sets.splice(a.edit.si, 1);
       break;
+    }
+    case 'goalask-adj': state.goalAsk.weight = Math.max(0, Math.round((state.goalAsk.weight + +d.d) * 100) / 100); break;
+    case 'goalask-no': state.modal = null; state.goalAsk = null; break;
+    case 'goalask-yes': {
+      const it = cur(), g = state.goalAsk;
+      setGoal(it.exId, it.equip, it.goal.sets, it.goal.reps, g.weight);
+      it.newGoal = g.weight;                      // takes effect next time; today's sets keep today's goal
+      state.modal = null; state.goalAsk = null; toast('Overload goal set'); break;
     }
     case 'ug-cancel': state.modal = null; state.goalUpdate = null; break;
     case 'ug-confirm': {
@@ -976,13 +1034,14 @@ device.addEventListener('input', (e) => {
     if (t.dataset.swfield === 'weight') t.style.width = (Math.max(1, t.value.length) + 0.3) + 'ch';
     return;
   }
+  if (t.matches('[data-goalaskfield]')) { const v = parseFloat(t.value.replace(',', '.')); if (!isNaN(v) && v >= 0) state.goalAsk.weight = v; return; }
   if (t.matches('[data-goalfield]')) { const v = parseFloat(t.value.replace(',', '.')); if (!isNaN(v) && v >= 0) state.goalEdit.weight = v; }
 });
 // Enter in a text field moves forward
 device.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || !e.target.matches('input')) return;
   const next = document.querySelector('[data-action="exwiz-next"],[data-action="eqwiz-next"],[data-action="plan-next"],[data-action="save-location"]');
-  if (e.target.matches('.sw-in,[data-goalfield]')) { e.target.blur(); render(); return; }
+  if (e.target.matches('.sw-in,[data-goalfield],[data-goalaskfield]')) { e.target.blur(); render(); return; }
   if (next) { e.preventDefault(); next.click(); }
 });
 device.addEventListener('focusin', (e) => { if (e.target.matches('.sw-in')) e.target.select(); });

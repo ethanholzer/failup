@@ -1565,3 +1565,21 @@ button:not(:disabled):active, label.xd-act:active{ transform:scale(.97); }
 .ex-screen.has-footer, .wc-screen{ padding-bottom:0; }
 .sess-sets{ padding-bottom:24px; }
 .sess-exlabel{ white-space:nowrap; }
+
+/* goal prompt graphics */
+.ug-graphic.raise .ug-kb.small{ left:0; top:24px; }
+.ug-graphic.raise .ug-kb.big{ left:auto; right:0; top:0; }
+.ug-graphic.raise .ug-arrow{ left:104px; }
+.ug-graphic.one{ width:124px; }
+
+/* header Create button: proper pill, same height as the back button */
+.nav .nav-create{ height:48px; min-height:48px; padding:0 22px; border:none; background:#fff; box-shadow:0 2px 7px rgba(0,0,0,.25); font-size:1rem; font-weight:600; letter-spacing:0; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; }
+.nav .nav-create.icon{ width:48px; padding:0; }
+
+/* headers blend into white screens, and lift (shadow fades in) once you scroll */
+.nav, .wiz-header{ transition:box-shadow .25s ease; }
+.blend-top .nav, .blend-top .wiz-header{ box-shadow:0 2px 8px rgba(20,20,23,0); }
+.blend-top.raised .nav:not(:has(+ .wiz-header)), .blend-top.raised .wiz-header{ box-shadow:var(--bar-shadow); }
+.ga-picker{ display:flex; flex-direction:column; align-items:center; }
+.ga-picker .goal-wlabel{ margin:4px 0 8px; font-size:0.8125rem; }
+.ga-from{ margin-top:10px; font-size:0.875rem; font-weight:500; color:#5f636b; }

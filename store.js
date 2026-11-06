@@ -225,22 +225,21 @@ export function derived() {
   db.sessions.forEach(s => evs.push({ at: s.finishedAt, s }));
   db.goalEdits.forEach(g => evs.push({ at: g.at, g }));
   evs.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  // Goals only change when the user sets one (the goal prompts or the goal sheet).
+  // A workout "hits" its goal when every required set reached the goal reps at the
+  // goal weight it had while you were lifting (the session's own snapshot).
   const goals = {}, ach = {}, outcomes = {};
   for (const ev of evs) {
     if (ev.g) { goals[ev.g.key] = ev.g.weight; continue; }
     ev.s.exercises.forEach((e, i) => {
       if (!e.exId || !e.sets.length) return;
       const key = goalKey(e.exId, e.equip, e.goal.sets, e.goal.reps);
-      const g = goals[key], w = volumeWeight(e);
-      const o = { key, before: g ?? null };
-      if (w == null || (w === 0 && g == null)) o.type = 'miss';   // no weight logged: nothing to set a goal from
-      else if (g == null) { goals[key] = w; o.type = 'first'; }
-      else if (w >= g) {
-        (ach[key] = ach[key] || []).push({ at: ev.s.finishedAt, weight: w, sid: ev.s.id });
-        goals[key] = w + increment(eqUnits(e.equip));
+      const g = e.goal.weight, w = volumeWeight(e);
+      const o = { key, before: g ?? null, newGoal: e.newGoal ?? null };
+      if (g != null && w != null && w >= g) {
+        (ach[key] = ach[key] || []).push({ at: ev.s.finishedAt, weight: g, sid: ev.s.id });
         o.type = 'hit';
-      } else o.type = 'miss';
-      o.after = goals[key] ?? null;
+      } else o.type = e.newGoal != null ? 'set' : 'miss';
       outcomes[`${ev.s.id}:${i}`] = o;
     });
   }

@@ -45,26 +45,30 @@ improving the library file and people's own edits survive.
 
 ## How overload goals work
 Goals belong to an **exercise × equipment × volume** (for example Bench Press,
-Barbell, 3 × 8).
+Barbell, 3 × 8), and you always choose them. FailUp suggests one when you finish
+the required sets of an exercise:
 
-- **First goal:** the first time you finish all the sets at the goal reps, the
-  weight you used becomes the goal.
-- **Purple sets:** a set's number box turns purple when it's at (or above) the
-  goal weight and either reaches the goal reps or is marked as failure. A set
-  below the goal weight, or short of the reps without failure, stays black. No
-  goal yet means every set is black.
-- **Purple progress segment:** when an exercise has at least its required number
-  of purple sets.
-- **Goal goes up:** when you finish all required sets at the goal weight with the
-  full reps, the next goal is one increment higher (5 lbs, 2.5 kg, or 1 for
-  "Simple Numbers" equipment). Failing short of the reps keeps the goal where it is.
-- **Overload graph:** each dot is a workout where you hit the goal on that exercise,
-  equipment, and volume. The history list shows the change from the previous dot.
-- Goals are never stored directly. They're recalculated from your workout history
-  plus any goals you set by hand, so editing or deleting a past workout keeps
-  everything consistent.
-- The "Update goal weight?" sheet still appears when you drop below the goal at
-  the goal reps with RPE 7+.
+- **Last two sets went to failure:** "Set an overload goal?" offers the weight you
+  failed at, so the goal is to reach the volume at that weight without failing.
+- **Every required set hit the reps, none failed, all RPE 7 or higher:** "Raise your
+  goal?" offers that weight plus one increment (5 lbs, 2.5 kg, or 1 for "Simple
+  Numbers" equipment).
+- **Every required set hit the reps, but it felt easy (any set RPE 6 or lower):** "Too
+  light?" lets you pick a heavier goal weight for next time (starts one increment up).
+- You can also set or change a goal any time with the pencil on the Overload Tracker,
+  or Edit on an exercise card. A new goal starts with your next workout.
+
+**Purple sets:** a set's number box turns purple when it's at (or above) the goal
+weight and either reaches the goal reps or is marked as failure. Without a goal,
+sets stay black. An exercise's progress pip turns purple when all its required sets
+are purple.
+
+**Overload graph:** each dot is a workout where every required set reached the goal
+reps at the goal weight, for that exercise, equipment, and volume.
+
+Goals are stored as the choices you made; the graph and the "Goal Reached" badges are
+recalculated from your workout history, so editing or deleting a past workout keeps
+everything consistent.
 
 ## Flows
 - **Home:** no plan → Quickstart / Create a Workout Plan. Active plan → plan name
