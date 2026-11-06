@@ -3,7 +3,7 @@
 // set sheets, Workout Complete / past workout logs, and the plan wizard.
 // ============================================================================
 import { state } from './data.js';
-import { I, WORKOUT_ICONS, statusBar, fmt, esc, wt, wtTight, D } from './ui.js';
+import { I, WORKOUT_ICONS, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP } from './ui.js';
 import {
   db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
@@ -382,7 +382,7 @@ export function WorkoutSessionScreen() {
     <div class="sess-exdetail">
       <div class="sess-drow">
         <div class="sess-dleft">
-          <div class="dimg${img ? '' : ' generic'}">${img}</div>
+          <div class="dimg${img ? '' : ' generic ph'}">${img || PH_EQUIP()}</div>
           <div><div class="dlabel">Default Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div><div class="dlabel" style="margin-top:2px">At ${esc(sv ? sv.location : s.location)}</div></div>
         </div>
         <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
@@ -429,7 +429,7 @@ export function WorkoutSessionScreen() {
       </div>
       <div class="sess-prog">${segs}</div>
       <div class="sess-transport">
-        <span class="sess-exlabel">Exercise ${s.exIndex + 1} of ${total}</span>
+        <span class="sess-exlabel">Exercise <span class="sess-num"><span>${s.exIndex + 1}</span></span> of ${total}</span>
         <button class="sess-tbtn" data-action="sess-move" data-dir="-1" aria-label="Previous exercise" ${s.exIndex ? '' : 'disabled'}>${I.smChevL}</button>
         <button class="sess-tbtn" data-action="sess-pause" aria-label="Pause workout">${I.pause}</button>
         <button class="sess-tbtn" data-action="sess-move" data-dir="1" aria-label="Skip to next exercise" ${s.exIndex < total - 1 ? '' : 'disabled'}>${I.smChevR}</button>
@@ -462,7 +462,7 @@ export function ActiveSetSheet() {
         <div class="sw-grow">
           <button class="sw-adj" data-action="sw-w" data-d="-${big}">&minus;${big}</button>
           <button class="sw-adj" data-action="sw-w" data-d="-${small}">&minus;${small}</button>
-          <label class="sw-val tnum"><input class="sw-in" data-swfield="weight" inputmode="decimal" value="${fmt(a.weight)}" aria-label="Weight">${ul ? `<span class="u">${ul}</span>` : ''}</label>
+          <label class="sw-val tnum"><span class="sw-numwrap"><input class="sw-in" data-swfield="weight" inputmode="decimal" value="${fmt(a.weight)}" style="width:${Math.max(1, fmt(a.weight).length) + 0.3}ch" aria-label="Weight">${ul ? `<span class="u">${ul}</span>` : ''}</span></label>
           <button class="sw-adj" data-action="sw-w" data-d="${small}">+${small}</button>
           <button class="sw-adj" data-action="sw-w" data-d="${big}">+${big}</button>
         </div>
@@ -493,7 +493,7 @@ export function OverloadGoalSheet() {
   const g = state.goalEdit, [big, small] = steps(g.unit), ul = unitLabel(g.unit);
   return `
   <div class="scrim" data-action="close-goal">
-    <div class="sheet" data-stop>
+    <div class="sheet goal-sheet" data-stop>
       <div class="sheet-grab"></div>
       <div class="sheet-head"><div class="sheet-title purple">Overload Goal</div><div class="sheet-sub">Adjust your overload goal for...</div></div>
       <div class="goal-card">
@@ -539,19 +539,22 @@ export function UpdateGoalSheet() {
 // Pause (Release 1.0): confirm → home; the workout resumes from the home screen.
 export function PauseSheet() {
   const st = sessionStats(state.session);
+  const row = (action, icon, label, sub, danger) => `
+          <button class="xd-act pz-row" data-action="${action}">
+            <span class="xd-acticon${danger ? ' del' : ''}">${icon}</span>
+            <span class="pz-text"><span class="pz-label${danger ? ' danger' : ''}">${label}</span><span class="pz-sub">${sub}</span></span>
+            ${I.smChevR}
+          </button>`;
   return `
   <div class="scrim" data-action="close-pause">
     <div class="sheet" data-stop>
       <div class="sheet-grab"></div>
-      <div class="ug-body cf-body">
-        <div class="ug-titleblock"><div class="vs-title">Pause Workout?</div><div class="ug-text">Your progress is saved. Pick it back up from the home screen whenever you’re ready.</div></div>
-        <div class="pz-stack">
-          <div class="ug-actions"><button class="ug-btn" data-action="close-pause">Keep Going</button><button class="ug-btn dark" data-action="pause-confirm">Pause</button></div>
-          <div class="ug-actions">
-            ${st.sets ? '<button class="ug-btn" data-action="finish-early">Finish Now</button>' : ''}
-            <button class="ug-btn danger-ghost" data-action="discard-session">Discard</button>
-          </div>
-        </div>
+      <div class="mn-head"><div class="vs-title">Pause Workout?</div><div class="vs-sub">Your progress is saved either way.</div></div>
+      <div class="mn-list">
+        ${row('pause-confirm', I.pause, 'Pause Workout', 'Resume it from the home screen')}
+        ${st.sets ? row('finish-early', I.checkC('#1C1B1F'), 'Finish Workout Now', `Save the ${st.sets} set${st.sets === 1 ? '' : 's'} you’ve logged`) : ''}
+        ${row('close-pause', I.arrowR.replace(/fill="white"/g, 'fill="#1C1B1F"'), 'Keep Going', 'Back to your workout')}
+        ${row('discard-session', I.trash24, 'Discard Workout', 'Delete everything from this workout', true)}
       </div>
     </div>
   </div>`;

@@ -1514,3 +1514,54 @@ button:not(:disabled):active, label.xd-act:active{ transform:scale(.97); }
 .nav .icon-btn{ width:48px; height:48px; border:none; background:#fff; box-shadow:0 2px 7px rgba(0,0,0,.25); }
 .nav{ min-height:66px; }
 .wiz-header{ top:calc(var(--sb-h) + 66px); }
+
+/* no press shrink / darken on cells (buttons still get the soft press) */
+.cw-ex-row, .sess-exrow, .ex-row, .xd-eqrow, .wl-hist, .xd-act, .set-cell, .fl-row, .plan-dayrow, .swp-generic, .eqd-exrow, .wiz-eqrow, .wiz-card, .wiz-locard{ -webkit-tap-highlight-color:transparent; }
+.device .cw-ex-row:active, .device .sess-exrow:active, .device .ex-row:active, .device .xd-eqrow:active, .device .wl-hist:active,
+.device .xd-act:active, .device .set-cell:active, .device .fl-row:active, .device .plan-dayrow:active, .device .swp-generic:active,
+.device .eqd-exrow:active, .device .wiz-eqrow:active, .device .wiz-card:active, .device .wiz-locard:active{ transform:none; background-color:transparent; }
+.device .ex-row.picked:active{ background-color:#f4f2ff; }
+
+/* pause sheet: simple list */
+.pz-row{ text-align:left; }
+.pz-text{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.pz-label{ font-size:1rem; font-weight:600; color:#141414; }
+.pz-label.danger{ color:#cf2a0f; }
+.pz-sub{ font-size:0.8125rem; font-weight:500; color:#5f636b; }
+
+/* ---- no-photo placeholders: white icon on soft blue ---- */
+.ph{ background:#7EA6D3 !important; display:flex; align-items:center; justify-content:center; color:#fff; }
+.ph svg{ width:50%; height:50%; max-width:32px; max-height:32px; }
+.ex-tile.ph svg{ width:58%; height:58%; }
+.dimg.ph svg{ width:28px; height:28px; }
+
+/* ---- "Exercise N of 7" rolling number ---- */
+.sess-num{ position:relative; display:inline-flex; justify-content:center; min-width:1ch; overflow:visible; vertical-align:bottom; font-weight:700; }
+.sess-num > span{ display:inline-block; }
+.sess-num-ghost{ position:absolute; left:0; right:0; top:0; text-align:center; }
+
+/* ---- set logger: number centered, unit hanging off its right side ---- */
+.sw-val .sw-numwrap{ position:relative; display:inline-flex; align-items:baseline; }
+.sw-val:has(.u) .sw-in, .sw-val .sw-in{ text-align:center; min-width:1ch; padding:0; }
+.sw-val .sw-numwrap .u{ position:absolute; left:100%; bottom:.3em; margin-left:3px; }
+
+/* ---- Overload Goal sheet: more room, label tucked against the weight box ---- */
+.goal-sheet .sheet-head{ padding:16px 20px 4px; }
+.goal-sheet .goal-card{ margin-top:16px; }
+.goal-sheet .goal-wlabel{ font-size:0.8125rem; margin:28px 0 8px; }
+.goal-sheet .sw-group{ padding-top:0; }
+.goal-sheet .sheet-actions{ padding-top:32px; padding-bottom:28px; }
+.sw-val:has(.u){ min-width:116px; }
+@media (max-width:389px){ .device .sw-val:has(.u){ min-width:100px !important; } }
+
+/* ---- footers: sticky to the bottom of the screen instead of absolutely positioned.
+   Absolute footers inside the scrolling area jump to the top in iOS Safari while a page
+   transition runs. Sticky stays put in every browser, animation or not. ---- */
+.app > div:has(> .cw-footer, > .wiz-footer, > .sess-footer){ display:flex; flex-direction:column; min-height:100%; }
+.cw-footer, .wiz-footer, .sess-footer{ position:sticky; left:auto; right:auto; bottom:0; margin-top:auto; flex:none; }
+/* the space we used to reserve for the floating footer is no longer needed */
+.wiz-body{ padding-bottom:32px; overflow:visible; }
+.lu-screen.has-footer .cw-body, .cw-screen .cw-body{ padding-bottom:32px; }
+.ex-screen.has-footer, .wc-screen{ padding-bottom:0; }
+.sess-sets{ padding-bottom:24px; }
+.sess-exlabel{ white-space:nowrap; }

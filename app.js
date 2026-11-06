@@ -81,7 +81,7 @@ function render() {
   const pipFrom = state.screen === 'session' && lastScreen === 'session' && state.session ? lastExIndex : null;
   app.innerHTML = screenHTML();
   if (flip) animateExpandables(flip);
-  if (pipFrom != null && state.session && state.session.exIndex !== pipFrom) { slideCurrentPip(pipFrom, state.session.exIndex); animatePip(pipFrom); }
+  if (pipFrom != null && state.session && state.session.exIndex !== pipFrom) { slideCurrentPip(pipFrom, state.session.exIndex); animatePip(pipFrom); rollNumber(pipFrom + 1, state.session.exIndex > pipFrom ? 1 : -1); }
   lastExIndex = state.session ? state.session.exIndex : null;
   let modal = '';
   try { modal = state.modal && MODALS[state.modal] ? MODALS[state.modal]() : ''; } catch (err) { console.error(err); state.modal = null; }
@@ -139,6 +139,22 @@ function animateExpandables(before) {
     const caret = el.querySelector('.cw-ex-caret, .sess-excaret');
     if (caret) caret.animate([{ transform: 'rotate(180deg)' }, { transform: 'rotate(0)' }], { duration: 280, easing: EASE });
   }
+}
+
+/* ---- "Exercise N of 7": the old number rolls out, the new one rolls in with a little lift ---- */
+function rollNumber(oldN, dir) {
+  if (reduceMotion()) return;
+  const box = app.querySelector('.sess-num'), cur = box && box.firstElementChild;
+  if (!cur) return;
+  const ghost = document.createElement('span');
+  ghost.className = 'sess-num-ghost'; ghost.textContent = oldN;
+  box.appendChild(ghost);
+  const ease = 'cubic-bezier(.3,1.4,.5,1)';
+  ghost.animate([{ transform: 'none', opacity: 1, filter: 'blur(0)' }, { transform: `translateY(${-dir * 110}%) scale(.7)`, opacity: 0, filter: 'blur(1.5px)' }],
+    { duration: 260, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' }).onfinish = () => ghost.remove();
+  cur.animate([{ transform: `translateY(${dir * 110}%) scale(.7)`, opacity: 0, filter: 'blur(1.5px)' }, { transform: 'none', opacity: 1, filter: 'blur(0)' }],
+    { duration: 420, delay: 90, easing: ease, fill: 'backwards' });
+  box.animate([{ color: 'inherit' }, { color: getComputedStyle(app.querySelector('.sess-screen')).getPropertyValue('--sess-color').trim() || '#cf2a0f', offset: .45 }, { color: 'inherit' }], { duration: 700 });
 }
 
 /* ---- progress pips: the workout color slides (and stretches) from one pip to the next ---- */
@@ -957,6 +973,7 @@ device.addEventListener('input', (e) => {
   if (t.matches('[data-swfield]')) {
     const v = parseFloat(t.value.replace(',', '.'));
     if (!isNaN(v) && v >= 0) state.setDraft[t.dataset.swfield] = t.dataset.swfield === 'reps' ? Math.max(1, Math.round(v)) : v;
+    if (t.dataset.swfield === 'weight') t.style.width = (Math.max(1, t.value.length) + 0.3) + 'ch';
     return;
   }
   if (t.matches('[data-goalfield]')) { const v = parseFloat(t.value.replace(',', '.')); if (!isNaN(v) && v >= 0) state.goalEdit.weight = v; }

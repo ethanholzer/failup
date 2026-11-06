@@ -4,7 +4,7 @@
 // ============================================================================
 import { state, PURPLE, UPPER_BODY, LOWER_BODY } from './data.js';
 import { MUSCLES, EQUIPMENT } from './exercises.js';
-import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, statusBar, fmt, eqName, esc, wt, wtTight, D } from './ui.js';
+import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, statusBar, fmt, eqName, esc, wt, wtTight, D, PH_EQUIP, PH_EXERCISE } from './ui.js';
 import { WORKOUT_COLORS } from './data.js';
 import {
   db, EXERCISES, exById, GENERIC, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
@@ -113,7 +113,7 @@ export function TrackerScreen() {
   const sv = eqById(t.equip);
   const equipImg = sv && photoSrc(sv.photo)
     ? `<img class="tk-equip-img" src="${photoSrc(sv.photo)}" alt="">`
-    : `<div class="tk-equip-img" style="display:flex;align-items:center;justify-content:center"><svg width="26" height="22" viewBox="0 0 26 22" fill="none"><rect x="2" y="7" width="22" height="8" rx="2" stroke="#9aa0a6" stroke-width="1.6"/><path d="M6 4v14M20 4v14" stroke="#9aa0a6" stroke-width="2" stroke-linecap="round"/></svg></div>`;
+    : `<div class="tk-equip-img ph">${PH_EQUIP()}</div>`;
   const series = shown.map(a => ({ label: D.short(new Date(a.at)), w: a.weight }));
   return `
   <div class="tracker">
@@ -221,7 +221,7 @@ export function matchExercises() {
 }
 export function exTile(ex) {
   const p = photoSrc(ex.photo);
-  return p ? `<span class="ex-tile photo"><img src="${p}" alt=""></span>` : `<span class="ex-tile">${ex.abbr || (ex.muscle || 'EX').slice(0, 2).toUpperCase()}</span>`;
+  return p ? `<span class="ex-tile photo"><img src="${p}" alt=""></span>` : `<span class="ex-tile ph">${PH_EXERCISE()}</span>`;
 }
 function exRow(ex) {
   const s = state.exercises;
@@ -378,7 +378,7 @@ export function ExerciseWizard() {
     const savedRows = db.equipment.map(sv => {
       const ref = 'eq:' + sv.id, on = w.saved.includes(ref), p = photoSrc(sv.photo);
       return `<button class="wiz-eqrow" data-action="exwiz-saved" data-ref="${ref}">
-        <span class="eqimg">${p ? `<img src="${p}" alt="">` : ''}</span>
+        <span class="eqimg${p ? '' : ' ph'}">${p ? `<img src="${p}" alt="">` : PH_EQUIP()}</span>
         <span class="eqtext"><span class="eqname">${esc(sv.name)}</span><span class="eqloc">At ${esc(sv.location)}</span></span>
         <span class="wiz-check red ${on ? 'on' : ''}">${on ? I.checkW : ''}</span>
       </button>`;
@@ -490,7 +490,7 @@ export function ExerciseDetailScreen() {
         </button>`;
   const genRows = generic.map(g => `
         <button class="xd-eqrow" data-action="open-tracker" data-equip="${esc(g)}">
-          <span class="xd-eqimg generic"></span>
+          ${eqImg(null)}
           <span class="xd-eqtext"><span class="xd-eqname">${esc(g)}</span>${goalCount(g) ? `<span class="xd-eqsub">${goalTxt(goalCount(g)).slice(3)}</span>` : ''}</span>
           <span class="xd-chev">${I.smChevR}</span>
         </button>`).join('');
@@ -704,7 +704,7 @@ export function photoButton(target, label, cls) {
 }
 export function eqImg(sv, cls = 'xd-eqimg') {
   const p = sv && photoSrc(sv.photo);
-  return p ? `<img class="${cls}" src="${p}" alt="">` : `<span class="${cls} generic"></span>`;
+  return p ? `<img class="${cls}" src="${p}" alt="">` : `<span class="${cls} generic ph">${PH_EQUIP()}</span>`;
 }
 
 export function LocationSheet() {
