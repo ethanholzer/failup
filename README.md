@@ -31,7 +31,7 @@ refreshed visual design:
 - `ui.js`: icons exported from Figma, formatting helpers
 - `vendor/lottie_light.min.js`: lottie-web player (MIT) for the Workout Complete animation in `assets/complete.json`
 - `data.js`: workout colors + the in-memory UI state
-- `exercises.js`: the 502-movement library (generated from `goodfail_library.json`)
+- `exercises.js`: the 502-movement library (generated from `goodfail_library.json`), with photo ids and how-to steps
 - `styles.css`, `fonts/`, `assets/`
 
 ## What's saved
@@ -95,6 +95,18 @@ everything consistent.
   the plan from the home card's menu.
 - **Settings:** weight units for generic equipment, back up / restore (a JSON file
   that includes photos), clear exercise data, reset.
+
+## Exercise photos
+Library exercises show photos and how-to steps from [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
+(public domain, Unlicense). Photos load from GitHub as you scroll, matched to the equipment in use, and fall back to
+the dumbbell icon if they can't load. A photo you add to an exercise or a saved machine always wins.
+
+## Visual style
+Flat, inspired by Happn: a near-white canvas tinted toward FailUp purple (#F6F5FA), headers
+the same color as the page (a hairline appears once you scroll), soft square controls in a
+lavender gray, black rounded-rectangle primary buttons, big tight titles, white cards with a
+soft wide shadow, and color through pale tints (workout icons, badges, tags). RPE tags are
+pale purple; a set taken to failure (F) stays solid purple.
 
 ## Accessibility
 - Text sizes are in `rem`, and `index.html` reads the iPhone's Text Size setting (through Safari's

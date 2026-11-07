@@ -5,7 +5,7 @@
 import { state } from './data.js';
 import { I, WORKOUT_ICONS, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP } from './ui.js';
 import {
-  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc,
+  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc, exPhoto,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
 } from './store.js';
 import { eqImg } from './screens-library.js';
@@ -68,7 +68,7 @@ export function keepCurrentExercise(ctx, fn) {
 const itemGoal = it => it.goal ? it.goal.weight : goalFor(it.exId, it.equip, it.sets, it.reps);
 function exSub(it) {
   const v = vol(it), g = itemGoal(it), u = eqUnits(it.equip);
-  return `${exInfo(it).muscle} · ${v.sets}s x ${v.reps}r${g != null ? ` · <span class="lbs">${wtTight(g, u)}</span>` : ''}`;
+  return `<span class="mtag">${esc(exInfo(it).muscle)}</span>${v.sets}s x ${v.reps}r${g != null ? ` · <span class="lbs">${wtTight(g, u)}</span>` : ''}`;
 }
 export function exerciseCards(ctx) {
   if (!ctx.items.length) return `<div class="cw-empty">${ctx.readOnly ? 'No exercises in this workout yet.' : 'No exercises yet. Add your first one below.'}</div>`;
@@ -88,13 +88,11 @@ export function exerciseCards(ctx) {
             </div>
           </div>`;
     const logged = ctx.owner === 'lineup' && it.sets.length;
+    const photo = open ? ((sv && photoSrc(sv.photo)) || exPhoto(exById(it.exId), it.equip)) : '';
     const detail = !open ? '' : `
       <div class="cw-ex-detail">
         <div class="cw-detail-main">
-          <div class="cw-eq">
-            <div class="cw-eq-text"><div class="cw-label">Default Equipment</div><div class="cw-eq-name">${esc(eqLabel(it.equip))}${sv ? ` <span class="cw-eq-loc">· ${esc(sv.location)}</span>` : ''}</div></div>
-            ${ro ? '' : `<button class="cw-eq-swap" data-action="open-swap" data-i="${i}" aria-label="Change equipment">${I.swap24}</button>`}
-          </div>
+          ${photo ? `<div class="cw-photo"><img src="${photo}" alt="" onerror="this.parentNode.remove()"></div>` : ''}
           <div class="cw-steppers">${stepper('Sets', 'sets')}${stepper('Reps', 'reps')}</div>
           <div class="cw-goal">
             <div class="cw-goal-text"><div class="cw-label">Overload Goal</div><div class="cw-goal-val tnum">${v.sets} Sets · ${v.reps} Reps · <span class="lbs">${g != null ? wtTight(g, u) : 'No Goal Yet'}</span></div></div>
@@ -128,7 +126,7 @@ export function CreateWorkoutScreen() {
     ${statusBar()}
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">${c.mode === 'edit' ? 'Edit Workout' : 'Create A Workout'}</span></div>
     <div class="cw-body">
-      <div class="lu-tile cw-tile" style="background:${c.color}">${WORKOUT_ICONS[c.icon]}</div>
+      <div class="lu-tile cw-tile tint" style="--wc:${c.color}">${WORKOUT_ICONS[c.icon]}</div>
       <div class="cw-label">Workout Name</div>
       <label class="cw-name">
         <input class="cw-name-text cw-name-input" data-cwname value="${esc(c.name)}" placeholder="Name this workout" autocomplete="off">
@@ -165,7 +163,7 @@ export function LineupScreen() {
     <div class="cw-body">
       <div class="lu-head">
         <div class="lu-titlerow">
-          <div class="lu-tile" style="background:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
+          <div class="lu-tile tint" style="--wc:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
           <div><div class="lu-title">${esc(s.workoutName)}</div><div class="lu-count">${n ? `Workout completed ${plural(n, 'time')}` : 'First time doing this workout'}</div></div>
         </div>
         <div class="lu-loc">
@@ -191,7 +189,7 @@ export function WorkoutDetailsScreen() {
     ${statusBar()}
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Workout Details</span><button class="nav-create" data-action="details-edit">Edit</button></div>
     <div class="cw-body">
-      <div class="lu-head"><div class="lu-titlerow"><div class="lu-tile" style="background:${w.color}">${WORKOUT_ICONS[w.icon]}</div><div><div class="lu-title">${esc(w.name)}</div><div class="lu-count">${n ? `Completed ${plural(n, 'time')}` : 'Not done yet'}</div></div></div></div>
+      <div class="lu-head"><div class="lu-titlerow"><div class="lu-tile tint" style="--wc:${w.color}">${WORKOUT_ICONS[w.icon]}</div><div><div class="lu-title">${esc(w.name)}</div><div class="lu-count">${n ? `Completed ${plural(n, 'time')}` : 'Not done yet'}</div></div></div></div>
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
       ${exerciseCards(ctx)}
     </div>
@@ -209,7 +207,7 @@ function resumeCard() {
   return `
     <div class="wcard hm-card">
       <div class="wcard-top">
-        <div class="wcard-tile" style="background:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
+        <div class="wcard-tile tint" style="--wc:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
         <div class="wcard-text">
           <div class="wcard-name">${esc(s.workoutName)}</div>
           <div class="wcard-sub">${s.started ? 'Paused' : 'Ready to start'}</div>
@@ -248,7 +246,6 @@ export const QUOTES = [
 export function HomeScreen() {
   const plan = db.plan, pt = planToday();
   const top = `
-    <img class="home-hero" src="./assets/hero.jpg" alt="">
     <div class="home-top">${statusBar(true)}<div class="home-bar"><div class="home-logo"><span class="fail">Fail</span>Up</div>
       <div class="home-icons">
         <button class="home-ibtn" data-action="home-go" data-to="workouts" aria-label="Workouts">${I.book}</button>
@@ -256,13 +253,9 @@ export function HomeScreen() {
         <button class="home-ibtn" data-action="home-go" data-to="equipment" aria-label="Equipment">${I.equipment}</button>
         <button class="home-ibtn" data-action="home-go" data-to="settings" aria-label="Settings">${I.gear}</button>
       </div></div></div>`;
-  // the middle of the photo: paused workout and/or today's plan day, otherwise a quote
-  let center = resumeCard();
-  if (plan) center += `<div class="hm-label">Today · ${D.dow(new Date())}</div>${todayCard(pt, plan)}`;
-  if (!center) {
-    const [q, who] = QUOTES[(state.quoteIdx || 0) % QUOTES.length];
-    center = `<figure class="home-quote"><blockquote>“${esc(q)}”</blockquote><figcaption>${esc(who)}</figcaption></figure>`;
-  }
+  // the photo always carries the quote; a paused workout and today's plan day sit in the black panel below it
+  const [q, who] = QUOTES[(state.quoteIdx || 0) % QUOTES.length];
+  const center = `<img class="home-hero" src="./assets/hero.jpg" alt=""><figure class="home-quote"><blockquote>“${esc(q)}”</blockquote><figcaption>${esc(who)}</figcaption></figure>`;
   const quick = `<button class="home-cta quick" data-action="home-go" data-to="quickselect">${I.quickstart}<span>Quickstart</span></button>`;
   return `
   <div class="home${plan ? ' withplan' : ''}">${top}
@@ -276,6 +269,8 @@ export function HomeScreen() {
         </div>
         <button class="hm-kebab" data-action="plan-menu" aria-label="Plan options">${I.kebab}</button>
       </div>` : ''}
+      ${resumeCard()}
+      ${plan ? `<div class="hm-label">Today · ${D.dow(new Date())}</div>${todayCard(pt, plan)}` : ''}
       ${quick}
       ${plan ? '' : `<button class="home-cta" data-action="home-go" data-to="planwiz">${I.addCircle}<span>Create a Workout Plan</span></button>`}
     </div>
@@ -291,12 +286,12 @@ export function workoutMinutes(w) {
 }
 export function workoutCard(w, primary, opts = {}) {
   return `
-    <div class="wcard">
+    <div class="wcard" style="--wc:${w.color}">
       <div class="wcard-top">
-        <div class="wcard-tile" style="background:${w.color}">${WORKOUT_ICONS[w.icon]}</div>
+        <div class="wcard-tile tint" style="--wc:${w.color}">${WORKOUT_ICONS[w.icon]}</div>
         <div class="wcard-text">
           <div class="wcard-name">${esc(w.name)}</div>
-          <div class="wcard-sub">${esc(muscleList(w)) || 'No exercises yet'}</div>
+          ${w.exercises.length ? `<div class="mtags">${muscleList(w).split(', ').map(m => `<span class="mtag">${esc(m)}</span>`).join('')}</div>` : '<div class="wcard-sub">No exercises yet</div>'}
           <div class="wcard-sub">${w.exercises.length ? `~${workoutMinutes(w)} minutes, ` : ''}${w.exercises.length} Exercise${w.exercises.length === 1 ? '' : 's'}</div>
         </div>
         ${opts.menu ? `<button class="wcard-kebab" data-action="workout-menu" data-id="${w.id}" aria-label="Workout options">${I.kebab}</button>` : ''}
@@ -377,13 +372,15 @@ export function WorkoutSessionScreen() {
   }).join('');
   const last = lastDone(ex.exId, ex.equip);
   const lastTxt = last ? (() => { const w = workingSets(last.e); const top = w.length ? w.reduce((a, b) => (b.weight > a.weight ? b : a)) : null; return top ? `Last time: ${wt(top.weight, eqUnits(last.e.equip))} × ${top.reps} · ${D.short(new Date(last.s.finishedAt))}` : 'Logged before'; })() : 'Not logged yet';
-  const img = sv && photoSrc(sv.photo) ? `<img src="${photoSrc(sv.photo)}" alt="">` : '';
+  // the machine's own photo, else the library photo of this exercise on that kind of equipment
+  const imgSrc = (sv && photoSrc(sv.photo)) || exPhoto(exById(ex.exId), ex.equip);
+  const img = imgSrc ? `${PH_EQUIP()}<img src="${imgSrc}" alt="" onerror="this.remove()">` : '';
   const detail = !s.expanded ? '' : `
     <div class="sess-exdetail">
       <div class="sess-drow">
         <div class="sess-dleft">
-          <div class="dimg${img ? '' : ' generic ph'}">${img || PH_EQUIP()}</div>
-          <div><div class="dlabel">Default Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div><div class="dlabel" style="margin-top:2px">At ${esc(sv ? sv.location : s.location)}</div></div>
+          <div class="dimg generic ph${img ? ' photo' : ''}">${img || PH_EQUIP()}</div>
+          <div><div class="dlabel">Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div><div class="dlabel" style="margin-top:2px">At ${esc(sv ? sv.location : s.location)}</div></div>
         </div>
         <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
       </div>
@@ -420,8 +417,7 @@ export function WorkoutSessionScreen() {
           <span class="sess-exbadge tnum">${s.exIndex + 1}</span>
           <span class="sess-exmeta">
             <span class="sess-exname">${esc(info.name)}</span>
-            <span class="sess-exmuscle">${info.muscle}</span>
-            <span class="sess-exsub">${esc(eqLabel(ex.equip))} · ${esc(sv ? sv.location : s.location)}</span>
+            <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span>${esc(eqLabel(ex.equip))} · ${esc(sv ? sv.location : s.location)}</span>
           </span>
           <span class="sess-excaret">${s.expanded ? I.caretUp : I.caretDn}</span>
         </button>
@@ -446,17 +442,23 @@ export function WorkoutSessionScreen() {
 }
 
 // SetWidget: log a set, or edit one already logged (a.edit = { si } | { sid, ei, si })
+const TARGET = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>';
 export function ActiveSetSheet() {
   const a = state.setDraft;
   const [big, small] = steps(a.unit), ul = unitLabel(a.unit);
   const pct = Math.round(a.feel * 100);
   const thumbLeft = `calc(4px + (100% - 64px) * ${a.feel.toFixed(4)})`;  // 4px inset at both ends, same as top/bottom
+  const se = state.session && state.session.exercises[state.session.exIndex];
+  const swOf = se ? se.goal.sets : 0, swEx = se ? `${exInfo(se).name} · ${eqLabel(se.equip)}` : '';
   return `
   <div class="scrim" data-action="sess-cancelset">
     <div class="sheet" data-stop>
       <div class="sheet-grab"></div>
-      <div class="sw-label">${a.edit ? 'EDIT ' : ''}${a.type === 'warmup' ? 'WARMUP SET' : `SET ${a.setNum}`}</div>
-      ${a.hint ? `<div class="sw-hint">${a.hint}</div>` : ''}
+      <div class="sw-head">
+        <div class="sw-title">${a.edit ? 'Edit ' : ''}${a.type === 'warmup' ? `Warmup${a.setNum ? ' ' + a.setNum : ''}` : `Set ${a.setNum}`}${a.type !== 'warmup' && swOf ? `<span class="sw-of">${a.setNum > swOf ? 'Extra set' : `of ${swOf}`}</span>` : ''}</div>
+        ${swEx ? `<div class="sw-exname">${esc(swEx)}</div>` : ''}
+      </div>
+      ${a.hint ? `<div class="sw-hint${a.hint.goal ? ' goal' : ''}"><span class="sw-hint-ic">${a.hint.goal ? TARGET : I.trendUp('currentColor')}</span><span class="sw-hint-text"><span class="sw-hint-title tnum">${esc(a.hint.title)}</span><span class="sw-hint-sub">${esc(a.hint.sub)}</span></span></div>` : ''}
       <div class="sw-group">
         <div class="sw-glabel">Weight</div>
         <div class="sw-grow">
@@ -476,9 +478,10 @@ export function ActiveSetSheet() {
         </div>
       </div>
       <div class="sw-feelwrap">
+        <div class="sw-glabel">Effort Rating</div>
         <div class="sw-feel" data-feelbar>
           ${['#c8c4e7', '#beb9e7', '#b4ade7', '#aaa2e7', '#9f96e7', '#958be7', '#8b7fe7', '#8174e7', '#7768e7', '#426e8f'].map(c => `<span class="ff-seg" style="background:${c}"></span>`).join('')}
-          <div class="ff-text">${!a.touched ? 'HOW DID IT FEEL?' : rpeOf(a.feel) === 'F' ? 'FAILURE' : ''}</div>
+          <div class="ff-text">${a.touched && rpeOf(a.feel) === 'F' ? 'FAILURE' : ''}</div>
           <div class="ff-end"><span class="ff-f">F</span></div>
           <div class="ff-thumb" style="left:${thumbLeft}"><span class="ff-num">${rpeNum(a.feel)}</span></div>
         </div>
@@ -498,7 +501,7 @@ export function OverloadGoalSheet() {
       <div class="sheet-head"><div class="sheet-title purple">Overload Goal</div><div class="sheet-sub">Adjust your overload goal for...</div></div>
       <div class="goal-card">
         <div class="goal-exname">${esc(g.name)}</div>
-        <div class="goal-exmeta"><span class="mus">${g.muscle}</span> · ${g.sets} Sets x ${g.reps} Reps</div>
+        <div class="goal-exmeta"><span class="mus">${g.muscle}</span>${g.sets} Sets x ${g.reps} Reps</div>
         <div class="goal-exequip">${esc(eqLabel(g.equip))}</div>
       </div>
       <div class="goal-wlabel">GOAL WEIGHT${ul ? ` (${ul.toUpperCase()})` : ''}</div>
@@ -620,6 +623,7 @@ function outcomeLine(s, i, e) {
           </div>
         </div>`;
 }
+// One step per exercise, as tall as its working sets (relative to the biggest).
 export function SessionLogScreen() {
   const s = db.sessions.find(x => x.id === state.log.sid);
   if (!s) return '';
@@ -632,7 +636,7 @@ export function SessionLogScreen() {
       <div class="wc-card">
         <div class="cw-ex-row wc-exrow">
           <span class="cw-badge tnum" style="--cw-current:${s.color}">${i + 1}</span>
-          <span class="cw-ex-meta"><span class="cw-ex-name">${esc(info.name)}</span><span class="cw-ex-sub"><span class="mus">${esc(info.muscle)}</span> · ${esc(e.equipName || eqLabel(e.equip))}</span></span>
+          <span class="cw-ex-meta"><span class="cw-ex-name">${esc(info.name)}</span><span class="cw-ex-sub"><span class="mtag">${esc(info.muscle)}</span>${esc(e.equipName || eqLabel(e.equip))}</span></span>
           ${e.exId && exById(e.exId) ? `<button class="sess-dpill wc-trk" data-action="log-tracker" data-ei="${i}" aria-label="Open Overload Tracker">${I.graph}</button>` : ''}
         </div>
         <div class="set-list">${setList(e, u, si => `data-action="edit-logged-set" data-ei="${i}" data-si="${si}"`)}</div>
@@ -640,7 +644,7 @@ export function SessionLogScreen() {
       </div>`;
   }).join('');
   return `
-  <div class="wc-screen">
+  <div class="wc-screen" style="--wc:${s.color}">
     ${statusBar()}
     <div class="nav">
       ${complete ? '' : `<button class="icon-btn" data-action="back">${I.chevL}</button>`}
@@ -660,7 +664,7 @@ export function SessionLogScreen() {
         <div class="wc-stat goal"><b class="tnum">${hits}</b><span>Goals Reached</span></div>
       </div>
       <div class="wc-titlerow">
-        <div class="wcard-tile wc-tile" style="background:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
+        <div class="wcard-tile wc-tile tint" style="--wc:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
         <div class="wl-titleblock">
           <div class="wl-title">${esc(s.workoutName)}${s.edited ? '<span class="eqd-chip wl-edited">Edited</span>' : ''}</div>
           <div class="wl-help">${D.dow(d)}, ${d.getFullYear()} · ${plural(st.exercises, 'exercise')}</div>

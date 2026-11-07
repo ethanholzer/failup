@@ -117,3 +117,4 @@ export const D = {
 // No-photo placeholders: white icons on a soft blue tile.
 export const PH_EQUIP = () => I.equipment.replace(/fill="#111111"/g, 'fill="#fff"').replace(/stroke="#111111"/g, 'stroke="#fff"');
 export const PH_EXERCISE = () => WORKOUT_ICONS.dumbbell.replace(/currentColor/g, '#fff');
+

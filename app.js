@@ -6,7 +6,7 @@
 // onClick, `state` → UI store, `db` (store.js) → persisted store.
 // ============================================================================
 import { state, WORKOUT_COLORS, PURPLE } from './data.js';
-import { I, fmt, esc, wt, eqName, D } from './ui.js';
+import { I, fmt, esc, wt, eqName, D, WORKOUT_ICONS } from './ui.js';
 import {
   db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, increment,
   goalFor, goalKey, setGoal, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween,
@@ -79,7 +79,13 @@ function render() {
   const scrolls = sameModal ? [...overlay.querySelectorAll('*')].filter(el => el.scrollTop > 0).map(el => [el.className, el.scrollTop]) : [];
   const flip = state.screen === lastScreen ? measureExpandables() : null;
   const pipFrom = state.screen === 'session' && lastScreen === 'session' && state.session ? lastExIndex : null;
+  let oldCard = null, oldRect = null;
+  if (pipFrom != null && state.session && state.session.exIndex !== pipFrom) {
+    const c = app.querySelector('.sess-excard');
+    if (c) { oldRect = c.getBoundingClientRect(); oldCard = c.cloneNode(true); }
+  }
   app.innerHTML = screenHTML();
+  if (oldCard) slideExerciseCard(oldCard, oldRect, state.session.exIndex > pipFrom ? 1 : -1);
   if (flip) animateExpandables(flip);
   if (pipFrom != null && state.session && state.session.exIndex !== pipFrom) { slideCurrentPip(pipFrom, state.session.exIndex); animatePip(pipFrom); rollNumber(pipFrom + 1, state.session.exIndex > pipFrom ? 1 : -1); }
   lastExIndex = state.session ? state.session.exIndex : null;
@@ -202,6 +208,19 @@ function slideCurrentPip(from, to) {
 
 /* ---- progress pips: when you move on, a finished exercise fills in; a purple one blinks ---- */
 let lastExIndex = null;
+// Moving between exercises: the old card slides off and the new one slides in from the side you're heading to.
+function slideExerciseCard(old, rect, dir) {
+  const card = app.querySelector('.sess-excard');
+  if (!card || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const host = card.parentElement, hr = host.getBoundingClientRect();
+  old.removeAttribute('data-anim'); old.setAttribute('aria-hidden', 'true'); old.classList.add('sess-excard-ghost');
+  Object.assign(old.style, { position: 'absolute', left: `${rect.left - hr.left}px`, top: `${rect.top - hr.top}px`, width: `${rect.width}px`, margin: '0', pointerEvents: 'none', zIndex: 3 });
+  host.appendChild(old);
+  // carousel: both cards travel the same distance together, a gap apart, so they never overlap
+  const off = d => `translateX(calc(${d} * (100% + 24px)))`, opts = { duration: 460, easing: 'cubic-bezier(.65,0,.25,1)' };
+  old.animate([{ transform: off(0) }, { transform: off(-dir) }], { ...opts, fill: 'forwards' }).onfinish = () => old.remove();
+  card.animate([{ transform: off(dir) }, { transform: off(0) }], opts);
+}
 function animatePip(i) {
   if (reduceMotion()) return;
   const pip = app.querySelectorAll('.sess-progseg')[i];
@@ -216,6 +235,40 @@ function animatePip(i) {
       { backgroundColor: from, backgroundImage: 'linear-gradient(#5a5961,#5a5961)', backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' },
     ], { duration: 900, delay: SLIDE_MS / 2, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'backwards' });
   }
+}
+
+/* ---- start / finish surge: the workout color sweeps across, then purple; purple sweeps
+   out, then the workout color, with the workout's icon big in the middle. The screen
+   underneath changes while it's fully covered. ---- */
+let surgeUntil = 0, surging = false;
+function surge(color, icon, swap) {
+  if (surging) return;
+  if (reduceMotion()) { swap(); return; }
+  surging = true;
+  const T = { in1: 0, in2: 300, cover: 700, out2: 1020, out1: 1200, dur: 430, end: 1700 };
+  surgeUntil = Date.now() + T.end;
+  const layer = document.createElement('div');
+  layer.className = 'surge';
+  layer.innerHTML = `<div class="surge-band" style="background:${color}"></div><div class="surge-band purple"></div>
+    <div class="surge-icon">${WORKOUT_ICONS[icon] || WORKOUT_ICONS.kick}</div>`;
+  device.appendChild(layer);
+  const [c, pu] = layer.querySelectorAll('.surge-band'), ic = layer.querySelector('.surge-icon');
+  const IN = 'cubic-bezier(.7,0,.3,1)';
+  const sweep = (el, from, to, delay) => el.animate([{ transform: `translateX(${from}) skewX(-14deg)` }, { transform: `translateX(${to}) skewX(-14deg)` }],
+    { duration: T.dur, delay, easing: IN, fill: 'both' });
+  sweep(c, '-130%', '0%', T.in1);
+  sweep(pu, '-130%', '0%', T.in2);
+  sweep(pu, '0%', '130%', T.out2);
+  const last = sweep(c, '0%', '130%', T.out1);
+  ic.animate([
+    { opacity: 0, transform: 'translate(-50%,-50%) scale(.4) rotate(-12deg)' },
+    { opacity: 1, transform: 'translate(-50%,-50%) scale(1.08) rotate(0)', offset: .22 },
+    { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: .32 },
+    { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: .72 },
+    { opacity: 0, transform: 'translate(-50%,-50%) scale(1.25)' },
+  ], { duration: T.end - 120, delay: 120, easing: 'ease-out', fill: 'both' });
+  setTimeout(swap, T.cover);
+  last.onfinish = () => { layer.remove(); surging = false; };
 }
 
 /* ---- Workout Complete stat cards slide up into place, one after another ---- */
@@ -237,7 +290,11 @@ function mountLottie() {
     const anim = lottieAnim = window.lottie.loadAnimation({ container: el, renderer: 'svg', loop: false, autoplay: false, animationData: data });
     const still = lottiePlayed === state.log.sid || matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (still) anim.goToAndStop(anim.totalFrames - 1, true);
-    else { lottiePlayed = state.log.sid; anim.play(); slideInStats(); }
+    else {
+      lottiePlayed = state.log.sid;
+      const wait = Math.max(0, surgeUntil - Date.now());   // let the start/finish surge clear first
+      setTimeout(() => { anim.play(); slideInStats(); }, wait);
+    }
   };
   if (lottieData) play(lottieData);
   else fetch('./assets/complete.json').then(r => r.json()).then(d => { lottieData = d; if (el.isConnected) play(d); }).catch(() => {});
@@ -310,7 +367,9 @@ function setDraft(type, si) {
   const working = workingSets(e), warm = e.sets.filter(x => x.type === 'warmup');
   const last = lastDone(e.exId, e.equip);
   const lastTop = last ? Math.max(0, ...workingSets(last.e).map(x => x.weight)) : null;
-  const hint = type === 'working' ? (e.goal.weight != null ? `Goal: ${wt(e.goal.weight, u)} × ${e.goal.reps} reps, or to failure` : `No goal yet. Finish ${e.goal.sets} × ${e.goal.reps} and FailUp will suggest one`) : '';
+  const hint = type === 'working' ? (e.goal.weight != null
+    ? { goal: true, title: `${wt(e.goal.weight, u)} × ${e.goal.reps} reps`, sub: 'Overload goal. Hit it, or take it to failure.' }
+    : { goal: false, title: 'No goal yet', sub: `Finish ${e.goal.sets} × ${e.goal.reps} and FailUp will suggest one.` }) : null;
   if (si != null) {
     const st = e.sets[si];
     const num = st.type === 'working' ? working.indexOf(st) + 1 : 0;
@@ -430,7 +489,7 @@ function replaceRef(from, toFn, { history } = {}) {
 
 /* --------------------------- sharing (PNG summary) -------------------------- */
 async function shareSession(s) {
-  try { await document.fonts.load('80px "League Gothic"'); await document.fonts.load('700 40px Inter'); } catch {}
+  try { await document.fonts.load('800 40px Archivo'); await document.fonts.load('700 40px Archivo'); } catch {}
   const W = 1080, P = 64, st = sessionStats(s);
   const done = s.exercises.filter(e => e.sets.length);
   const rowH = 76, cardHead = 128;
@@ -439,40 +498,40 @@ async function shareSession(s) {
   const g = c.getContext('2d');
   const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
   g.fillStyle = '#ebebeb'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#5f636b'; g.font = '600 34px Inter'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#5f636b'; g.font = '600 34px Archivo'; g.textBaseline = 'alphabetic';
   g.fillText('Workout Complete', P, 170);
   g.fillStyle = '#fff'; rr(P, 200, W - P * 2, 130, 12); g.fill();
   g.fillStyle = s.color; g.fillRect(P, 200, 14, 130);
-  g.fillStyle = '#111'; g.font = '700 52px Inter'; g.fillText(s.workoutName, P + 40, 262);
-  g.fillStyle = s.color; g.font = '700 28px Inter';
+  g.fillStyle = '#111'; g.font = '700 52px Archivo'; g.fillText(s.workoutName, P + 40, 262);
+  g.fillStyle = s.color; g.font = '700 28px Archivo';
   g.fillText(`${st.exercises} EXERCISES • ${st.sets} SETS • ${st.fails} TO FAILURE`.toUpperCase(), P + 40, 306);
   let y = 370;
   for (const e of done) {
     const info = exInfo(e), u = eqUnits(e.equip), h = cardHead + e.sets.length * rowH + 10;
     g.fillStyle = '#fff'; rr(P, y, W - P * 2, h, 20); g.fill();
-    g.fillStyle = '#111'; g.font = '700 46px Inter'; g.fillText(info.name, P + 32, y + 66);
-    g.fillStyle = '#5f636b'; g.font = '700 24px Inter'; g.fillText(`${info.muscle} • ${e.equipName || eqLabel(e.equip)}`.toUpperCase(), P + 32, y + 104);
+    g.fillStyle = '#111'; g.font = '700 46px Archivo'; g.fillText(info.name, P + 32, y + 66);
+    g.fillStyle = '#5f636b'; g.font = '700 24px Archivo'; g.fillText(`${info.muscle} • ${e.equipName || eqLabel(e.equip)}`.toUpperCase(), P + 32, y + 104);
     let n = 0, ry = y + cardHead;
     for (const set of e.sets) {
       const warm = set.type === 'warmup', label = warm ? 'W' : String(++n);
       g.fillStyle = warm ? '#828282' : setPurple(set, e) ? PURPLE : '#111';
       rr(P + 32, ry, 56, 56, 6); g.fill();
-      g.fillStyle = '#fff'; g.font = '900 28px Inter'; g.textAlign = 'center'; g.fillText(label, P + 60, ry + 38); g.textAlign = 'left';
-      g.fillStyle = '#111'; g.font = '500 32px Inter'; g.fillText(`${wt(set.weight, u)} × ${set.reps} reps`, P + 112, ry + 39);
+      g.fillStyle = '#fff'; g.font = '900 28px Archivo'; g.textAlign = 'center'; g.fillText(label, P + 60, ry + 38); g.textAlign = 'left';
+      g.fillStyle = '#111'; g.font = '500 32px Archivo'; g.fillText(`${wt(set.weight, u)} × ${set.reps} reps`, P + 112, ry + 39);
       if (!warm) {
         const tag = isFail(set) ? 'F' : rpeOf(set.feel), tw = isFail(set) ? 48 : 112;
         g.strokeStyle = PURPLE; g.lineWidth = 2; g.fillStyle = isFail(set) ? PURPLE : '#fff';
         rr(W - P - 32 - tw, ry + 6, tw, 44, 6); g.fill(); g.stroke();
-        g.fillStyle = isFail(set) ? '#fff' : '#8174e7'; g.font = '700 22px Inter'; g.textAlign = 'center';
+        g.fillStyle = isFail(set) ? '#fff' : '#8174e7'; g.font = '700 22px Archivo'; g.textAlign = 'center';
         g.fillText(tag, W - P - 32 - tw / 2, ry + 36); g.textAlign = 'left';
       }
       ry += rowH;
     }
     y += h + 30;
   }
-  g.font = '64px "League Gothic"'; g.fillStyle = PURPLE; g.fillText('Fail', P, H - 60);
+  g.font = '800 52px Archivo'; g.fillStyle = PURPLE; g.fillText('Fail', P, H - 60);
   g.fillStyle = '#111'; g.fillText('Up', P + g.measureText('Fail').width, H - 60);
-  g.fillStyle = '#5f636b'; g.font = '500 26px Inter'; g.textAlign = 'right'; g.fillText(D.long(new Date(s.finishedAt)), W - P, H - 66); g.textAlign = 'left';
+  g.fillStyle = '#5f636b'; g.font = '500 26px Archivo'; g.textAlign = 'right'; g.fillText(D.long(new Date(s.finishedAt)), W - P, H - 66); g.textAlign = 'left';
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   const file = new File([blob], `failup-${s.workoutName.replace(/\W+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -487,6 +546,15 @@ function downloadBlob(blob, name) {
 }
 
 /* ---- the delegated click handler (≈ React onClick) ---- */
+// Press feedback: every tappable flashes light purple (a brighter purple on dark buttons).
+const isDark = el => { const m = getComputedStyle(el).backgroundColor.match(/\d+(\.\d+)?/g); if (!m || (m[3] != null && +m[3] < 0.5)) return false; const [r, g, b] = m.map(Number); return (0.299 * r + 0.587 * g + 0.114 * b) < 110; };
+device.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('button, label, a, .fl-row, [role="button"]');
+  if (!el || !device.contains(el) || el.closest('[data-feelbar]') || el.disabled) return;
+  el.classList.remove('flash', 'flash-dark'); void el.offsetWidth;
+  el.classList.add('flash'); if (isDark(el)) el.classList.add('flash-dark');
+  el.addEventListener('animationend', () => el.classList.remove('flash', 'flash-dark'), { once: true });
+}, { passive: true });
 device.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
@@ -629,8 +697,11 @@ function handle(a, d, el, ex) {
       break;
     }
     case 'lets-go':
-      s.started = true; s.startedAt = new Date().toISOString(); s.exIndex = 0; s.expanded = true;
-      state.stack = ['home']; state.screen = 'session'; break;
+      surge(s.color, s.icon, () => {
+        s.started = true; s.startedAt = new Date().toISOString(); s.exIndex = 0; s.expanded = true;
+        state.stack = ['home']; state.screen = 'session'; render();
+      });
+      return false;
     case 'resume-session': state.stack = ['home']; state.screen = s.started ? 'session' : 'lineup'; break;
     case 'discard-session':
       confirm({ title: 'Discard workout?', danger: true, label: 'Discard', text: s.started ? 'The sets you logged in this workout will be deleted.' : 'Today’s lineup changes will be cleared.',
@@ -644,8 +715,8 @@ function handle(a, d, el, ex) {
     case 'sess-pause': state.modal = 'pause'; break;
     case 'close-pause': state.modal = null; break;
     case 'pause-confirm': home(); break;
-    case 'finish-early': state.modal = null; finishSession(); break;
-    case 'sess-finish': finishSession(); break;
+    case 'finish-early': state.modal = null; render(); surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
+    case 'sess-finish': surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
     case 'complete-home': home(); break;
     case 'add-more':
       if (!reopenSession(state.log.sid)) break;

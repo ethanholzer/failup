@@ -3,21 +3,29 @@
 // Constants + the mutable UI state. Saved user data lives in store.js.
 // ============================================================================
 
-// 12 workout colors: bright and saturated. Includes the three starter workout colors.
+// 12 workout colors, picked to sit well next to FailUp purple (#6C5CE7): warm golds and
+// tangerine as its complements, cool aquas and blues beside it, pinks that lean away from red.
+// No red (it fights the purple) and no purple (that color means "goal reached").
 export const WORKOUT_COLORS = [
-  { name: 'Red',     hex: '#CF2A0F' },
-  { name: 'Orange',  hex: '#F25C05' },
-  { name: 'Amber',   hex: '#F5A400' },
-  { name: 'Lime',    hex: '#5DB80F' },
-  { name: 'Green',   hex: '#0FA958' },
-  { name: 'Teal',    hex: '#00A6A6' },
-  { name: 'Sky',     hex: '#1E90F0' },
-  { name: 'Steel',   hex: '#426E8F' },
-  { name: 'Purple',  hex: '#6C5CE7' },
-  { name: 'Violet',  hex: '#A23BEC' },
-  { name: 'Magenta', hex: '#E5309B' },
-  { name: 'Pink',    hex: '#FF4F6D' },
-]
+  { name: 'Tangerine', hex: '#FF7A1A' },
+  { name: 'Marigold',  hex: '#FFB300' },
+  { name: 'Lime',      hex: '#8CCB2E' },
+  { name: 'Mint',      hex: '#1FC79A' },
+  { name: 'Pine',      hex: '#0B8A7A' },
+  { name: 'Aqua',      hex: '#12C2E0' },
+  { name: 'Azure',     hex: '#2B8CFF' },
+  { name: 'Steel',     hex: '#4F7A9A' },
+  { name: 'Midnight',  hex: '#24305E' },
+  { name: 'Fuchsia',   hex: '#E23FB4' },
+  { name: 'Hot Pink',  hex: '#FF4F8B' },
+  { name: 'Blush',     hex: '#FF8FAB' },
+];
+// Old palette → new, so saved workouts and history move over.
+export const COLOR_MIGRATION = {
+  '#CF2A0F': '#FF7A1A', '#F25C05': '#FF7A1A', '#F5A400': '#FFB300', '#5DB80F': '#8CCB2E',
+  '#0FA958': '#0B8A7A', '#00A6A6': '#12C2E0', '#1E90F0': '#2B8CFF', '#426E8F': '#4F7A9A',
+  '#6C5CE7': '#1FC79A', '#A23BEC': '#24305E', '#E5309B': '#E23FB4', '#FF4F6D': '#FF4F8B',
+};
 
 export const PURPLE = '#6c5ce7'; // overload / progress — always purple on the tracker
 

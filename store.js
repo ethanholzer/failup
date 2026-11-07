@@ -7,6 +7,7 @@
 // deleting a past workout always leaves goals consistent.
 // ============================================================================
 import { EXERCISES as LIBRARY } from './exercises.js';
+import { COLOR_MIGRATION } from './data.js';
 
 const KEY = 'failup.v1';
 export const SCHEMA = 1;
@@ -34,6 +35,20 @@ const SEED_CUSTOM = [
   { id: 'seed:bajan-cable-curl', name: 'Bajan Cable Curl', muscle: 'Biceps', abbr: 'BI', equipment: ['Cable Machine'], secondary: ['forearms'], custom: true },
 ];
 
+// Library photos + steps for the seeded exercises (borrowed from the closest library movement).
+const SEED_MEDIA = {
+  'seed:tricep-pulldown': 'Triceps Pushdown|Triceps',
+  'seed:chest-fly': null,
+  'seed:bajan-cable-curl': null,
+};
+const SEED_IMGS = { 'seed:chest-fly': { 'Cable Machine': 'Cable_Crossover', Dumbbell: 'Dumbbell_Flyes' }, 'seed:bajan-cable-curl': { 'Cable Machine': 'Standing_Biceps_Cable_Curl' } };
+function seedMedia(id) {
+  const key = SEED_MEDIA[id], out = {};
+  if (key) { const [n, m] = key.split('|'); const b = LIBRARY.find(x => x.name === n && x.muscle === m); if (b) { out.imgs = b.imgs; out.steps = b.steps; } }
+  if (SEED_IMGS[id]) out.imgs = SEED_IMGS[id];
+  return out;
+}
+
 // The live exercise list (library + custom, minus deleted, with edits applied).
 export const EXERCISES = [];
 export const exById = id => EXERCISES.find(e => e.id === id);
@@ -54,15 +69,15 @@ function seedWorkouts() {
     exercises: list.map(([n, m, equip]) => ({ exId: libId(n, m), name: n, muscle: m, sets: 3, reps: m === 'Abs' || m === 'Calves' ? 15 : 8, equip })).filter(x => x.exId),
   });
   return [
-    w('Chest & Arms', '#CF2A0F', 'kick', [
+    w('Chest & Arms', '#FF7A1A', 'kick', [
       ['Bench Press', 'Chest', 'Barbell'], ['Bicep Curl', 'Biceps', 'Dumbbell'], ['Tricep Pulldown', 'Triceps', 'Cable Machine'],
       ['Chest Fly', 'Chest', 'Cable Machine'], ['Preacher Curl', 'Biceps', 'Barbell'], ['Tricep Kickback', 'Triceps', 'Dumbbell'],
       ['Bajan Cable Curl', 'Biceps', 'Cable Machine']]),
-    w('Back & Shoulders', '#426E8F', 'dumbbell', [
+    w('Back & Shoulders', '#2B8CFF', 'dumbbell', [
       ['Deadlift', 'Back', 'Barbell'], ['Bent Over Row', 'Back', 'Barbell'], ['Close-Grip Front Lat Pulldown', 'Back', 'Cable Machine'],
       ['Shoulder Press', 'Shoulders', 'Dumbbell'], ['Face Pull', 'Shoulders', 'Cable Machine'], ['Rear Delt Row', 'Shoulders', 'Barbell'],
       ['One-Arm Upright Row', 'Shoulders', 'Dumbbell']]),
-    w('Legs & Abs', '#6C5CE7', 'kick', [
+    w('Legs & Abs', '#1FC79A', 'kick', [
       ['Squat', 'Quads', 'Barbell'], ['Leg Press', 'Quads', 'Specialized Machine'], ['Romanian Deadlift', 'Hamstrings', 'Barbell'],
       ['Hip Thrust', 'Glutes', 'Barbell'], ['Calf Raise', 'Calves', 'Smith Machine'], ['Crunches', 'Abs', 'Bodyweight'],
       ['Plank', 'Abs', 'Bodyweight']]),
@@ -92,7 +107,7 @@ let storageOk = true;
 function buildExercises() {
   EXERCISES.length = 0;
   const del = new Set(db.exDeleted);
-  for (const c of db.exCustom) EXERCISES.push({ ...c });
+  for (const c of db.exCustom) EXERCISES.push({ ...seedMedia(c.id), ...c });
   for (const [id, base] of BASE) {
     if (del.has(id)) continue;
     EXERCISES.push({ ...base, ...(db.exOverrides[id] || {}) });
@@ -104,10 +119,18 @@ export function load() {
   try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { storageOk = false; }
   replaceDb(saved && saved.v ? { ...freshDb(), ...saved } : freshDb());
 }
+// Move workouts, history and a paused workout onto the current color palette.
+function migrateColors() {
+  const m = c => (c && COLOR_MIGRATION[String(c).toUpperCase()]) || c;
+  for (const w of db.workouts || []) w.color = m(w.color);
+  for (const s of db.sessions || []) s.color = m(s.color);
+  if (db.active) db.active.color = m(db.active.color);
+}
 function replaceDb(next) {
   for (const k of Object.keys(db)) delete db[k];
   Object.assign(db, next);
   db.settings = { units: 'lbs', location: 'Home', ...(db.settings || {}) };
+  migrateColors();
   buildExercises();
   invalidate();
 }
@@ -307,3 +330,17 @@ export function planToday(plan = db.plan, today = dayKey()) {
   const index = n % plan.splitDays;
   return { status: 'active', index, day: plan.days[index], dayNum: n + 1, total };
 }
+
+/* ---- library photos (free-exercise-db) ---- */
+const FEDB = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+// The library photo for an exercise, matched to the equipment in use (a saved machine counts as its type).
+export function libPhoto(ex, ref) {
+  const ids = ex && ex.imgs, keys = ids ? Object.keys(ids) : [];
+  if (!keys.length) return '';
+  let want = null;
+  if (ref) { const sv = eqById(ref); want = genericOf(sv ? eqType(sv) : ref); }
+  const k = keys.find(x => genericOf(x) === want) || keys[0];
+  return FEDB + ids[k] + '/0.jpg';
+}
+// The user's own photo wins; otherwise the library photo.
+export const exPhoto = (ex, ref) => (ex && photoSrc(ex.photo)) || libPhoto(ex, ref);

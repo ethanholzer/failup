@@ -8,7 +8,7 @@ import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, statusBar, fmt, eqName, esc, wt, w
 import { WORKOUT_COLORS } from './data.js';
 import {
   db, EXERCISES, exById, GENERIC, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
-  derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks,
+  derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto,
 } from './store.js';
 import { rpeOf, setRow } from './screens-workout.js';
 
@@ -51,21 +51,21 @@ export function overloadChart(series, goalWeight, unit) {
   const pts = series.map((d, i) => ({ px: x(i), py: y(d.w), ...d }));
   const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p.px.toFixed(1)} ${p.py.toFixed(1)}`).join(' ');
   const grid = yTicks.map(v => `<line x1="${plotL}" x2="${plotR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="#e4e4e8" stroke-width="1" stroke-dasharray="2 5"/>`).join('');
-  const yLabels = yTicks.map(v => `<text x="${W - 32}" y="${(y(v) + 4).toFixed(1)}" font-family="Inter" font-size="13" fill="#000">${fmt(v)}</text>`).join('');
+  const yLabels = yTicks.map(v => `<text x="${W - 32}" y="${(y(v) + 4).toFixed(1)}" font-family="Archivo" font-size="13" fill="#000">${fmt(v)}</text>`).join('');
   // label at most 5 points so they never collide
   const every = Math.max(1, Math.ceil(n / 5));
   const xLabels = pts.map((p, i) => (i % every && i !== n - 1) ? '' :
-    `<text x="${p.px.toFixed(1)}" y="${plotB + 18}" font-family="Inter" font-size="11" fill="#000" text-anchor="middle">${p.label}</text>`).join('');
+    `<text x="${p.px.toFixed(1)}" y="${plotB + 18}" font-family="Archivo" font-size="11" fill="#000" text-anchor="middle">${p.label}</text>`).join('');
   const dots = pts.map(p => `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="5" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
   if (empty) return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet">
     ${grid}${goalWeight != null ? yLabels : ''}
-    <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Inter" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
+    <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Archivo" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
   </svg>`;
   const band = goalWeight == null ? '' : `
     <rect x="${goalX.toFixed(1)}" y="${y(goalWeight).toFixed(1)}" width="${(plotR - goalX).toFixed(1)}" height="${(plotB - y(goalWeight)).toFixed(1)}" fill="url(#goalgrad)"/>
     <line x1="${goalX.toFixed(1)}" x2="${plotR}" y1="${y(goalWeight).toFixed(1)}" y2="${y(goalWeight).toFixed(1)}" stroke="${PURPLE}" stroke-width="2"/>
-    <text x="${(goalX + 4).toFixed(1)}" y="${(y(goalWeight) - 7).toFixed(1)}" font-family="Inter" font-weight="700" font-size="10" fill="${PURPLE}" letter-spacing=".04em">GOAL</text>`;
+    <text x="${(goalX + 4).toFixed(1)}" y="${(y(goalWeight) - 7).toFixed(1)}" font-family="Archivo" font-weight="700" font-size="10" fill="${PURPLE}" letter-spacing=".04em">GOAL</text>`;
   return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Progressive overload chart">
     <defs><linearGradient id="goalgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${PURPLE}" stop-opacity="0.5"/><stop offset="1" stop-color="${PURPLE}" stop-opacity="0"/></linearGradient></defs>
@@ -219,9 +219,10 @@ export function matchExercises() {
     return true;
   });
 }
-export function exTile(ex) {
-  const p = photoSrc(ex.photo);
-  return p ? `<span class="ex-tile photo"><img src="${p}" alt=""></span>` : `<span class="ex-tile ph">${PH_EXERCISE()}</span>`;
+// Exercise thumbnail: your photo, else the library photo; the dumbbell sits underneath in case it can't load.
+export function exTile(ex, ref) {
+  const p = exPhoto(ex, ref);
+  return `<span class="ex-tile ph${p ? ' photo' : ''}">${PH_EXERCISE()}${p ? `<img src="${p}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
 }
 function exRow(ex) {
   const s = state.exercises;
@@ -231,7 +232,7 @@ function exRow(ex) {
       ${exTile(ex)}
       <span class="ex-meta">
         <span class="ex-name">${esc(ex.name)}</span>
-        <span class="ex-sub"><span class="mus">${ex.muscle}</span> · ${esc(exEquipSummary(ex.equipment))}</span>
+        <span class="ex-sub"><span class="mus">${ex.muscle}</span>${esc(exEquipSummary(ex.equipment))}</span>
       </span>
       ${multi ? `<span class="wiz-check red ${on ? 'on' : ''}">${on ? I.checkW : ''}</span>` : `<span class="ex-chev">${I.smChevR}</span>`}
     </button>`;
@@ -282,7 +283,6 @@ export function ExercisesScreen() {
       <span class="nav-title">${title}</span>
       ${canCreate ? '<button class="nav-create" data-action="create-exercise-start">Create</button>' : ''}
     </div>
-    ${s.swapping ? `<div class="ex-hint">Showing other ${esc(s.muscles[0] || '')} exercises. Clear the filter to see everything.</div>` : ''}
     <div class="ex-search">
       ${I.search}
       <input type="text" placeholder="Search exercises" data-search value="${esc(s.search)}">
@@ -290,8 +290,8 @@ export function ExercisesScreen() {
     <div class="ex-filters">
       <button class="chip-drop ${s.muscles.length ? 'active' : ''}" data-action="open-muscle">Muscle${s.muscles.length ? ' (' + s.muscles.length + ')' : ''} ${I.chevDown}</button>
       <button class="chip-drop ${s.equipment.length ? 'active' : ''}" data-action="open-equipment">Equipment${s.equipment.length ? ' (' + s.equipment.length + ')' : ''} ${I.chevDown}</button>
-      ${chips.map(c => `<span class="chip-active">${c.label}<button data-action="remove-chip" data-type="${c.type}" data-name="${c.raw}">${I.x}</button></span>`).join('')}
     </div>
+    ${chips.length ? `<div class="ex-chips">${chips.map(c => `<span class="chip-active">${c.label}<button data-action="remove-chip" data-type="${c.type}" data-name="${c.raw}" aria-label="Remove ${esc(c.label)}">${I.x}</button></span>`).join('')}</div>` : ''}
     <div id="ex-list">${exListInner()}</div>
     ${s.mode === 'quickadd' ? `<div class="cw-footer"><button class="btn ghost" data-action="back">Cancel</button><button class="btn solid" data-action="quickadd-done" ${s.picked.length ? '' : 'disabled'}>Add ${s.picked.length || ''} Exercise${s.picked.length === 1 ? '' : 's'}</button></div>` : ''}
   </div>`;
@@ -495,13 +495,14 @@ export function ExerciseDetailScreen() {
           <span class="xd-chev">${I.smChevR}</span>
         </button>`).join('');
   const stat = (label, val) => `<div class="xd-stat"><div class="xd-statlabel">${label}</div>${val}</div>`;
-  const p = photoSrc(e.photo);
+  const own = photoSrc(e.photo), p = exPhoto(e);
+  const howTo = (e.steps || []).filter(Boolean);
   return `
   <div class="xd-screen">
     <div class="xd-hero">
       ${statusBar()}
       <button class="icon-btn xd-back" data-action="back" aria-label="Back">${I.chevL}</button>
-      ${p ? `<img class="xd-heroimg" src="${p}" alt="">${photoButton('exercise', 'Change photo', 'xd-changephoto')}` : `
+      ${p ? `<img class="xd-heroimg" src="${p}" alt="" onerror="this.remove()">${photoButton('exercise', own ? 'Change photo' : 'Use your own photo', 'xd-changephoto')}` : `
       <div class="xd-empty">${I.photoGlyph}<div class="xd-empty-title">No photo yet</div><div class="xd-empty-help">Add one to make this exercise easy to spot</div>${photoButton('exercise', 'Add a photo', 'xd-addphoto')}</div>`}
     </div>
     <div class="xd-content">
@@ -535,6 +536,11 @@ export function ExerciseDetailScreen() {
         ${genRows}
         ${others.length ? `<div class="xd-sechdr"><span>OTHER SAVED EQUIPMENT (${others.length})</span></div>${others.map(savedRow).join('')}` : ''}
       </div>
+      ${howTo.length ? `
+      <div class="xd-card xd-howto">
+        <div class="xd-hgroup"><div class="xd-h">How to do it</div></div>
+        <ol class="xd-steps">${howTo.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+      </div>` : ''}
     </div>
     <div class="xd-actions">
       <button class="xd-act" data-action="edit-exercise"><span class="xd-acticon">${I.editPen}</span><span>Edit Exercise</span>${I.smChevR}</button>
@@ -773,7 +779,7 @@ export function mergeExList() {
   return list.map(x => `
     <button class="ex-row" data-action="merge-pick-ex" data-id="${x.id}">
       ${exTile(x)}
-      <span class="ex-meta"><span class="ex-name">${esc(x.name)}</span><span class="ex-sub"><span class="mus">${x.muscle}</span> · ${esc(exEquipSummary(x.equipment))}</span></span>
+      <span class="ex-meta"><span class="ex-name">${esc(x.name)}</span><span class="ex-sub"><span class="mus">${x.muscle}</span>${esc(exEquipSummary(x.equipment))}</span></span>
       <span class="ex-chev">${I.smChevR}</span>
     </button>`).join('') || '<div class="mg-empty">No exercises match.</div>';
 }

@@ -1,12 +1,6 @@
 /* fonts bundled locally (OFL) so the prototype works without a CDN */
 @font-face{ font-family:'Cormorant Garamond'; font-weight:500; font-style:italic; font-display:swap; src:url('./fonts/cormorant-garamond-latin-500-italic.woff2') format('woff2'); }
-@font-face{ font-family:'League Gothic'; font-weight:400; font-style:normal; font-display:swap; src:url('./fonts/league-gothic-latin-400-normal.woff2') format('woff2'); }
-@font-face{ font-family:'Inter'; font-weight:400; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-400-normal.woff2') format('woff2'); }
-@font-face{ font-family:'Inter'; font-weight:500; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-500-normal.woff2') format('woff2'); }
-@font-face{ font-family:'Inter'; font-weight:600; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-600-normal.woff2') format('woff2'); }
-@font-face{ font-family:'Inter'; font-weight:700; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-700-normal.woff2') format('woff2'); }
-@font-face{ font-family:'Inter'; font-weight:800; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-800-normal.woff2') format('woff2'); }
-@font-face{ font-family:'Inter'; font-weight:900; font-style:normal; font-display:swap; src:url('./fonts/inter-latin-900-normal.woff2') format('woff2'); }
+@font-face{ font-family:'Archivo'; font-weight:100 900; font-style:normal; font-display:swap; src:url('./fonts/archivo-latin-wght-normal.woff2') format('woff2'); }
 
 /* ==========================================================================
    FailUp — design tokens + components
@@ -44,8 +38,8 @@
   --shadow-sm: 0 2px 8px rgba(20,20,23,.10);
 
   /* type */
-  --sans: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
-  --display: 'League Gothic', 'Inter', sans-serif; /* slide-up modal moments only */
+  --sans: 'Archivo', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Archivo', sans-serif;
 
   /* ---- 12 workout colors (cool-forward, all AA 4.9:1 on white for small text) ---- */
   --wc-slate:   #4573A8;
@@ -212,7 +206,7 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; colo
 .tk-hrow .h-delta.first{ color:var(--sec); font-weight:500; }
 
 /* ======================================================================
-   SLIDE-UP MODAL (set tracker / volume filter) — League Gothic moment
+   SLIDE-UP MODAL (set tracker / volume filter) 
    ====================================================================== */
 .scrim{
   position:absolute; inset:0; background:rgba(13,13,18,.45);
@@ -793,7 +787,7 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; colo
 .goal-exequip{ font-size:0.875rem; color:var(--sec); margin-top:2px; }
 .goal-wlabel{ text-align:center; font-size:0.625rem; font-weight:700; color:var(--purple); letter-spacing:.07em; margin:18px 0 12px; }
 
-/* keep League Gothic modal titles on one line like Figma */
+/* modal titles */
 .sheet-title{ white-space:nowrap; }
 
 /* progress segments: PR (overload hit) = purple, done = dark, current = workout color */
@@ -822,7 +816,7 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; colo
 .sw-feel .ff-thumb{ position:absolute; top:4px; width:56px; height:56px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.25); pointer-events:none; }
 /* fixed "Failure" terminus: a purple circle with a navy "F" at the right end */
 .sw-feel .ff-end{ position:absolute; right:0; top:0; width:64px; height:64px; border-radius:50%; background:#6c5ce7; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-.sw-feel .ff-f{ position:static; transform:none; color:#fff; font-family:'Inter',sans-serif; font-weight:700; font-size:1.625rem; line-height:1; }
+.sw-feel .ff-f{ position:static; transform:none; color:#fff; font-family:'Archivo',sans-serif; font-weight:700; font-size:1.625rem; line-height:1; }
 
 /* ======================================================================
    Workout lists — Quick Select / Logs / Assign to Plan (Figma 84765, 84838, 84897)
@@ -869,11 +863,11 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; colo
 .home-top{ position:absolute; left:0; right:0; top:0; height:132px; background:#111; }
 .home-top .statusbar{ height:54px; }
 .home-bar{ position:absolute; left:20px; right:20px; top:64px; height:48px; display:flex; align-items:center; gap:10px; }
-.home-logo{ flex:1; font-family:'League Gothic',sans-serif; font-size:3rem; line-height:3rem; color:#fff; }
+.home-logo{ flex:1; font-family:var(--sans); font-size:3rem; line-height:3rem; color:#fff; }
 .home-logo .fail{ color:#6c5ce7; }
 .home-icons{ display:flex; gap:10px; }
 .home-ibtn{ width:48px; height:48px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; }
-.home-headline{ position:absolute; left:16px; right:32px; top:152px; font-family:'League Gothic',sans-serif; font-size:4.5rem; line-height:4.375rem; color:#fff; }
+.home-headline{ position:absolute; left:16px; right:32px; top:152px; font-family:var(--sans); font-size:4.5rem; line-height:4.375rem; color:#fff; }
 .home-headline .hl{ color:#8e80ff; }
 .home-panel{ position:absolute; left:0; right:0; top:636px; bottom:0; background:#111; padding:24px 16px 0; display:flex; flex-direction:column; gap:16px; }
 .home-cta{ height:58px; border-radius:8px; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; gap:4px; font-size:0.9375rem; font-weight:600; box-shadow:0 8px 24px rgba(20,20,23,.08), 0 1px 2px rgba(20,20,23,.05); }
@@ -981,7 +975,7 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; colo
 .xd-details{ padding:20px; display:flex; flex-direction:column; gap:14px; }
 .xd-name{ font-size:1.5rem; font-weight:600; line-height:1.875rem; color:#141414; }
 .xd-tags{ display:flex; flex-wrap:wrap; gap:8px; }
-.xd-tag{ height:27px; padding:0 11px; border-radius:9px; background:#f6f7f8; font-size:0.7812rem; font-weight:500; color:#4d5259; display:inline-flex; align-items:center; }
+.xd-tag{ height:27px; padding:0 11px; border-radius:9px; background:#f4f4f5; font-size:0.7812rem; font-weight:500; color:#4d5259; display:inline-flex; align-items:center; }
 .xd-rule{ height:1px; background:#ececee; }
 .xd-kv{ display:flex; justify-content:space-between; gap:8px; font-size:0.875rem; font-weight:500; line-height:1.062rem; color:#141414; }
 .xd-kv span:first-child{ color:#5f636b; }
@@ -1071,7 +1065,7 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; colo
 /* Update Goal Weight sheet (Figma 1164:85154) */
 .ug-body{ padding:12px 16px 32px; display:flex; flex-direction:column; gap:48px; }
 .ug-titleblock{ display:flex; flex-direction:column; gap:4px; }
-.ug-title{ font-family:'League Gothic',sans-serif; font-size:3.375rem; line-height:3rem; color:#6c5ce7; text-transform:uppercase; }
+.ug-title{ font-family:var(--sans); font-size:3.375rem; line-height:3rem; color:#6c5ce7; text-transform:uppercase; }
 .ug-text{ font-size:0.875rem; font-weight:500; line-height:1.062rem; color:#646464; }
 .ug-graphic{ position:relative; width:291px; height:136px; margin:0 auto; }
 .ug-kb{ position:absolute; }
@@ -1151,7 +1145,7 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; colo
 .vs-body{ padding:12px 16px 32px; display:flex; flex-direction:column; gap:55px; }
 .vs-top{ display:flex; flex-direction:column; gap:32px; }
 .vs-titleblock{ display:flex; flex-direction:column; gap:4px; }
-.vs-title{ font-family:'League Gothic',sans-serif; font-size:3.375rem; line-height:3rem; color:#111; text-transform:uppercase; }
+.vs-title{ font-family:var(--sans); font-size:3.375rem; line-height:3rem; color:#111; text-transform:uppercase; }
 .vs-sub{ font-size:0.875rem; font-weight:500; line-height:1.062rem; color:#646464; }
 .vs-info{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .vs-main{ font-size:0.9375rem; font-weight:500; color:#111; line-height:1.25rem; }
@@ -1195,7 +1189,7 @@ label.xd-addphoto, label.imgbtn{ display:inline-flex; align-items:center; justif
 
 .loc-body{ gap:24px; }
 .loc-body .wiz-loclist{ margin-top:0; }
-.loc-body .wiz-locard{ background:#f6f7f8; box-shadow:none; }
+.loc-body .wiz-locard{ background:#f4f4f5; box-shadow:none; }
 .loc-body .wiz-locard.on{ background:#fff; border-color:#111; }
 .loc-body .wiz-locard.add{ background:transparent; border:2px solid #ebebeb; }
 
@@ -1583,3 +1577,252 @@ button:not(:disabled):active, label.xd-act:active{ transform:scale(.97); }
 .ga-picker{ display:flex; flex-direction:column; align-items:center; }
 .ga-picker .goal-wlabel{ margin:4px 0 8px; font-size:0.8125rem; }
 .ga-from{ margin-top:10px; font-size:0.875rem; font-weight:500; color:#5f636b; }
+
+/* ============================================================================
+   Flat pass (inspired by the Happn screens): tinted near-white canvas, no raised
+   chrome, soft square controls, big tight titles, color through pale tints.
+   ============================================================================ */
+:root{
+  --bg:#f6f5fa;            /* near-white, tinted toward FailUp purple */
+  --tint:#ecebf3;          /* soft control fill (buttons, steppers, tags) */
+  --tint-2:#e3e1ee;        /* pressed / dividers */
+  --purple-tint:#eeebfd;   /* pale purple */
+  --track:var(--tint);
+  --hair:var(--tint-2);
+  --card-shadow:0 6px 24px rgba(40,30,90,.06);
+}
+body{ background:#e9e8ef; }
+
+/* every screen sits on the tinted canvas */
+.ex-screen, .eql-screen, .wiz-screen, .xd-screen, .swp-screen, .wc-screen, .hx-screen, .wl-screen, .cw-screen, .sess-screen, .tracker, .st-screen{ background:var(--bg) !important; }
+.tk-hero{ background:transparent; }
+
+/* headers: flat, same color as the page; a hairline appears only once you scroll */
+.statusbar:has(+ .nav){ background:var(--bg); }
+.nav{ background:var(--bg); box-shadow:none !important; transition:border-color .2s ease; border-bottom:1px solid transparent; }
+.app:has(> div.raised) .nav, .raised .nav{ border-bottom-color:var(--tint-2); }
+.nav .icon-btn{ width:44px; height:44px; border-radius:12px; background:var(--tint); box-shadow:none; }
+.nav .nav-create{ height:44px; min-height:44px; border-radius:12px; background:var(--tint); box-shadow:none; padding:0 18px; }
+.nav .nav-create.icon{ width:44px; }
+.nav{ min-height:62px; }
+/* wizard progress: a short bar centered in the header */
+.wiz-header{ background:var(--bg); box-shadow:none !important; justify-content:center; padding:0 16px 12px; top:calc(var(--sb-h) + 62px); }
+.wiz-progress{ flex:none; width:132px; gap:0; height:4px; border-radius:4px; overflow:hidden; background:var(--tint-2); }
+.wiz-seg{ border-radius:0; height:4px; background:transparent; }
+.wiz-seg.on{ background:#111; }
+.wiz-count{ display:none; }
+
+/* titles: big, heavy, tight */
+.wl-title, .wiz-title, .eql-title, .tk-title{ font-size:2rem; line-height:2.25rem; font-weight:800; letter-spacing:-.03em; color:#111; }
+.wl-help, .wiz-help, .eql-help{ font-size:1rem; line-height:1.4rem; color:#6b6a75; }
+.wc-cheer{ font-size:2.125rem; line-height:2.4rem; font-weight:800; letter-spacing:-.03em; }
+.lu-title{ font-size:1.625rem; line-height:1.9rem; font-weight:800; letter-spacing:-.025em; }
+.hm-planname{ font-size:2rem; line-height:2.25rem; font-weight:800; letter-spacing:-.03em; }
+.xd-name{ font-weight:800; letter-spacing:-.025em; }
+
+/* cards: white, soft wide shadow, no borders */
+.wcard, .cw-ex-card, .set-list, .xd-card, .card, .wc-card, .sess-excard, .wl-hist, .cw-empty, .swp-cta, .wc-stat, .plan-daycard, .plan-rcard, .cal-card, .wiz-eqcard, .tk-explain{ border:none !important; box-shadow:var(--card-shadow) !important; border-radius:20px; }
+.set-list{ border-radius:16px; }
+
+/* buttons: soft squares; primary = black rounded rectangle */
+.wpill{ border-radius:12px; background:var(--tint); }
+.wpill.dark{ background:#111; }
+.cw-footer .btn, .sess-footer .btn, .wiz-footer .btn, .sheet-actions .btn{ border-radius:16px !important; height:56px; }
+.btn.ghost{ background:var(--tint); border:none !important; }
+.btn.ghost.warm{ background:#fff; box-shadow:inset 0 0 0 2px #111; }
+.sw-adj{ border-radius:12px !important; background:var(--tint) !important; }
+.cw-st-btn{ border-radius:12px; background:#fff; }
+.cw-stepper .cw-st-row{ background:var(--tint); }
+.cw-act{ border-radius:12px; background:var(--tint); }
+.cw-edit, .xd-add, .lu-locpill, .sess-dpill, .pill-btn, .tk-sortbtn, .cw-eq-swap, .wcard-kebab, .hm-kebab{ border-radius:12px !important; background:var(--tint) !important; box-shadow:none !important; border:none !important; }
+.device .cw-eq .cw-eq-swap{ background:transparent !important; }
+.ug-btn{ border:none; background:var(--tint); }
+.ug-btn.dark{ background:#111; }
+.home-cta{ border-radius:16px; box-shadow:none; }
+.wc-more, .wc-share, .cw-add{ border-radius:16px; }
+.chip-drop, .qchip{ border-radius:12px; background:var(--tint); border:none; }
+.tk-seg{ background:var(--tint); border-radius:14px; }
+.tk-seg button{ border-radius:10px; }
+.ex-search{ background:#fff; border:none; box-shadow:var(--card-shadow); border-radius:14px; }
+
+/* workout color as a pale tint behind its icon (and the exercise badges) */
+.tint{ background:color-mix(in srgb, var(--wc) 16%, #fff) !important; color:var(--wc) !important; border-radius:14px !important; }
+.cw-badge{ border:none !important; border-radius:12px !important; background:color-mix(in srgb, var(--cw-current,#4573A8) 16%, #fff) !important; color:#111; }
+.sess-exbadge{ border:none !important; border-radius:12px !important; background:color-mix(in srgb, var(--sess-color,#cf2a0f) 16%, #fff) !important; color:#111 !important; }
+
+/* tags: pale fills; F stays strong purple */
+.set-tag{ border:none !important; background:var(--purple-tint) !important; color:#4b3fc0 !important; border-radius:8px; }
+.set-tag.fail{ background:#6c5ce7 !important; color:#fff !important; }
+.mus, .ex-row .ex-sub .mus, .goal-exmeta .mus, .xd-kv .mus{ color:#45434f !important; background:var(--tint); padding:1px 6px; border-radius:6px; font-weight:600; }
+.sess-exmuscle{ display:inline-block !important; color:#45434f !important; background:var(--tint); padding:1px 7px; border-radius:6px; margin:3px 0 2px; font-weight:600; }
+.xd-tag{ background:var(--tint); }
+
+/* Workout Complete: pale tints for the stats; solid purple stays for the goal moment */
+.wc-stat{ box-shadow:none !important; background:#fff; }
+.wc-stat.goal{ background:var(--purple-tint); }
+.wc-band:not(.hit){ background:var(--tint); }
+
+/* one decorative touch: a thin climbing line behind empty states */
+.mg-empty, .cw-empty, .ex-empty{ position:relative; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 120' preserveAspectRatio='none'%3E%3Cpath d='M-10 110 C60 112 90 96 130 88 S190 92 220 70 S280 40 310 46 S370 20 410 6' fill='none' stroke='%23d9d4f7' stroke-width='2'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:center bottom; background-size:100% 70%; }
+.tk-chart{ background-image:none; }
+
+/* sheets: larger top radius, tinted grab bar */
+.sheet{ border-radius:28px 28px 0 0; }
+.sheet-grab{ background:var(--tint-2); }
+.sess-screen > .statusbar, .sess-widget, .tk-legend{ background:transparent !important; }
+.sess-footer{ background:var(--bg) !important; }
+.sess-widget{ box-shadow:none !important; }
+.cw-footer, .wiz-footer{ background:var(--bg) !important; }
+.wiz-footer .btn.ghost, .cw-footer .btn.ghost{ background:var(--tint) !important; border:none !important; color:#111; }
+
+/* workout icons: solid workout color with a white icon again */
+.tint{ background:var(--wc) !important; color:#fff !important; }
+/* set number tiles: corner radius concentric with the 16px set card (16 - 8px inset) */
+.set-badge{ border-radius:8px !important; }
+
+/* muscle tags: pale workout color, darker workout color text */
+.cw-screen{ --wc:var(--cw-current); }
+.sess-screen{ --wc:var(--sess-color); }
+.mtag{ display:inline-block; align-self:flex-start; width:max-content; padding:2px 8px; border-radius:6px; background:color-mix(in srgb, var(--wc, #6c5ce7) 16%, #fff); color:color-mix(in srgb, var(--wc, #6c5ce7) 72%, #000); font-size:0.75rem; line-height:1rem; font-weight:700; letter-spacing:.01em; }
+.cw-ex-meta .mtag, .sess-exmeta .mtag{ margin-bottom:3px; }
+.cw-ex-meta, .sess-exmeta{ display:flex; flex-direction:column; align-items:flex-start; }
+.mtags{ display:flex; flex-wrap:wrap; gap:4px; margin:4px 0 3px; }
+.wc-card .cw-badge{ --cw-current:var(--wc); }
+
+/* numbered exercise tiles: pale fill with a 2px outline in the full workout color */
+.cw-badge{ box-shadow:inset 0 0 0 2px var(--cw-current,#4573A8) !important; }
+.sess-exbadge{ box-shadow:inset 0 0 0 2px var(--sess-color,#cf2a0f) !important; }
+
+/* muscle tag leads the equipment line */
+.cw-ex-sub, .sess-exsub{ display:flex; align-items:center; flex-wrap:wrap; gap:0 6px; }
+.cw-ex-sub .mtag, .sess-exsub .mtag{ margin:0; }
+.sess-exsub{ margin-top:4px; }
+
+/* "Where is this Workout?" as a white card */
+.lu-loc{ background:#fff; border-radius:20px; box-shadow:var(--card-shadow); padding:14px 14px 14px 16px; margin-top:16px; }
+
+/* sets / reps steppers: the tinted pill hugs − value + */
+.cw-steppers{ gap:24px; }
+.cw-stepper{ flex:none; }
+.cw-st-row, .cw-stepper .cw-st-row{ display:inline-flex; width:auto; height:auto; gap:2px; padding:4px; border-radius:16px; justify-content:flex-start; }
+.cw-st-btn{ width:40px; height:40px; border-radius:12px; }
+.cw-st-val{ flex:none; min-width:44px; padding:0 2px; }
+.cw-st-row.ro{ width:auto; padding:4px 14px; }
+
+/* expanded exercise: more room between groups and buttons */
+.cw-detail-main{ gap:20px; padding-top:8px; padding-bottom:22px; margin-bottom:20px; }
+.cw-actions{ gap:10px; padding:0 16px 4px; }
+.cw-ex-detail{ padding-bottom:18px; }
+
+/* start / finish surge */
+.surge{ position:absolute; inset:0; z-index:60; overflow:hidden; pointer-events:all; }
+.surge-band{ position:absolute; top:-10%; bottom:-10%; left:-45%; right:-45%; will-change:transform; }
+.surge-band.purple{ background:#6c5ce7; }
+.surge-icon{ position:absolute; left:50%; top:50%; width:150px; height:150px; color:#fff; display:flex; align-items:center; justify-content:center; will-change:transform, opacity; }
+.surge-icon svg{ width:150px; height:150px; }
+.sess-exsub .mtag, .cw-ex-sub .mtag{ margin-right:8px !important; }
+
+/* ---- consistency pass: no red selection states, one secondary button, tidy leftovers ---- */
+/* 1. selected = black (red stays for delete/danger only) */
+.eqd-unit{ background:var(--tint) !important; color:#111 !important; }
+.eqd-unit.on, .unit-pill.on{ background:#111 !important; color:#fff !important; }
+.xd-addphoto, label.xd-addphoto, .wiz-imgcard .imgbtn{ background:#111 !important; color:#fff !important; }
+.chip-drop.active{ background:#111 !important; border-color:#111 !important; color:#fff !important; }
+.chip-active{ background:#111 !important; color:#fff !important; }
+.fl-check.on, .wiz-check.on, .wiz-check.red.on{ background:#111 !important; border-color:#111 !important; }
+.wiz-card.on{ border-color:#111 !important; }
+.filter-title{ color:#111 !important; }
+/* 2. muscle tag in library rows: same tag + gap as the workout widgets, no dot */
+.ex-row .ex-sub .mus, .goal-exmeta .mus{ display:inline-block; vertical-align:1px; padding:2px 8px !important; margin-right:8px; font-size:0.75rem; line-height:1rem; font-weight:700 !important; }
+/* 3. one secondary button: lavender gray, no outline */
+.pk-btn, .ug-btn, .btn.ghost, .btn.ghost.warm{ height:56px; border-radius:16px !important; }
+.pk-btn:not(.dark), .ug-btn:not(.dark):not(.danger), .btn.ghost, .btn.ghost.warm{ background:var(--tint) !important; border:none !important; box-shadow:none !important; color:#111; }
+.ug-btn.danger-ghost{ color:#cf2a0f; }
+.pk-btn.dark{ border:none; }
+/* 4. empty states: no decorative line */
+.mg-empty, .cw-empty, .ex-empty{ background-image:none !important; }
+/* 5. exercise / equipment detail: header row left-aligned, square back button like every other header */
+.xd-hrow{ flex-direction:row !important; align-items:center; }
+.xd-hrow > :first-child{ flex:1; min-width:0; }
+.xd-back{ width:44px !important; height:44px !important; border-radius:12px !important; border:none !important; background:var(--tint) !important; box-shadow:none !important; }
+.xd-hero:has(.xd-heroimg) .xd-back{ background:#fff !important; box-shadow:0 2px 10px rgba(0,0,0,.15) !important; }
+/* 6. settings cards: card-title size, a little more air */
+.st-screen .xd-card{ padding:20px !important; gap:16px !important; }
+.st-screen .xd-h{ font-size:1.0625rem; line-height:1.375rem; font-weight:700; }
+.st-screen .xd-sub{ font-size:0.875rem; line-height:1.25rem; margin-top:2px; }
+.st-screen .st-stats{ font-size:0.875rem; line-height:1.25rem; }
+.st-screen .xd-hgroup{ padding-left:0 !important; }
+
+/* ---- display titles: Archivo ---- */
+.sheet-title, .filter-title, .ug-title, .vs-title{ font-family:var(--sans) !important; font-weight:800 !important; font-size:1.75rem !important; line-height:2.125rem !important; letter-spacing:-0.03em !important; text-transform:none !important; white-space:normal !important; }
+.home-logo{ font-family:var(--sans) !important; font-weight:800; font-size:2rem !important; line-height:2.5rem !important; letter-spacing:-0.04em; }
+.home-headline{ font-family:var(--sans) !important; font-weight:800; letter-spacing:-0.03em; }
+
+/* ---- exercise filters: active filters get their own row ---- */
+.ex-filters{ padding-bottom:0 !important; }
+.ex-chips{ display:flex; flex-wrap:wrap; gap:8px; padding:10px 16px 0; }
+.ex-chips .chip-active{ height:32px; padding:0 8px 0 12px; }
+.ex-hint{ display:none !important; }
+
+/* ---- home: the photo + quote fill whatever the black panel leaves; cards live in the panel ---- */
+.home, .home.withplan{ height:auto !important; min-height:852px; overflow:visible; }
+.home-center{ min-height:300px; padding:132px 16px 0 !important; justify-content:center; align-items:center; overflow:hidden; z-index:1; }
+.home-center .home-hero{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 35%; z-index:-1; }
+.home-center::after{ content:''; position:absolute; left:0; right:0; bottom:0; height:56px; background:linear-gradient(to bottom, rgba(17,17,17,0), #111); z-index:-1; pointer-events:none; }
+.home-center .home-quote{ padding:24px 0; }
+.home-panel .hm-label{ color:#9fa2a8; margin:0 0 -6px; text-shadow:none; }
+.home-panel .wcard{ box-shadow:none; }
+@media (max-width:440px){ .home, .home.withplan{ min-height:100%; } }
+@media (max-width:440px){ .home-center{ padding-top:calc(max(env(safe-area-inset-top), 12px) + 78px) !important; } }
+@media (max-width:440px){ .home:not(.withplan), .home.withplan{ min-height:100% !important; } }
+.home-center{ min-height:340px; }
+
+/* ---- library photos ---- */
+.ex-tile{ position:relative; overflow:hidden; }
+.ex-tile.photo img, .sess-drow .dimg.photo img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; background:#fff; }
+.sess-drow .dimg{ position:relative; }
+.xd-heroimg{ background:#fff; }
+.xd-howto{ padding:20px 16px; display:flex; flex-direction:column; gap:12px; }
+.xd-howto .xd-hgroup{ padding-left:0; }
+.xd-steps{ margin:0; padding:0; list-style:none; counter-reset:st; display:flex; flex-direction:column; gap:12px; }
+.xd-steps li{ counter-increment:st; position:relative; padding-left:36px; font-size:0.9375rem; line-height:1.375rem; color:#2b2a33; }
+.xd-steps li::before{ content:counter(st); position:absolute; left:0; top:0; width:24px; height:24px; border-radius:8px; background:var(--tint); color:#111; font-size:0.8125rem; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.cw-photo{ height:180px; border-radius:14px; overflow:hidden; background:var(--tint); }
+.cw-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.cw-photo{ margin:0 16px; border-radius:12px; height:172px; }
+
+/* ---- set logger header + goal callout ---- */
+.sw-label{ display:none; }
+.sw-head{ padding:10px 20px 0; display:flex; flex-direction:column; gap:2px; }
+.sw-title{ font-size:2rem; line-height:2.25rem; font-weight:800; letter-spacing:-0.035em; color:#111; display:flex; align-items:baseline; gap:8px; }
+.sw-of{ font-size:1rem; line-height:1.25rem; font-weight:600; letter-spacing:-0.01em; color:#8a8895; }
+.sw-exname{ font-size:0.9375rem; line-height:1.25rem; font-weight:500; color:var(--sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sw-hint{ margin:14px 20px 4px !important; padding:12px 14px !important; border:none !important; border-radius:14px !important; background:var(--purple-tint) !important; color:#3d2fb0 !important; display:flex; align-items:center; gap:12px; font-weight:400 !important; }
+.sw-hint-ic{ width:36px; height:36px; flex:none; border-radius:10px; background:#fff; color:#6c5ce7; display:flex; align-items:center; justify-content:center; }
+.sw-hint-text{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+.sw-hint-title{ font-size:1.0625rem; line-height:1.375rem; font-weight:800; letter-spacing:-0.02em; color:#2a1f8f; }
+.sw-hint-sub{ font-size:0.8125rem; line-height:1.125rem; font-weight:500; color:#5a4fc4; }
+.sw-hint.goal{ background:#6c5ce7 !important; color:#fff !important; box-shadow:0 8px 20px rgba(108,92,231,.28); }
+.sw-hint.goal .sw-hint-ic{ background:rgba(255,255,255,.18); color:#fff; }
+.sw-hint.goal .sw-hint-title{ color:#fff; font-size:1.25rem; line-height:1.5rem; }
+.sw-hint.goal .sw-hint-sub{ color:rgba(255,255,255,.82); }
+
+/* ---- press feedback: a quick light-purple flash ---- */
+@keyframes pressFlash{ from{ box-shadow:inset 0 0 0 999px rgba(108,92,231,.22); } to{ box-shadow:inset 0 0 0 999px rgba(108,92,231,0); } }
+@keyframes pressFlashDark{ from{ box-shadow:inset 0 0 0 999px rgba(170,158,255,.45); } to{ box-shadow:inset 0 0 0 999px rgba(170,158,255,0); } }
+.flash{ animation:pressFlash .42s ease-out; }
+.flash.flash-dark{ animation:pressFlashDark .42s ease-out; }
+@media (prefers-reduced-motion: reduce){ .flash, .flash.flash-dark{ animation-duration:.2s; } }
+
+/* ---- set logger: outlined goal callout, calmer slider number ---- */
+.sw-hint, .sw-hint.goal{ background:#fff !important; box-shadow:none !important; border:1.5px solid #cfc8fb !important; color:#3d2fb0 !important; }
+.sw-hint.goal{ border:2px solid #6c5ce7 !important; }
+.sw-hint .sw-hint-ic, .sw-hint.goal .sw-hint-ic{ background:var(--purple-tint); color:#6c5ce7; }
+.sw-hint.goal .sw-hint-title{ color:#2a1f8f; font-size:1.125rem; line-height:1.375rem; }
+.sw-hint.goal .sw-hint-sub{ color:#5a4fc4; }
+.ff-num{ font-weight:500 !important; font-size:1.25rem !important; }
+.sw-feelwrap .sw-glabel{ margin-bottom:10px; }
+
+/* ---- live workout: exercise cards slide sideways ---- */
+.sess-widget{ position:relative; }
+.sess-screen{ overflow-x:clip; }
