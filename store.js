@@ -110,7 +110,9 @@ function buildExercises() {
   for (const c of db.exCustom) EXERCISES.push({ ...seedMedia(c.id), ...c });
   for (const [id, base] of BASE) {
     if (del.has(id)) continue;
-    EXERCISES.push({ ...base, ...(db.exOverrides[id] || {}) });
+    const x = { ...base, ...(db.exOverrides[id] || {}) };
+    x.equipment = [...(x.equipment || [])];   // own copy, so edits show up as changes from the library
+    EXERCISES.push(x);
   }
 }
 
@@ -251,9 +253,13 @@ export function derived() {
   // Goals only change when the user sets one (the goal prompts or the goal sheet).
   // A workout "hits" its goal when every required set reached the goal reps at the
   // goal weight it had while you were lifting (the session's own snapshot).
-  const goals = {}, ach = {}, outcomes = {};
+  const goals = {}, ach = {}, outcomes = {}, starts = {};
   for (const ev of evs) {
-    if (ev.g) { goals[ev.g.key] = ev.g.weight; continue; }
+    if (ev.g) {
+      goals[ev.g.key] = ev.g.weight;
+      if (ev.g.weight != null && !starts[ev.g.key]) starts[ev.g.key] = { at: ev.g.at, weight: ev.g.weight, start: true };   // where this goal's line begins
+      continue;
+    }
     ev.s.exercises.forEach((e, i) => {
       if (!e.exId || !e.sets.length) return;
       const key = goalKey(e.exId, e.equip, e.goal.sets, e.goal.reps);
@@ -266,7 +272,7 @@ export function derived() {
       outcomes[`${ev.s.id}:${i}`] = o;
     });
   }
-  cache = { goals, ach, outcomes };
+  cache = { goals, ach, outcomes, starts };
   return cache;
 }
 export const goalFor = (exId, ref, sets, reps) => derived().goals[goalKey(exId, ref, sets, reps)] ?? null;

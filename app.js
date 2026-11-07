@@ -15,7 +15,7 @@ import {
 import {
   TrackerScreen, VolumeModal, ExercisesScreen, FilterSheet, exListInner, ColorPickerSheet, IconPickerSheet,
   ExerciseWizard, EquipmentWizard, ExerciseDetailScreen, ExerciseHistoryScreen, EquipmentListScreen, EquipmentDetailScreen,
-  EquipmentSwapScreen, LocationSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
+  EquipmentSwapScreen, EquipmentSwapSheet, LocationSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
 import {
@@ -54,14 +54,14 @@ const SCREENS = {
   exwiz: ExerciseWizard, eqwiz: EquipmentWizard, planwiz: PlanWizard, exercises: ExercisesScreen, tracker: TrackerScreen,
   workouts: WorkoutsScreen, assignday: AssignDayScreen, lineup: LineupScreen, exdetail: ExerciseDetailScreen,
   exhistory: ExerciseHistoryScreen, equipment: EquipmentListScreen, eqdetail: EquipmentDetailScreen,
-  swap: () => EquipmentSwapScreen(swapRef()), details: WorkoutDetailsScreen, newloc: NewLocationScreen,
+  swap: () => EquipmentSwapScreen(swapRef(), swapExId()), details: WorkoutDetailsScreen, newloc: NewLocationScreen,
   mergeex: MergeExerciseScreen, mergeeq: MergeEquipmentScreen, complete: SessionLogScreen, log: SessionLogScreen,
   settings: SettingsScreen,
 };
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
   color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet,
-  updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
+  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
 };
 const NEEDS_SESSION = ['session', 'lineup'];
 function screenHTML() {
@@ -434,6 +434,8 @@ function swapTarget() {
   return listCtx(sw.owner).items[sw.index];
 }
 function swapRef() { const t = swapTarget(); return t ? t.equip : state.tracker.equip; }
+function swapExId() { const t = swapTarget(); return t ? t.exId : state.tracker.exId; }
+const swapLocation = () => (['session', 'lineup'].includes(state.swap.owner) && state.session && state.session.location) || null;
 // Add an exercise from the picker to whatever opened it.
 function addToCtx(id) {
   const ex = state.exercises, c = listCtx(ex.returnTo || 'create'), x = exById(id);
@@ -948,7 +950,7 @@ function handle(a, d, el, ex) {
     case 'open-equipment-detail': state.eqDetail = d.id; go('eqdetail'); break;
     case 'eq-create': freshEqWizard('equipment'); go('eqwiz'); break;
     case 'xd-add-equipment': freshEqWizard('exdetail'); go('eqwiz'); break;
-    case 'swap-add': freshEqWizard('swap'); go('eqwiz'); break;
+    case 'swap-add': state.modal = null; freshEqWizard('swap'); go('eqwiz'); break;
     case 'edit-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail);
       state.eqwiz = { step: 1, editId: sv.id, location: sv.location, name: sv.name, units: sv.units, photo: sv.photo, returnTo: 'eqdetail' };
@@ -971,7 +973,7 @@ function handle(a, d, el, ex) {
       back();
       if (w.returnTo === 'exwiz') { if (!state.exwiz.saved.includes(ref)) state.exwiz.saved.push(ref); }
       else if (w.returnTo === 'exdetail') { const x = exById(state.exDetail); if (x && !x.equipment.includes(ref)) x.equipment.push(ref); }
-      else if (w.returnTo === 'swap') return handle('swap-pick', { ref }, el, ex);
+      else if (w.returnTo === 'swap') { const x = exById(swapExId()); if (x && !x.equipment.includes(ref)) x.equipment.push(ref); return handle('swap-pick', { ref }, el, ex); }
       toast('Equipment saved'); break;
     }
     case 'eqwiz-prev': state.eqwiz.err = null; state.eqwiz.step = Math.max(1, state.eqwiz.step - 1); break;
@@ -979,12 +981,21 @@ function handle(a, d, el, ex) {
     case 'eqwiz-location': state.eqwiz.location = d.name; state.eqwiz.err = null; break;
     case 'eqwiz-units': state.eqwiz.units = d.name; break;
     case 'eqwiz-addloc': state.newLoc = { name: '', target: 'eqwiz' }; go('newloc'); break;
-    case 'open-swap': state.swap = { owner: d.owner || listCtx().owner, index: +d.i || 0 }; go('swap'); break;
+    case 'open-swap': state.swap = { owner: d.owner || listCtx().owner, index: +d.i || 0 }; state.modal = 'swap'; break;
+    case 'swap-all': state.modal = null; go('swap'); break;
+    case 'swap-toggle': {   // what shows in this exercise's quick swap sheet
+      const x = exById(swapExId()); if (!x) break;
+      const i = x.equipment.indexOf(d.key);
+      if (i >= 0) x.equipment.splice(i, 1); else x.equipment.push(d.key);
+      break;
+    }
+    case 'close-swap': state.modal = null; break;
     case 'swap-pick': {
       const ref = d.ref, sw = state.swap;
       if (sw.owner === 'tracker') { state.tracker.equip = ref; state.tracker.volume = defaultVolume(state.tracker.exId, ref); }
       else { const it = swapTarget(); it.equip = ref; if (it.goal) syncGoal(it); }
-      back(); break;
+      if (state.screen === 'swap') back();
+      state.modal = null; break;
     }
     case 'delete-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail), ref = 'eq:' + sv.id;

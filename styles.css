@@ -1826,3 +1826,66 @@ body{ background:#e9e8ef; }
 /* ---- live workout: exercise cards slide sideways ---- */
 .sess-widget{ position:relative; }
 .sess-screen{ overflow-x:clip; }
+
+/* ---- tracker: goal-set ring in the legend, range control with no inset ---- */
+.tk-legend .lg .swatch-ring{ width:10px; height:10px; border-radius:50%; background:#fff; box-shadow:inset 0 0 0 2.5px var(--purple); flex:none; }
+.tk-seg{ height:44px !important; padding:0 !important; gap:0 !important; border-radius:12px !important; overflow:hidden; align-items:stretch; }
+.tk-seg button{ height:100% !important; min-height:0 !important; border-radius:12px !important; }
+.tk-legend{ gap:10px 16px !important; flex-wrap:wrap; }
+
+/* ---- equipment swap sheet ---- */
+.swp-sheet{ max-height:88vh; display:flex; flex-direction:column; }
+.swp-sheethead{ padding:8px 20px 6px; display:flex; flex-direction:column; gap:4px; }
+.swp-sheetbody{ overflow-y:auto; padding:0 0 8px; flex:1; min-height:0; }
+.swp-sechdr{ padding:16px 20px 6px; font-size:0.8125rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#8a8895; }
+.swp-row{ width:100%; padding-left:20px !important; padding-right:20px !important; }
+.swp-row.on{ background:var(--purple-tint); }
+.swp-row.on .xd-eqname{ color:#2a1f8f; }
+.swp-tick{ width:28px; height:28px; border-radius:50%; background:#6c5ce7; display:flex; align-items:center; justify-content:center; flex:none; }
+.swp-tick svg{ width:14px; height:14px; }
+.swp-addic{ background:var(--tint) !important; color:#111; display:flex; align-items:center; justify-content:center; }
+.swp-sheetfoot{ padding:12px 20px 20px; border-top:1px solid #efeef4; }
+.swp-sheetfoot .ug-btn{ display:flex; align-items:center; justify-content:center; gap:6px; }
+.swp-row{ height:76px !important; padding-top:10px !important; padding-bottom:10px !important; }
+.swp-row .xd-eqimg{ width:52px !important; height:52px !important; border-radius:10px !important; }
+
+/* ---- workout complete: new goals ---- */
+.wc-newgoals{ margin:0 0 16px; background:#fff; border-radius:20px; box-shadow:inset 0 0 0 2px #6c5ce7, var(--card-shadow); padding:16px; display:flex; flex-direction:column; }
+.wc-ng-head{ display:flex; align-items:center; gap:12px; padding-bottom:12px; }
+.wc-ng-head > span:last-child{ display:flex; flex-direction:column; }
+.wc-ng-ic{ width:40px; height:40px; border-radius:12px; background:var(--purple-tint); color:#6c5ce7; display:flex; align-items:center; justify-content:center; flex:none; }
+.wc-ng-ic svg path, .wc-ng-ic svg rect{ stroke:#6c5ce7; }
+.wc-ng-title{ font-size:1.125rem; line-height:1.375rem; font-weight:800; letter-spacing:-0.02em; color:#111; }
+.wc-ng-sub{ font-size:0.875rem; line-height:1.125rem; color:var(--sec); }
+.wc-ng-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid #efeef4; }
+.wc-ng-text{ display:flex; flex-direction:column; min-width:0; }
+.wc-ng-name{ font-size:1rem; line-height:1.25rem; font-weight:700; color:#111; }
+.wc-ng-meta{ font-size:0.875rem; line-height:1.125rem; color:var(--sec); }
+.wc-ng-w{ font-size:1.125rem; font-weight:800; color:#6c5ce7; white-space:nowrap; display:flex; align-items:baseline; gap:8px; }
+.wc-ng-w s{ font-size:0.875rem; font-weight:600; color:#a3a1ad; }
+
+/* ---- goal prompts without the kettlebell graphic ---- */
+.ug-summary{ margin-top:4px; padding:18px 16px; border-radius:16px; background:var(--purple-tint); font-size:1.25rem; line-height:1.5rem; font-weight:800; letter-spacing:-0.01em; }
+.ug-summary s{ color:#9b97ad; font-weight:600; font-size:1rem; margin-right:2px; }
+
+/* ---- All Equipment: plain list with quick-swap checkboxes ---- */
+.ae-help{ padding:4px 16px 4px; font-size:0.9375rem; line-height:1.375rem; color:var(--sec); }
+.ae-hdr{ padding:20px 16px 8px; font-size:0.8125rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#8a8895; }
+.ae-list{ background:#fff; }
+.ae-row{ display:flex; align-items:center; border-bottom:1px solid #efeef4; }
+.ae-row:last-child{ border-bottom:none; }
+.ae-row.cur{ background:var(--purple-tint); }
+.ae-row .xd-eqsub b{ color:#6c5ce7; font-weight:700; }
+.ae-main{ flex:1; min-width:0; display:flex; align-items:center; gap:12px; padding:10px 0 10px 16px; text-align:left; min-height:72px; }
+.ae-main .xd-eqimg{ width:52px; height:52px; border-radius:10px; }
+.ae-check{ width:60px; align-self:stretch; display:flex; align-items:center; justify-content:center; flex:none; }
+.ae-check .fl-check{ width:26px; height:26px; border-radius:8px; border:2px solid #c9c7d3; display:flex; align-items:center; justify-content:center; background:#fff; }
+.ae-check .fl-check.on{ background:#111; border-color:#111; }
+.ae-empty{ width:100%; display:flex; align-items:center; gap:10px; padding:20px 16px; font-weight:600; color:#111; }
+.ug-body{ gap:24px !important; }
+
+/* ---- live workout: bigger exercise name; number box lines up with its top ---- */
+.sess-exrow{ align-items:flex-start !important; padding:18px 16px 16px !important; gap:14px !important; }
+.sess-exrow .sess-exname{ font-size:1.75rem !important; line-height:2rem !important; font-weight:800 !important; letter-spacing:-0.035em !important; margin-bottom:6px; }
+.sess-exrow .sess-exbadge{ margin-top:4px; }
+.sess-exrow .sess-excaret{ margin-top:6px; }

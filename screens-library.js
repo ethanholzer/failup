@@ -8,7 +8,7 @@ import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, statusBar, fmt, eqName, esc, wt, w
 import { WORKOUT_COLORS } from './data.js';
 import {
   db, EXERCISES, exById, GENERIC, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
-  derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto,
+  derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf,
 } from './store.js';
 import { rpeOf, setRow } from './screens-workout.js';
 
@@ -56,7 +56,10 @@ export function overloadChart(series, goalWeight, unit) {
   const every = Math.max(1, Math.ceil(n / 5));
   const xLabels = pts.map((p, i) => (i % every && i !== n - 1) ? '' :
     `<text x="${p.px.toFixed(1)}" y="${plotB + 18}" font-family="Archivo" font-size="11" fill="#000" text-anchor="middle">${p.label}</text>`).join('');
-  const dots = pts.map(p => `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="5" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
+  // the starting dot (goal set) is a purple ring; goals reached are solid
+  const dots = pts.map(p => p.start
+    ? `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="5.5" fill="#fff" stroke="${PURPLE}" stroke-width="2.5"/>`
+    : `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="5" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
   if (empty) return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet">
     ${grid}${goalWeight != null ? yLabels : ''}
@@ -80,7 +83,9 @@ const RANGES = { '1W': 7, '1M': 31, '3M': 92, '6M': 183, '1Y': 366, 'All': 1e6 }
 export function trackerData() {
   const t = state.tracker, v = t.volume;
   const key = goalKey(t.exId, t.equip, v.sets, v.reps);
-  const all = derived().ach[key] || [];
+  // the first goal you set is the starting dot; every goal reached after it follows
+  const start = derived().starts[key];
+  const all = [...(start ? [start] : []), ...(derived().ach[key] || [])];
   const cutoff = Date.now() - RANGES[t.range] * 86400000;
   const shown = all.filter(a => new Date(a.at).getTime() >= cutoff);
   return { all, shown, goal: goalFor(t.exId, t.equip, v.sets, v.reps), unit: eqUnits(t.equip) };
@@ -91,7 +96,7 @@ export function TrackerScreen() {
   const { all, shown, goal, unit } = trackerData();
   const seg = Object.keys(RANGES).map(r => `<button data-action="set-range" data-range="${r}" class="${r === t.range ? 'on' : ''}">${r}</button>`).join('');
   // history: newest first, grouped by month, with the change from the previous achievement
-  const items = all.map((a, i) => ({ ...a, delta: i ? a.weight - all[i - 1].weight : null, first: i === 0 })).reverse();
+  const items = all.map((a, i) => ({ ...a, delta: i ? a.weight - all[i - 1].weight : null, first: i === 0 || a.start })).reverse();
   const months = [];
   for (const it of items) {
     const m = D.month(new Date(it.at));
@@ -114,7 +119,7 @@ export function TrackerScreen() {
   const equipImg = sv && photoSrc(sv.photo)
     ? `<img class="tk-equip-img" src="${photoSrc(sv.photo)}" alt="">`
     : `<div class="tk-equip-img ph">${PH_EQUIP()}</div>`;
-  const series = shown.map(a => ({ label: D.short(new Date(a.at)), w: a.weight }));
+  const series = shown.map(a => ({ label: D.short(new Date(a.at)), w: a.weight, start: !!a.start }));
   return `
   <div class="tracker">
     ${statusBar()}
@@ -149,13 +154,14 @@ export function TrackerScreen() {
       <div class="tk-seg">${seg}</div>
       <div class="tk-legend">
         <div class="lg"><span class="swatch-line"></span> Current Goal</div>
+        <div class="lg"><span class="swatch-ring"></span> Goal Set</div>
         <div class="lg"><span class="swatch-dot"></span> <span>Goal Achieved<br><span class="sub">(${v.sets} Sets, ${v.reps} Reps)</span></span></div>
       </div>
     </div>
     <div class="tk-body">
       <div class="card tk-explain">
         <h3>Progressive Overload</h3>
-        <p>The dots on this graph show each time you have reached an overload goal for ${esc(ex.name)} using ${esc(eqLabel(t.equip))}. Each dot represents a workout in which you completed ${v.sets} sets of ${v.reps} reps of your overload goal weight.</p>
+        <p>The ring marks where your first overload goal for ${esc(ex.name)} on ${esc(eqLabel(t.equip))} started. Each solid dot after it is a workout where you completed ${v.sets} sets of ${v.reps} reps at your overload goal weight.</p>
         ${goal == null ? `<p class="tk-note">No goal yet for ${v.sets} sets of ${v.reps} reps on this setup. Set one with the pencil, or finish a workout and FailUp will suggest one.</p>` : ''}
       </div>
       ${history}
@@ -659,46 +665,87 @@ export function EquipmentDetailScreen() {
 }
 
 /* ---- Equipment Swap ---- */
-export function EquipmentSwapScreen(currentRef) {
-  const curSv = eqById(currentRef);
-  const saved = db.equipment.filter(sv => 'eq:' + sv.id !== currentRef);
-  const generic = EQ_TYPES.map(eqName).filter(n => n !== currentRef);
+// All Equipment: every saved machine, then every generic type. Tap a row to use it now;
+// the checkbox picks what shows up in this exercise's quick swap sheet.
+export function EquipmentSwapScreen(currentRef, exId) {
+  const ex = exById(exId), lib = (ex && ex.equipment) || [];
+  const saved = [...db.equipment].sort((a, b) => a.location.localeCompare(b.location) || a.name.localeCompare(b.name));
+  const row = (ref, key, img, name, sub) => {
+    const on = lib.includes(key), cur = ref === currentRef;
+    return `
+      <div class="ae-row${cur ? ' cur' : ''}">
+        <button class="ae-main" data-action="swap-pick" data-ref="${esc(ref)}">
+          ${img}
+          <span class="xd-eqtext"><span class="xd-eqname">${esc(name)}</span>${sub || cur ? `<span class="xd-eqsub">${cur ? '<b>In use</b>' : ''}${cur && sub ? ' · ' : ''}${sub ? esc(sub) : ''}</span>` : ''}</span>
+        </button>
+        ${ex ? `<button class="ae-check" data-action="swap-toggle" data-key="${esc(key)}" role="checkbox" aria-checked="${on}" aria-label="Quick swap ${esc(name)}"><span class="fl-check${on ? ' on' : ''}">${on ? I.checkW : ''}</span></button>` : ''}
+      </div>`;
+  };
   return `
-  <div class="swp-screen">
+  <div class="swp-screen ae-screen">
     ${statusBar()}
-    <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Equipment Swap</span></div>
-    <div class="swp-body">
-      <div class="eql-title">Swap to different equipment</div>
-      <div class="xd-card swp-current">
-        ${eqImg(curSv)}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(eqLabel(currentRef))}</span>${curSv ? `<span class="xd-eqsub">At ${esc(curSv.location)}</span>` : ''}</span>
-        <span class="xd-chev">${I.exchange}</span>
+    <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">All Equipment</span><button class="nav-create" data-action="swap-add">Add</button></div>
+    ${ex ? `<div class="ae-help">Check the equipment you want in ${esc(ex.name)}’s quick swap list.</div>` : ''}
+    <div class="ae-hdr"><span>Saved (${saved.length})</span></div>
+    <div class="ae-list">
+      ${saved.map(sv => row('eq:' + sv.id, 'eq:' + sv.id, eqImg(sv), sv.name, 'At ' + sv.location)).join('') || `<button class="ae-empty" data-action="swap-add">${I.plus20} Save a machine from your gym</button>`}
+    </div>
+    <div class="ae-hdr"><span>Generic (${EQ_TYPES.length})</span></div>
+    <div class="ae-list">
+      ${EQ_TYPES.map(k => row(eqName(k), k, eqImg(null), eqName(k), '')).join('')}
+    </div>
+  </div>`;
+}
+
+/* Swap sheet: a short list of the saved machines that fit this exercise (here first),
+   then the generic types it uses. "All equipment" opens the full swap screen. */
+export function EquipmentSwapSheet(currentRef, exId, location) {
+  const ex = exById(exId);
+  const lib = (ex && ex.equipment) || [];
+  // what the exercise lists (you pick these on All Equipment); saved ones here first
+  const types = [...new Set(lib.filter(k => !k.startsWith('eq:')).map(eqName))];
+  const linked = new Set(lib.filter(k => k.startsWith('eq:')));
+  const saved = db.equipment.filter(sv => linked.has('eq:' + sv.id) || 'eq:' + sv.id === currentRef)
+    .sort((a, b) => (b.location === location) - (a.location === location) || a.name.localeCompare(b.name));
+  const shortSaved = saved;
+  const curGeneric = currentRef && !currentRef.startsWith('eq:') ? genericOf(currentRef) : null;
+  let generic = ex ? [...types] : GENERIC.slice();
+  if (curGeneric && !generic.includes(curGeneric)) generic.unshift(curGeneric);
+  const tick = on => on ? `<span class="swp-tick">${I.checkW}</span>` : `<span class="xd-chev">${I.smChevR}</span>`;
+  const savedRows = shortSaved.map(sv => {
+    const ref = 'eq:' + sv.id, on = ref === currentRef;
+    return `<button class="xd-eqrow swp-row${on ? ' on' : ''}" data-action="swap-pick" data-ref="${ref}">
+        ${eqImg(sv)}
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">At ${esc(sv.location)}</span></span>
+        ${tick(on)}
+      </button>`;
+  }).join('');
+  const genRows = generic.map(n => {
+    const on = n === curGeneric;
+    return `<button class="xd-eqrow swp-row${on ? ' on' : ''}" data-action="swap-pick" data-ref="${esc(n)}">
+        ${eqImg(null)}
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(n)}</span></span>
+        ${tick(on)}
+      </button>`;
+  }).join('');
+  return `
+  <div class="scrim" data-action="close-swap">
+    <div class="sheet swp-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="swp-sheethead">
+        <div class="vs-title">Swap equipment</div>
+        <div class="vs-sub">${ex ? `For ${esc(ex.name)}` : 'Pick what you’re using'}</div>
       </div>
-      <div class="swp-h">Swapping to...</div>
-      ${db.equipment.length ? `<div class="xd-card swp-list">
-        <div class="swp-help"><span>Select the equipment you are using for this exercise</span><button class="xd-add" data-action="swap-add">Add</button></div>
-        <div class="swp-hdr"><span>Saved (${saved.length})</span></div>
-        ${saved.map(sv => `
-        <button class="xd-eqrow" data-action="swap-pick" data-ref="eq:${sv.id}">
-          ${eqImg(sv)}
-          <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">At ${esc(sv.location)}</span></span>
-          <span class="xd-chev">${I.smChevR}</span>
-        </button>`).join('') || '<div class="swp-empty">No saved equipment yet.</div>'}
-      ` : `
-      <div class="swp-cta">
-        <div class="swp-cta-icon">${I.equipment}</div>
-        <div class="swp-cta-title">Save the machines you train on</div>
-        <div class="swp-cta-text">No two cable stacks or leg presses feel the same. Save a specific machine and it gets its own overload goals, so your progress stays honest from gym to gym.</div>
-        <ul class="swp-cta-points">
-          <li>${I.checkC('#6c5ce7')} Goals tracked per machine</li>
-          <li>${I.checkC('#6c5ce7')} Picked automatically at that location</li>
-        </ul>
-        <button class="btn solid swp-cta-btn" data-action="swap-add">Save a Machine</button>
+      <div class="swp-sheetbody">
+        <div class="swp-sechdr"><span>Saved${location ? ` · ${esc(location)} first` : ''}</span></div>
+        ${savedRows || (db.equipment.length
+          ? `<button class="xd-eqrow swp-row swp-addrow" data-action="swap-all"><span class="xd-eqimg swp-addic">${I.plus20}</span><span class="xd-eqtext"><span class="xd-eqname">Pick your machines</span><span class="xd-eqsub">Check the ones you use for this exercise</span></span><span class="xd-chev">${I.smChevR}</span></button>`
+          : `<button class="xd-eqrow swp-row swp-addrow" data-action="swap-add"><span class="xd-eqimg swp-addic">${I.plus20}</span><span class="xd-eqtext"><span class="xd-eqname">Save a machine</span><span class="xd-eqsub">Give a specific machine its own goals</span></span><span class="xd-chev">${I.smChevR}</span></button>`)}
+        ${genRows ? `<div class="swp-sechdr"><span>Generic</span></div>${genRows}` : ''}
       </div>
-      <div class="xd-card swp-list">
-      `}
-        <div class="swp-hdr"><span>Generic Equipment (${generic.length})</span></div>
-        ${generic.map(n => `<button class="swp-generic" data-action="swap-pick" data-ref="${n}"><span>${n}</span>${I.smChevR}</button>`).join('')}
+      <div class="ug-actions swp-sheetfoot">
+        <button class="ug-btn" data-action="swap-add">${I.plus20} Add new</button>
+        <button class="ug-btn dark" data-action="swap-all">All equipment</button>
       </div>
     </div>
   </div>`;
