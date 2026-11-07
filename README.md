@@ -25,7 +25,8 @@ refreshed visual design:
 ## Files
 - `index.html`: mount point
 - `store.js`: the saved data (localStorage + IndexedDB for photos), seed data, goal replay, stats, dates
-- `screens-workout.js`: home, workouts, Today's Plan / Lineup, live session, set sheets, Workout Complete, plan wizard
+- `screens-home.js`: home, How FailUp Works, Overload Goals list
+- `screens-workout.js`: workouts, Today's Plan / Lineup, live session, set sheets, Workout Complete, plan wizard
 - `screens-library.js`: exercises, exercise history, equipment, Overload Tracker, wizards, locations, merge, Settings
 - `app.js`: navigation, every action (one delegated click handler), share image, boot
 - `ui.js`: icons exported from Figma, formatting helpers
@@ -48,8 +49,8 @@ Goals belong to an **exercise × equipment × volume** (for example Bench Press,
 Barbell, 3 × 8), and you always choose them. FailUp suggests one when you finish
 the required sets of an exercise:
 
-- **Last two sets went to failure:** "Set an overload goal?" offers the weight you
-  failed at, so the goal is to reach the volume at that weight without failing.
+- **Last set went to failure (or the last two did):** "Set an overload goal?" offers the
+  weight you failed at, so the goal is to reach the volume at that weight without failing.
 - **Every required set hit the reps, none failed, all RPE 7 or higher:** "Raise your
   goal?" offers that weight plus one increment (5 lbs, 2.5 kg, or 1 for "Simple
   Numbers" equipment).
@@ -71,10 +72,15 @@ recalculated from your workout history, so editing or deleting a past workout ke
 everything consistent.
 
 ## Flows
-- **Home:** no plan → Quickstart / Create a Workout Plan. Active plan → plan name
-  and dates (options menu to edit or end it), then today's workout card with
-  Start, a rest day, or Workout completed, then Quickstart. A paused workout shows a Resume card. The top
-  icons open My Workouts, Exercises, Equipment, and Settings.
+- **Home:** a purple header with the FailUp logo and Settings, then modular sections:
+  1. The main action: a paused workout (Resume / Discard); or the active plan with today's
+     workout or rest day plus a yellow Quickstart; or, with neither, Create a Workout Plan and Quickstart.
+  2. Workouts, Exercises, Equipment. Once these scroll away they appear as icons in the header.
+  3. How FailUp Works: a swipeable rail. The first card opens the explainer page; the second
+     (purple) is about the maker and links to his site (`LINKS.maker` in `data.js`).
+  4. Progressive Overload Goals: recently changed goals as small graphs (tap for the Overload
+     Tracker), with See All for a searchable list of every goal.
+  5. Tell your friends: shares `LINKS.appStore` once it's set, otherwise the website.
 - **Start a workout:** pick one → Today's Plan (change location, sets, reps,
   equipment, order, swap or add exercises for today only) → Let's Go.
 - **Session:** log sets (type or step weight and reps, slide for effort), tap a

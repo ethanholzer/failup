@@ -71,3 +71,11 @@ export const state = {
   },
   planwiz: null,          // Create a Plan wizard (set when opened)
 };
+
+// Links used on the home screen. Set appStore once FailUp is in the App Store and
+// "Share FailUp with Friends" will share that instead of the website.
+export const LINKS = {
+  site: 'https://ethanholzer.github.io/FailUp/',
+  appStore: '',
+  maker: 'https://ethanholzer.github.io/',
+};

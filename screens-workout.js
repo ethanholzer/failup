@@ -200,7 +200,7 @@ export function WorkoutDetailsScreen() {
 /* ---- Start Page / home ----
    Release 1.0 states, drawn with the Dev File home (dark panel, white cards). */
 const doneToday = wid => db.sessions.some(s => s.workoutId === wid && dayKey(new Date(s.finishedAt)) === dayKey());
-function resumeCard() {
+export function resumeCard() {
   const s = state.session;
   if (!s) return '';
   const st = sessionStats(s);
@@ -218,14 +218,14 @@ function resumeCard() {
     </div>`;
 }
 const restTile = '<div class="wcard-tile hm-resttile">☾</div>';
-function todayCard(pt, plan) {
+export function todayCard(pt, plan) {
   const card = (tile, name, subs, actions = '') => `
     <div class="wcard hm-card">
       <div class="wcard-top">${tile}<div class="wcard-text"><div class="wcard-name">${name}</div>${subs.map(x => `<div class="wcard-sub">${x}</div>`).join('')}</div></div>
       ${actions}
     </div>`;
   if (pt.status === 'upcoming') return card(restTile, `Starts in ${plural(pt.startsIn, 'day')}`, [D.dow(parseDay(plan.start))]);
-  if (pt.status === 'ended') return card(restTile, 'Plan complete', ['Start a new plan when you’re ready.'],
+  if (pt.status === 'ended') return card(restTile, 'Plan complete', ['Nice work. Start a new one when you’re ready.'],
     `<div class="wcard-actions"><button class="wpill dark" data-action="home-go" data-to="planwiz">Create a Plan</button></div>`);
   const day = pt.day, w = day && day.type === 'workout' ? db.workouts.find(x => x.id === day.workoutId) : null;
   if (!w) return card(restTile, 'Rest day', [`Day ${pt.index + 1} of ${plan.splitDays}${day && day.type === 'workout' ? ' · that workout was deleted' : ''}`]);
@@ -243,42 +243,6 @@ export const QUOTES = [
   ['Ain’t nothin’ but a peanut.', 'Ronnie Coleman'],
   ['Stimulate, don’t annihilate.', 'Lee Haney'],
 ];
-export function HomeScreen() {
-  const plan = db.plan, pt = planToday();
-  const top = `
-    <div class="home-top">${statusBar(true)}<div class="home-bar"><div class="home-logo"><span class="fail">Fail</span>Up</div>
-      <div class="home-icons">
-        <button class="home-ibtn" data-action="home-go" data-to="workouts" aria-label="Workouts">${I.book}</button>
-        <button class="home-ibtn" data-action="home-go" data-to="exercises" aria-label="Exercises">${I.barbell}</button>
-        <button class="home-ibtn" data-action="home-go" data-to="equipment" aria-label="Equipment">${I.equipment}</button>
-        <button class="home-ibtn" data-action="home-go" data-to="settings" aria-label="Settings">${I.gear}</button>
-      </div></div></div>`;
-  // the photo always carries the quote; a paused workout and today's plan day sit in the black panel below it
-  const [q, who] = QUOTES[(state.quoteIdx || 0) % QUOTES.length];
-  const center = `<img class="home-hero" src="./assets/hero.jpg" alt=""><figure class="home-quote"><blockquote>“${esc(q)}”</blockquote><figcaption>${esc(who)}</figcaption></figure>`;
-  const quick = `<button class="home-cta quick" data-action="home-go" data-to="quickselect">${I.quickstart}<span>Quickstart</span></button>`;
-  return `
-  <div class="home${plan ? ' withplan' : ''}">${top}
-    <div class="home-center">${center}</div>
-    <div class="home-panel">
-      ${plan ? `
-      <div class="hm-planhead">
-        <div>
-          <div class="hm-planname">${esc(plan.name)}</div>
-          <div class="hm-planmeta">${plan.splitDays} day split · ${D.short(parseDay(plan.start))} to ${D.long(parseDay(plan.end))}</div>
-        </div>
-        <button class="hm-kebab" data-action="plan-menu" aria-label="Plan options">${I.kebab}</button>
-      </div>` : ''}
-      ${resumeCard()}
-      ${plan ? `<div class="hm-label">Today · ${D.dow(new Date())}</div>${todayCard(pt, plan)}` : ''}
-      ${quick}
-      ${plan ? '' : `<button class="home-cta" data-action="home-go" data-to="planwiz">${I.addCircle}<span>Create a Workout Plan</span></button>`}
-    </div>
-  </div>`;
-}
-
-/* ---- workout cards & lists ---- */
-// "~45 minutes": your average time for this workout, or about 2 minutes a set.
 export function workoutMinutes(w) {
   const done = db.sessions.filter(s => s.workoutId === w.id && s.startedAt).map(s => (new Date(s.finishedAt) - new Date(s.startedAt)) / 60000).filter(m => m > 3 && m < 240);
   const m = done.length ? done.reduce((a, b) => a + b, 0) / done.length : w.exercises.reduce((a, e) => a + e.sets * 2, 0);
@@ -316,7 +280,7 @@ export function QuickSelectScreen() {
   <div class="wl-screen">
     ${statusBar()}${workoutsNav()}
     <div class="wl-body">
-      <div class="wl-titleblock"><div class="wl-title">Choose a workout</div><div class="wl-help">What’s the workout for today?</div></div>
+      <div class="wl-titleblock"><div class="wl-title">Choose a workout</div><div class="wl-help">What are we hitting today?</div></div>
       ${workoutList({ label: 'Start', action: 'start-workout', needsExercises: true })}
     </div>
   </div>`;
@@ -327,7 +291,7 @@ export function WorkoutsScreen() {
   <div class="wl-screen">
     ${statusBar()}${workoutsNav('My Workouts')}
     <div class="wl-body">
-      <div class="wl-titleblock"><div class="wl-title">Saved Workouts</div><div class="wl-help">Start one, or tap Details to see and edit it.</div></div>
+      <div class="wl-titleblock"><div class="wl-title">Saved Workouts</div><div class="wl-help">Start one, or tap Details to tweak it.</div></div>
       ${workoutList({ label: 'Start', action: 'start-workout', needsExercises: true }, { menu: true })}
     </div>
   </div>`;
@@ -340,7 +304,7 @@ export function AssignDayScreen() {
       <div class="wl-titleblock"><div class="wl-title">Choose a workout</div><div class="wl-help">Pick a workout for day ${state.planwiz.pickDay + 1}, or set it as rest.</div></div>
       <div class="wl-rest">
         <div class="wl-moon">☾</div>
-        <div class="wl-resttext"><div class="wl-restname">Rest day</div><div class="wl-restsub">Recovery, no training logged</div></div>
+        <div class="wl-resttext"><div class="wl-restname">Rest day</div><div class="wl-restsub">Rest up. That’s when you grow.</div></div>
         <button class="wpill dark" data-action="plan-assign" data-type="rest">Select</button>
       </div>
       ${workoutList({ label: 'Select', action: 'plan-assign' })}
@@ -390,7 +354,7 @@ export function WorkoutSessionScreen() {
       </div>
       <div class="sess-drow">
         <div><div class="dlabel">Overload Goal</div><div class="dval goal">${ex.goal.weight != null ? `${wtTight(ex.goal.weight, u)} at volume or to failure` : 'No Goal Yet'}</div>
-        ${ex.newGoal != null ? `<div class="dlabel" style="margin-top:2px">Next time: ${wtTight(ex.newGoal, u)}</div>` : ex.goal.weight == null ? `<div class="dlabel" style="margin-top:2px">Finish ${ex.goal.sets} × ${ex.goal.reps} and FailUp will suggest one</div>` : ''}</div>
+        ${ex.newGoal != null ? `<div class="dlabel" style="margin-top:2px">Next time: ${wtTight(ex.newGoal, u)}</div>` : ex.goal.weight == null ? `<div class="dlabel" style="margin-top:2px">Finish ${ex.goal.sets} × ${ex.goal.reps} and FailUp suggests one</div>` : ''}</div>
         <button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>
       </div>
     </div>`;
@@ -498,7 +462,7 @@ export function OverloadGoalSheet() {
   <div class="scrim" data-action="close-goal">
     <div class="sheet goal-sheet" data-stop>
       <div class="sheet-grab"></div>
-      <div class="sheet-head"><div class="sheet-title purple">Overload Goal</div><div class="sheet-sub">Adjust your overload goal for...</div></div>
+      <div class="sheet-head"><div class="sheet-title purple">Overload Goal</div><div class="sheet-sub">Change your goal for...</div></div>
       <div class="goal-card">
         <div class="goal-exname">${esc(g.name)}</div>
         <div class="goal-exmeta"><span class="mus">${g.muscle}</span>${g.sets} Sets x ${g.reps} Reps</div>
@@ -526,7 +490,7 @@ export function UpdateGoalSheet() {
     <div class="sheet ug-sheet" data-stop>
       <div class="sheet-grab"></div>
       <div class="ug-body">
-        <div class="ug-titleblock"><div class="ug-title">Update goal weight?</div><div class="ug-text">You reduced the weight you’re lifting, but had a strong RPE score. Do you want to update your overload goal?</div></div>
+        <div class="ug-titleblock"><div class="ug-title">Update goal weight?</div><div class="ug-text">Lighter weight, strong effort. Make this your goal?</div></div>
         <div class="ug-summary">${e.goal.sets} sets · ${e.goal.reps} reps · <s>${wtTight(u.from, unit)}</s> <span>${wtTight(u.to, unit)}</span></div>
         <div class="ug-actions"><button class="ug-btn" data-action="ug-cancel">Cancel</button><button class="ug-btn dark" data-action="ug-confirm">Yes, Update Goal</button></div>
       </div>
@@ -540,10 +504,10 @@ export function GoalAskSheet() {
   const raise = g.kind === 'raise', light = g.kind === 'light';
   const [big, small] = steps(u), ul = unitLabel(u);
   const text = raise
-    ? `Every set of ${name} hit ${e.goal.reps} reps at ${wt(g.from, u)} without failing. Ready to aim for ${wt(g.weight, u)} next time?`
+    ? `Every rep at ${wt(g.from, u)}, no failing. You’re ready. Try ${wt(g.weight, u)} next time?`
     : light
-      ? `Every set of ${name} hit ${e.goal.reps} reps at ${wt(g.from, u)}, and it felt easy. Set a heavier goal for next time.`
-      : `You took your last two sets of ${name} to failure at ${wt(g.weight, u)}. Make it your goal: ${e.goal.sets} sets of ${e.goal.reps} reps at ${wt(g.weight, u)}, without failing.`;
+      ? `You cruised through ${wt(g.from, u)}. Bump it up for next time.`
+      : `You hit failure at ${wt(g.weight, u)}. That’s your new target: ${e.goal.sets} × ${e.goal.reps} there, no failing.`;
   const graphic = light ? `
         <div class="ga-picker">
           <div class="goal-wlabel">NEXT GOAL${ul ? ` (${ul.toUpperCase()})` : ''}</div>
@@ -584,7 +548,7 @@ export function PauseSheet() {
   <div class="scrim" data-action="close-pause">
     <div class="sheet" data-stop>
       <div class="sheet-grab"></div>
-      <div class="mn-head"><div class="vs-title">Pause Workout?</div><div class="vs-sub">Your progress is saved either way.</div></div>
+      <div class="mn-head"><div class="vs-title">Pause Workout?</div><div class="vs-sub">Everything’s saved.</div></div>
       <div class="mn-list">
         ${row('pause-confirm', I.pause, 'Pause Workout', 'Resume it from the home screen')}
         ${st.sets ? row('finish-early', I.checkC('#1C1B1F'), 'Finish Workout Now', `Save the ${st.sets} set${st.sets === 1 ? '' : 's'} you’ve logged`) : ''}
@@ -622,7 +586,7 @@ export function SessionLogScreen() {
   const newGoals = s.exercises.map((e, i) => ({ e, i, o: derived().outcomes[`${s.id}:${i}`] })).filter(x => x.o && x.o.newGoal != null);
   const newGoalsCard = newGoals.length ? `
       <div class="wc-newgoals">
-        <div class="wc-ng-head"><span class="wc-ng-ic">${I.graph}</span><span><span class="wc-ng-title">New goals</span><span class="wc-ng-sub">Waiting for you next time</span></span></div>
+        <div class="wc-ng-head"><span class="wc-ng-ic">${I.graph}</span><span><span class="wc-ng-title">New goals</span><span class="wc-ng-sub">For next time. Go get ’em.</span></span></div>
         ${newGoals.map(({ e, o }) => `
         <div class="wc-ng-row">
           <span class="wc-ng-text"><span class="wc-ng-name">${esc(exInfo(e).name)}</span><span class="wc-ng-meta tnum">${esc(e.equipName || eqLabel(e.equip))} · ${e.goal.sets} × ${e.goal.reps}</span></span>
@@ -722,20 +686,20 @@ export function PlanWizard() {
     const chips = ['Push Pull Legs', 'Upper / Lower', 'Full Body', 'Bro Split'].map(n => `<button class="qchip" data-action="plan-quickname" data-name="${n}">${n}</button>`).join('');
     body = `
       <div class="wiz-title">Name your plan</div>
-      <div class="wiz-help">Give it a name you'll recognize on your home screen.</div>
+      <div class="wiz-help">You’ll see it on your home screen.</div>
       <input class="wiz-input" type="text" placeholder="e.g. Push Pull Legs" data-planwizname value="${esc(w.name)}" autocomplete="off">${err}
       <div class="wiz-help" style="margin-top:18px;font-size:13px">Quick names</div>
       <div class="wiz-quick">${chips}</div>`;
   } else if (w.step === 2) {
     body = `
       <div class="wiz-title">How long is your split?</div>
-      <div class="wiz-help">The number of days before your plan repeats (1 to 10).</div>
+      <div class="wiz-help">Days before it repeats. 3 to 7 is a sweet spot.</div>
       <div class="plan-stepper"><div class="ps-label">Days</div><div class="ps-row">
         <button class="st-btn" data-action="plan-split" data-dir="-1" ${w.splitDays <= 1 ? 'disabled' : ''}>&minus;</button>
         <div class="st-value tnum">${w.splitDays}</div>
         <button class="st-btn" data-action="plan-split" data-dir="1" ${w.splitDays >= 10 ? 'disabled' : ''}>+</button>
       </div></div>
-      <div class="plan-info"><div class="pi-icon">${I.refresh}</div><div><div class="pi-t1">Repeats every ${plural(w.splitDays, 'day')}</div><div class="pi-t2">You'll assign a workout or rest to each day next.</div></div></div>`;
+      <div class="plan-info"><div class="pi-icon">${I.refresh}</div><div><div class="pi-t1">Repeats every ${plural(w.splitDays, 'day')}</div><div class="pi-t2">You’ll fill in each day next.</div></div></div>`;
   } else if (w.step === 3) {
     const rows = w.days.slice(0, w.splitDays).map((day, i) => {
       const m = planDayMeta(day);
@@ -746,12 +710,12 @@ export function PlanWizard() {
           <span class="plan-daychev">${I.smChevR}</span>
         </button>`;
     }).join('');
-    body = `<div class="wiz-title">Assign your days</div><div class="wiz-help">Day 1 is your start date. Pick a workout or a rest day for each day in your split.</div>${err}<div class="plan-daycard">${rows}</div>`;
+    body = `<div class="wiz-title">Assign your days</div><div class="wiz-help">Day 1 is your start date. Don’t skip rest days.</div>${err}<div class="plan-daycard">${rows}</div>`;
   } else if (w.step === 4) {
     const f = (k, label, val) => `<button class="plan-datefield ${w.pick === k ? 'on' : ''}" data-action="plan-pickfield" data-k="${k}"><div class="pf-label">${label}</div><div class="pf-value">${val}</div></button>`;
     body = `
       <div class="wiz-title">Set your schedule</div>
-      <div class="wiz-help">Pick a start and end date. Your split repeats across the range.</div>
+      <div class="wiz-help">Your split repeats between these dates.</div>
       <div class="plan-datefields">
         ${f('start', 'Start date', D.short(parseDay(w.start)))}
         ${f('end', 'End date', D.short(parseDay(w.end)))}
@@ -763,7 +727,7 @@ export function PlanWizard() {
     const editPill = step => `<button class="plan-redit" data-action="plan-edit" data-step="${step}">Edit ${I.editPen}</button>`;
     body = `
       <div class="wiz-title">Review your plan</div>
-      <div class="wiz-help">Check the details, then save your plan. Tap edit on anything you want to change.</div>
+      <div class="wiz-help">Look good? Save it.</div>
       <div class="plan-review">
         <div class="plan-rcard"><div class="plan-rhead"><div><div class="rc-label">Plan name</div><div class="rc-value">${esc(w.name)}</div></div>${editPill(1)}</div></div>
         <div class="plan-rcard"><div class="plan-rhead"><div><div class="rc-label">Split length</div><div class="rc-value">${plural(w.splitDays, 'day')}</div><div class="rc-sub">Repeats every ${plural(w.splitDays, 'day')}</div></div>${editPill(2)}</div></div>

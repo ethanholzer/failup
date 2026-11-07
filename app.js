@@ -18,12 +18,13 @@ import {
   EquipmentSwapScreen, EquipmentSwapSheet, LocationSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
+import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel } from './screens-home.js';
 import {
-  HomeScreen, QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
+  QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
   listCtx, keepCurrentExercise, vol, exInfo, workingSets, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
-import { UPPER_BODY, LOWER_BODY } from './data.js';
+import { UPPER_BODY, LOWER_BODY, LINKS } from './data.js';
 
 // The live workout is part of the saved store, so a reload mid-workout resumes it.
 Object.defineProperty(state, 'session', { get: () => db.active, set: v => { db.active = v; } });
@@ -56,7 +57,7 @@ const SCREENS = {
   exhistory: ExerciseHistoryScreen, equipment: EquipmentListScreen, eqdetail: EquipmentDetailScreen,
   swap: () => EquipmentSwapScreen(swapRef(), swapExId()), details: WorkoutDetailsScreen, newloc: NewLocationScreen,
   mergeex: MergeExerciseScreen, mergeeq: MergeEquipmentScreen, complete: SessionLogScreen, log: SessionLogScreen,
-  settings: SettingsScreen,
+  settings: SettingsScreen, howto: HowItWorksScreen, goals: GoalsScreen,
 };
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
@@ -102,6 +103,9 @@ function render() {
   lastScreen = state.screen; goingBack = false;
   mountLottie();
   blendHeader();
+  fitExNames();
+  homeHeaderIcons();
+  slideInCards();
   if (!save() && !state.warnedStorage) { state.warnedStorage = true; toast('Couldn’t save. This browser is blocking storage.'); }
 }
 
@@ -114,6 +118,51 @@ function bgOf(el) {
   }
   return '';
 }
+// Live workout exercise name: full size up to two lines; past that, a smaller size;
+// still past two lines, the smaller size truncated at two lines.
+function fitExNames() {
+  for (const el of app.querySelectorAll('.sess-exrow .sess-exname')) {
+    el.classList.remove('fit-sm', 'fit-clamp');
+    const twoLines = () => el.scrollHeight <= parseFloat(getComputedStyle(el).lineHeight) * 2 + 1;
+    if (twoLines()) continue;
+    el.classList.add('fit-sm');
+    if (!twoLines()) el.classList.add('fit-clamp');
+  }
+}
+addEventListener('resize', () => fitExNames());
+
+// Share FailUp: the App Store link once there is one, otherwise the website.
+async function shareApp() {
+  const url = LINKS.appStore || LINKS.site;
+  const data = { title: 'FailUp', text: 'I track my lifts with FailUp. Free, no subscription. Try it:', url };
+  try { if (navigator.share) { await navigator.share(data); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { toast(url); }
+}
+
+// Home: the Workouts / Exercises / Equipment buttons move into the header once they scroll away.
+function homeHeaderIcons() {
+  const root = app.querySelector(':scope > .hm2'); if (!root) return;
+  const head = root.querySelector('.hm2-head'), nav = root.querySelector('.hm2-nav');
+  if (!head || !nav) return;
+  const up = nav.getBoundingClientRect().bottom < head.getBoundingClientRect().bottom + 4;
+  if (root.classList.contains('icons-up') === up) return;
+  root.classList.toggle('icons-up', up);
+  for (const b of head.querySelectorAll('.hm2-ibtn.mini')) { b.tabIndex = up ? 0 : -1; b.setAttribute('aria-hidden', String(!up)); }
+}
+app.addEventListener('scroll', homeHeaderIcons, { passive: true });
+
+// How FailUp Works: each card slides in from the right as it scrolls into view.
+let slideIO = null;
+function slideInCards() {
+  if (slideIO) { slideIO.disconnect(); slideIO = null; }
+  const cards = app.querySelectorAll('.hw-screen .hw-sec, .hw-screen .hw-step');
+  if (!cards.length || reduceMotion() || !('IntersectionObserver' in window)) return;
+  slideIO = new IntersectionObserver(entries => {
+    for (const en of entries) if (en.isIntersecting) { en.target.classList.add('in'); slideIO.unobserve(en.target); }
+  }, { root: app, threshold: 0.15 });
+  cards.forEach(c => { c.classList.add('hw-slide'); slideIO.observe(c); });
+}
+
 function blendHeader() {
   const root = app.firstElementChild;
   if (!root) return;
@@ -368,8 +417,8 @@ function setDraft(type, si) {
   const last = lastDone(e.exId, e.equip);
   const lastTop = last ? Math.max(0, ...workingSets(last.e).map(x => x.weight)) : null;
   const hint = type === 'working' ? (e.goal.weight != null
-    ? { goal: true, title: `${wt(e.goal.weight, u)} × ${e.goal.reps} reps`, sub: 'Overload goal. Hit it, or take it to failure.' }
-    : { goal: false, title: 'No goal yet', sub: `Finish ${e.goal.sets} × ${e.goal.reps} and FailUp will suggest one.` }) : null;
+    ? { goal: true, title: `${wt(e.goal.weight, u)} × ${e.goal.reps} reps`, sub: 'Hit every rep, or go to failure.' }
+    : { goal: false, title: 'No goal yet', sub: `Finish ${e.goal.sets} × ${e.goal.reps} and FailUp suggests one.` }) : null;
   if (si != null) {
     const st = e.sets[si];
     const num = st.type === 'working' ? working.indexOf(st) + 1 : 0;
@@ -384,7 +433,7 @@ function setDraft(type, si) {
 }
 
 // The goal prompts:
-//  • last two working sets went to failure → goal = that weight (reach the volume without failing)
+//  • the last working set (or last two) went to failure → goal = that weight (reach the volume without failing)
 //  • all required sets hit the reps, none failed, all RPE 7+ → goal = that weight + one increment
 //  • same, but it felt easy (any set RPE 6 or lower) → "too light?" and you pick the new weight
 function goalPrompt(e) {
@@ -392,9 +441,10 @@ function goalPrompt(e) {
   const w = workingSets(e);
   if (w.length < e.goal.sets) return null;
   const g = e.goal.weight, inc = increment(eqUnits(e.equip));
-  const last2 = w.slice(-2);
-  if (last2.length === 2 && last2.every(isFail)) {
-    const W = last2[1].weight;
+  // the last set (or the last two) went to failure → that weight is the goal: the same volume, without failing
+  const last = w[w.length - 1];
+  if (isFail(last)) {
+    const W = last.weight;
     return W > 0 && g !== W ? { kind: 'fail', weight: W } : null;
   }
   const req = w.slice(0, e.goal.sets), rpe = x => Math.min(10, Math.floor(x.feel * 10) + 1);
@@ -822,6 +872,12 @@ function handle(a, d, el, ex) {
     }
 
     /* ---------------- plans ---------------- */
+    case 'home-tracker': {   // a goal card or row → that goal's Overload Tracker
+      const [exId, ref, vol] = d.key.split('|'), [sets, reps] = vol.split('x').map(Number);
+      state.tracker = { exId, equip: ref, range: 'All', volume: { sets, reps } }; go('tracker'); break;
+    }
+    case 'share-app': shareApp(); return false;
+    case 'home-go-mini':
     case 'home-go': {
       const to = d.to;
       if (to === 'planwiz') { openPlanWizard(false); break; }
@@ -832,7 +888,7 @@ function handle(a, d, el, ex) {
       menu({ title: db.plan.name, items: [
         { label: 'Edit Plan', icon: I.editPen, run: () => openPlanWizard(true) },
         { label: 'End Plan', icon: I.trash24, danger: true, run: () => confirm({ title: 'End this plan?', danger: true, label: 'End Plan',
-          text: 'Your plan is removed from the home screen. Your workouts and history stay.', run: () => { db.plan = null; } }) },
+          text: 'It comes off your home screen. Workouts and history stay.', run: () => { db.plan = null; } }) },
       ] });
       break;
     case 'plan-next': {
@@ -1109,6 +1165,20 @@ device.addEventListener('input', (e) => {
   if (t.matches('[data-newloc]')) { state.newLoc.name = t.value; return; }
   if (t.matches('[data-planwizname]')) { state.planwiz.name = t.value; return; }
   if (t.matches('[data-cwname]')) { state.create.name = t.value; if (state.create.err) { state.create.err = null; const er = t.closest('.cw-body').querySelector('.wiz-err'); if (er) er.remove(); } return; }
+  if (t.matches('[data-rpedemo]')) {   // How FailUp Works: the practice effort slider
+    const v = +t.value, demo = t.closest('.hv-rpe-demo'), c = FEEL_SEGS[v - 1];
+    demo.style.setProperty('--c', c); demo.style.setProperty('--p', `${((v - 0.5) / 10) * 100}%`);
+    demo.querySelector('[data-rpe-label]').textContent = rpeLabel(v);
+    demo.querySelector('[data-rpe-note]').textContent = RPE_NOTES[v - 1];
+    demo.querySelector('.hv-rpe-box').classList.toggle('dark', v <= 4);
+    return;
+  }
+  if (t.matches('[data-goalsearch]')) {
+    const q = t.value.trim().toLowerCase(); let n = 0;
+    for (const r of document.querySelectorAll('#gl-list .gl-row')) { const on = !q || r.dataset.q.includes(q); r.hidden = !on; n += on; }
+    const none = document.querySelector('#gl-list .gl-none'); if (none) none.hidden = n > 0 || !q;
+    return;
+  }
   if (t.matches('[data-mergesearch]')) { state.merge.q = t.value; const l = document.getElementById('merge-list'); if (l) l.innerHTML = mergeExList(); return; }
   if (t.matches('[data-swfield]')) {
     const v = parseFloat(t.value.replace(',', '.'));

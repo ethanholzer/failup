@@ -161,8 +161,8 @@ export function TrackerScreen() {
     <div class="tk-body">
       <div class="card tk-explain">
         <h3>Progressive Overload</h3>
-        <p>The ring marks where your first overload goal for ${esc(ex.name)} on ${esc(eqLabel(t.equip))} started. Each solid dot after it is a workout where you completed ${v.sets} sets of ${v.reps} reps at your overload goal weight.</p>
-        ${goal == null ? `<p class="tk-note">No goal yet for ${v.sets} sets of ${v.reps} reps on this setup. Set one with the pencil, or finish a workout and FailUp will suggest one.</p>` : ''}
+        <p>The ring is your first goal. Each dot after it is a workout where you hit ${v.sets} × ${v.reps} at your goal. Keep it climbing.</p>
+        ${goal == null ? `<p class="tk-note">No goal yet for ${v.sets} sets of ${v.reps} reps on this setup. Tap the pencil, or finish a workout and FailUp suggests one.</p>` : ''}
       </div>
       ${history}
     </div>
@@ -260,7 +260,7 @@ export function exListInner() {
   const active = s.muscles.length || s.equipment.length;
   const matched = matchExercises();
   if (active || s.search.trim()) {
-    if (!matched.length) return `<div class="ex-empty">No exercises match those filters.${s.mode !== 'browse' ? '' : ''}</div>`;
+    if (!matched.length) return `<div class="ex-empty">Nothing matches. Loosen the filters.${s.mode !== 'browse' ? '' : ''}</div>`;
     return `<div class="ex-sectionrow"><span class="sec-label">Results (${matched.length})</span></div>${matched.map(exRow).join('')}`;
   }
   const recent = recentExercises();
@@ -374,10 +374,10 @@ export function ExerciseWizard() {
   if (w.step === 1) {
     body = `
       <div class="wiz-title">Name the Exercise</div>
-      <div class="wiz-help">Give it a name you'll recognize in your workout list.</div>
+      <div class="wiz-help">Whatever you’d call it at the gym.</div>
       <input class="wiz-input" type="text" placeholder="e.g. Bajan Cable Curl" data-exwizname value="${esc(w.name)}" autocomplete="off">${wizErr(w)}`;
   } else if (w.step === 2) {
-    body = `<div class="wiz-title">Select a primary muscle group</div><div class="wiz-help">Which muscle is primarily worked in this exercise?</div>${wizErr(w)}${exMuscleGrid(w.primary ? [w.primary] : [], 'exwiz-primary', null)}`;
+    body = `<div class="wiz-title">Select a primary muscle group</div><div class="wiz-help">What does it hit the most?</div>${wizErr(w)}${exMuscleGrid(w.primary ? [w.primary] : [], 'exwiz-primary', null)}`;
   } else if (w.step === 3) {
     body = `<div class="wiz-title">Select any secondary muscle groups</div><div class="wiz-help">(Optional) Select all that apply</div>${exMuscleGrid(w.secondary, 'exwiz-secondary', w.primary)}`;
   } else if (w.step === 4) {
@@ -400,9 +400,9 @@ export function ExerciseWizard() {
       <div class="wiz-title">What kind of equipment?</div>
       <div class="wiz-help">Select all types of equipment you could use for this exercise</div>${wizErr(w)}
       <div class="wiz-eqcard">
-        <div class="wiz-eqnote"><p>Equipment can be swap between mid-workout, It’s super convenient.</p><button class="wiz-eqadd" data-action="exwiz-addequip">Add</button></div>
+        <div class="wiz-eqnote"><p>Add what you use for this. Swap between them mid-workout.</p><button class="wiz-eqadd" data-action="exwiz-addequip">Add</button></div>
         <div class="wiz-eqsection"><span class="lbl">Saved (${db.equipment.length})</span></div>
-        ${savedRows || '<div class="wiz-eqempty">No saved equipment yet. Tap Add to save a machine from your gym.</div>'}
+        ${savedRows || '<div class="wiz-eqempty">Nothing saved yet. Tap Add. Makes mid-workout swaps way faster.</div>'}
         <div class="wiz-eqsection"><span class="lbl">Generic Equipment (${EQ_TYPES.length})</span></div>
         ${genRows}
       </div>`;
@@ -412,7 +412,7 @@ export function ExerciseWizard() {
       <div class="wiz-title">Add a thumbnail photo</div>
       <div class="wiz-help">(Optional) Take a picture, or upload one</div>
       ${p ? `<div class="wiz-imgcard filled"><img src="${p}" alt="">${photoButton('exwiz', 'Change photo', 'xd-changephoto')}</div>` : `
-      <div class="wiz-imgcard">${I.photoGlyph}<div class="imgt1">No photo yet</div><div class="imgt2">Add one to make this exercise easy to spot</div>${photoButton('exwiz', 'Add a photo', 'imgbtn')}</div>`}`;
+      <div class="wiz-imgcard">${I.photoGlyph}<div class="imgt1">No photo yet</div><div class="imgt2">Snap one so it’s easy to spot</div>${photoButton('exwiz', 'Add a photo', 'imgbtn')}</div>`}`;
   }
   const last = w.step === STEPS;
   const footer = w.step === 1
@@ -437,7 +437,7 @@ export function EquipmentWizard() {
   if (w.step === 1) {
     body = `
       <div class="wiz-title">Where is this located?</div>
-      <div class="wiz-help">This will help organize what equipment you can swap between mid-workout.</div>
+      <div class="wiz-help">Where is it? It’ll show up when you train there.</div>
       <div class="wiz-loclist">
         ${db.locations.map(l => `<button class="wiz-locard ${w.location === l ? 'on' : ''}" data-action="eqwiz-location" data-name="${esc(l)}">${esc(l)}</button>`).join('')}
         <button class="wiz-locard add" data-action="eqwiz-addloc">Add a new location ${I.plus20}</button>
@@ -445,12 +445,12 @@ export function EquipmentWizard() {
   } else if (w.step === 2) {
     body = `
       <div class="wiz-title">Name the Equipment</div>
-      <div class="wiz-help">Give it a name you'll recognize in your saved equipment list.</div>
+      <div class="wiz-help">Like “Cable Machine 2.”</div>
       <div class="wiz-namecard"><input type="text" placeholder="e.g. Assisted Pull-up Machine" data-eqwizname value="${esc(w.name)}" autocomplete="off"><div class="loc">At ${esc(w.location)}</div></div>${wizErr(w)}`;
   } else if (w.step === 3) {
     body = `
       <div class="wiz-title">Choose weight units</div>
-      <div class="wiz-help">How do you want to track weight on this equipment?</div>
+      <div class="wiz-help">Match the stack or plates.</div>
       <div class="wiz-unitcard"><div class="ulbl">Weight Units</div><div class="unit-pills">${UNITS.map(([k, label]) => `<button class="unit-pill ${w.units === k ? 'on' : ''}" data-action="eqwiz-units" data-name="${k}">${label}</button>`).join('')}</div></div>`;
   } else {
     const p = photoSrc(w.photo);
@@ -458,7 +458,7 @@ export function EquipmentWizard() {
       <div class="wiz-title">Add a thumbnail photo</div>
       <div class="wiz-help">(Optional) Take a picture, or upload one</div>
       ${p ? `<div class="wiz-imgcard filled"><img src="${p}" alt="">${photoButton('eqwiz', 'Change photo', 'xd-changephoto')}</div>` : `
-      <div class="wiz-imgcard">${I.photoGlyph}<div class="imgt1">No photo yet</div><div class="imgt2">Add one to make this equipment easy to spot</div>${photoButton('eqwiz', 'Add a photo', 'imgbtn')}</div>`}`;
+      <div class="wiz-imgcard">${I.photoGlyph}<div class="imgt1">No photo yet</div><div class="imgt2">Snap one so it’s easy to find</div>${photoButton('eqwiz', 'Add a photo', 'imgbtn')}</div>`}`;
   }
   const last = w.step === STEPS;
   const footer = w.step === 1
@@ -509,7 +509,7 @@ export function ExerciseDetailScreen() {
       ${statusBar()}
       <button class="icon-btn xd-back" data-action="back" aria-label="Back">${I.chevL}</button>
       ${p ? `<img class="xd-heroimg" src="${p}" alt="" onerror="this.remove()">${photoButton('exercise', own ? 'Change photo' : 'Use your own photo', 'xd-changephoto')}` : `
-      <div class="xd-empty">${I.photoGlyph}<div class="xd-empty-title">No photo yet</div><div class="xd-empty-help">Add one to make this exercise easy to spot</div>${photoButton('exercise', 'Add a photo', 'xd-addphoto')}</div>`}
+      <div class="xd-empty">${I.photoGlyph}<div class="xd-empty-title">No photo yet</div><div class="xd-empty-help">Snap one so it’s easy to spot</div>${photoButton('exercise', 'Add a photo', 'xd-addphoto')}</div>`}
     </div>
     <div class="xd-content">
       <div class="xd-card xd-details">
@@ -534,7 +534,7 @@ export function ExerciseDetailScreen() {
       </div>
       <div class="xd-card xd-related">
         <div class="xd-relhead">
-          <div class="xd-hgroup"><div class="xd-h">Related Equipment</div><div class="xd-sub">This is the list of equipment you can quickly swap between mid-workout. Tap one to see its Overload Tracker.</div></div>
+          <div class="xd-hgroup"><div class="xd-h">Related Equipment</div><div class="xd-sub">Your mid-workout swaps. Tap one to see its goals.</div></div>
           <button class="xd-add" data-action="xd-add-equipment">Add</button>
         </div>
         ${saved.length ? `<div class="xd-sechdr"><span>SAVED (${saved.length})</span></div>${saved.map(savedRow).join('')}` : ''}
@@ -583,7 +583,7 @@ export function ExerciseHistoryScreen() {
       <div class="eql-title">${esc(e.name)}</div>
       <div class="eql-help">${sets.length} set${sets.length === 1 ? '' : 's'} recorded · <span class="hx-fails">${fails} set${fails === 1 ? '' : 's'} to failure</span></div>
     </div>
-    <div class="hx-list">${cards || '<div class="mg-empty">Nothing logged yet. Your sets show up here after you finish a workout.</div>'}</div>
+    <div class="hx-list">${cards || '<div class="mg-empty">Nothing yet. Your sets land here after a workout.</div>'}</div>
   </div>`;
 }
 
@@ -606,10 +606,10 @@ export function EquipmentListScreen() {
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Equipment</span><button class="nav-create" data-action="eq-create">Create</button></div>
     <div class="eql-head">
       <div class="eql-title">Your Saved Equipment</div>
-      <div class="eql-help">Weight can feel different equipment to equipment. Saving specific equipment to ensure a consistent overload goal</div>
+      <div class="eql-help">Every machine feels different. Save yours so each gets its own goals.</div>
     </div>
     <div class="eql-listhdr"><span>Saved equipment (${list.length})</span></div>
-    ${rows || `<div class="mg-empty">Nothing saved yet. Save a machine from your gym so its goals stay separate from other machines of the same type.<br><br><button class="wpill dark" data-action="eq-create">Save Equipment</button></div>`}
+    ${rows || `<div class="mg-empty">Nothing saved yet. Save the machines you use. Each keeps its own goals.<br><br><button class="wpill dark" data-action="eq-create">Save Equipment</button></div>`}
   </div>`;
 }
 export function EquipmentDetailScreen() {
@@ -635,7 +635,7 @@ export function EquipmentDetailScreen() {
   <div class="xd-screen eqd-screen">
     <div class="xd-hero eqd-hero">
       ${p ? `<img src="${p}" alt="">${photoButton('equipment', 'Change photo', 'xd-changephoto')}` : `
-      <div class="xd-empty">${I.photoGlyph}<div class="xd-empty-title">No photo yet</div><div class="xd-empty-help">Add one to make this equipment easy to spot</div>${photoButton('equipment', 'Add a photo', 'xd-addphoto')}</div>`}
+      <div class="xd-empty">${I.photoGlyph}<div class="xd-empty-title">No photo yet</div><div class="xd-empty-help">Snap one so it’s easy to find</div>${photoButton('equipment', 'Add a photo', 'xd-addphoto')}</div>`}
       ${statusBar(!!p)}
       <button class="icon-btn xd-back" data-action="back" aria-label="Back">${I.chevL}</button>
     </div>
@@ -646,14 +646,14 @@ export function EquipmentDetailScreen() {
       </div>
       <button class="eqd-loc" data-action="open-location" data-target="equipment"><span class="cw-label">Where is this Located?</span><span class="eqd-locval">${esc(sv.location)}</span></button>
       <div class="xd-card eqd-units">
-        <div class="xd-hgroup"><div class="xd-h">Equipment Details</div><div class="xd-sub">Select the equipment’s weight units and goal increments</div></div>
+        <div class="xd-hgroup"><div class="xd-h">Equipment Details</div><div class="xd-sub">Units and how big your goal jumps are.</div></div>
         <div class="cw-label eqd-unitslbl">Weight Units</div>
         <div class="eqd-unitrow">${unit('lbs', 'Pounds (lbs)')}${unit('kg', 'Kilograms (kg)')}${unit('simple', 'Simple Numbers')}</div>
       </div>
       <div class="xd-card xd-related">
         <div class="xd-relhead"><div class="xd-hgroup"><div class="xd-h">Related Exercises</div><div class="xd-sub">Listed are exercises you've done on this machine and any active overload goals per exercise</div></div></div>
         <div class="xd-sechdr"><span>EXERCISES (${exIds.size})</span></div>
-        <div class="eqd-exlist">${related || '<div class="mg-empty sm">Exercises show up here once you log them on this equipment.</div>'}</div>
+        <div class="eqd-exlist">${related || '<div class="mg-empty sm">Log something on this and it shows up here.</div>'}</div>
       </div>
     </div>
     <div class="xd-actions">
@@ -685,7 +685,7 @@ export function EquipmentSwapScreen(currentRef, exId) {
   <div class="swp-screen ae-screen">
     ${statusBar()}
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">All Equipment</span><button class="nav-create" data-action="swap-add">Add</button></div>
-    ${ex ? `<div class="ae-help">Check the equipment you want in ${esc(ex.name)}’s quick swap list.</div>` : ''}
+    ${ex ? `<div class="ae-help">Check what you use for ${esc(ex.name)}. They’ll be one tap away mid-workout.</div>` : ''}
     <div class="ae-hdr"><span>Saved (${saved.length})</span></div>
     <div class="ae-list">
       ${saved.map(sv => row('eq:' + sv.id, 'eq:' + sv.id, eqImg(sv), sv.name, 'At ' + sv.location)).join('') || `<button class="ae-empty" data-action="swap-add">${I.plus20} Save a machine from your gym</button>`}
@@ -739,8 +739,8 @@ export function EquipmentSwapSheet(currentRef, exId, location) {
       <div class="swp-sheetbody">
         <div class="swp-sechdr"><span>Saved${location ? ` · ${esc(location)} first` : ''}</span></div>
         ${savedRows || (db.equipment.length
-          ? `<button class="xd-eqrow swp-row swp-addrow" data-action="swap-all"><span class="xd-eqimg swp-addic">${I.plus20}</span><span class="xd-eqtext"><span class="xd-eqname">Pick your machines</span><span class="xd-eqsub">Check the ones you use for this exercise</span></span><span class="xd-chev">${I.smChevR}</span></button>`
-          : `<button class="xd-eqrow swp-row swp-addrow" data-action="swap-add"><span class="xd-eqimg swp-addic">${I.plus20}</span><span class="xd-eqtext"><span class="xd-eqname">Save a machine</span><span class="xd-eqsub">Give a specific machine its own goals</span></span><span class="xd-chev">${I.smChevR}</span></button>`)}
+          ? `<button class="xd-eqrow swp-row swp-addrow" data-action="swap-all"><span class="xd-eqimg swp-addic">${I.plus20}</span><span class="xd-eqtext"><span class="xd-eqname">Pick your machines</span><span class="xd-eqsub">Check the ones you use</span></span><span class="xd-chev">${I.smChevR}</span></button>`
+          : `<button class="xd-eqrow swp-row swp-addrow" data-action="swap-add"><span class="xd-eqimg swp-addic">${I.plus20}</span><span class="xd-eqtext"><span class="xd-eqname">Save a machine</span><span class="xd-eqsub">Each gets its own goals</span></span><span class="xd-chev">${I.smChevR}</span></button>`)}
         ${genRows ? `<div class="swp-sechdr"><span>Generic</span></div>${genRows}` : ''}
       </div>
       <div class="ug-actions swp-sheetfoot">
@@ -768,7 +768,7 @@ export function LocationSheet() {
     <div class="sheet pk-sheet" data-stop>
       <div class="sheet-grab"></div>
       <div class="pk-body loc-body">
-        <div class="pk-titleblock"><div class="vs-title">Choose a location</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you working out today? Equipment defaults to what’s saved there.' : 'Where is this equipment?'}</div></div>
+        <div class="pk-titleblock"><div class="vs-title">Choose a location</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you lifting? FailUp grabs your saved gear there.' : 'Where is this equipment?'}</div></div>
         <div class="wiz-loclist">
           ${db.locations.map(l => `<button class="wiz-locard ${l === cur ? 'on' : ''}" data-action="pick-location" data-name="${esc(l)}">${esc(l)}</button>`).join('')}
           <button class="wiz-locard add" data-action="add-location">Add a new location ${I.plus20}</button>
@@ -784,7 +784,7 @@ export function NewLocationScreen() {
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">New Location</span></div>
     <div class="wiz-body">
       <div class="wiz-title">Add a location</div>
-      <div class="wiz-help">Name a gym, or anywhere else you train.</div>
+      <div class="wiz-help">Gym, garage, wherever.</div>
       <input class="wiz-input" data-newloc placeholder="Location name" value="${esc(state.newLoc.name)}" autocomplete="off">${wizErr(state.newLoc)}
     </div>
     <div class="wiz-footer"><button class="btn solid" data-action="save-location">Save Location</button></div>
