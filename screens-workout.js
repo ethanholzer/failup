@@ -199,7 +199,7 @@ export function WorkoutDetailsScreen() {
 
 /* ---- Start Page / home ----
    Release 1.0 states, drawn with the Dev File home (dark panel, white cards). */
-const doneToday = wid => db.sessions.some(s => s.workoutId === wid && dayKey(new Date(s.finishedAt)) === dayKey());
+export const doneToday = wid => db.sessions.some(s => s.workoutId === wid && dayKey(new Date(s.finishedAt)) === dayKey());
 export function resumeCard() {
   const s = state.session;
   if (!s) return '';

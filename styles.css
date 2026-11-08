@@ -2115,3 +2115,18 @@ body{ background:#e9e8ef; }
 .hm2-howart{ position:absolute; left:22px; right:22px; top:26px; display:block; }
 .hm2-howart .hw-big{ margin:0; font-size:2.75rem; --lh:3rem; line-height:3rem; }
 .hm2-howsub{ font-size:1rem; line-height:1.375rem; }
+
+/* ---- home tweaks ---- */
+.hm2-primary{ background:none !important; padding-top:16px !important; }
+.hm2-how{ background:#2c1f9e !important; }
+.hm2-howimg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 30%; filter:grayscale(1) contrast(1.05); }
+.hm2-how::before{ content:''; position:absolute; inset:0; background:linear-gradient(170deg, rgba(44,31,158,.88) 0%, rgba(70,54,201,.78) 45%, rgba(108,92,231,.72) 100%); z-index:0; }
+.hm2-howart, .hm2-howtext, .hm2-howarrow{ z-index:1; }
+.hm2-makerphoto{ width:148px; height:111px; object-fit:cover; object-position:50% 40%; border-radius:16px; box-shadow:0 0 0 3px rgba(255,255,255,.9); margin-bottom:auto; display:block; }
+.hm-resttile{ background:var(--purple-tint) !important; color:#6c5ce7 !important; }
+.hm2-plan .wpill[data-action="start-workout"]{ background:#FFC83D !important; color:#111 !important; }
+/* rpe demo: the ball keeps a 4px inset at both ends, like the bar */
+.hv-rpe-thumb{ left:clamp(4px, calc(var(--p) - 20px), calc(100% - 44px)) !important; }
+.hm2-howimg{ z-index:0; }
+.hm2-how::before{ z-index:1 !important; }
+.hm2-howart, .hm2-howtext, .hm2-howarrow{ z-index:2 !important; }

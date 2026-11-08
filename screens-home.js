@@ -4,7 +4,7 @@
 import { state, LINKS } from './data.js';
 import { I, statusBar, fmt, esc, wtTight, D } from './ui.js';
 import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay } from './store.js';
-import { resumeCard, todayCard } from './screens-workout.js';
+import { resumeCard, todayCard, doneToday } from './screens-workout.js';
 
 const ICON = {
   contacts: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M8 16.5c.8-1.8 2.2-2.6 4-2.6s3.2.8 4 2.6"/><path d="M2.5 7h2M2.5 12h2M2.5 17h2"/></svg>',
@@ -65,6 +65,10 @@ function primary() {
       ${resumeCard()}`;
   const plan = db.plan;
   const quick = `<button class="hm2-quick" data-action="home-go" data-to="quickselect">${I.quickstart}<span>Quickstart</span></button>`;
+  // a workout on deck that you haven't done yet: its yellow Start is the main button, so no Quickstart
+  const pt = plan ? planToday() : null, day = pt && pt.status === 'active' ? pt.day : null;
+  const todayW = day && day.type === 'workout' ? db.workouts.find(x => x.id === day.workoutId) : null;
+  const startToday = !!(todayW && !doneToday(todayW.id));
   if (plan) return `
       <div class="hm2-card hm2-plan">
         <div class="hm2-planhead">
@@ -75,9 +79,9 @@ function primary() {
           <button class="hm2-kebab" data-action="plan-menu" aria-label="Plan options">${I.kebab}</button>
         </div>
         <div class="hm2-today">Today · ${D.dow(new Date())}</div>
-        ${todayCard(planToday(), plan)}
+        ${todayCard(pt, plan)}
       </div>
-      ${quick}`;
+      ${startToday ? '' : quick}`;
   return `
       <div class="hm2-card hm2-start">
         <div class="hm2-starttitle">Push yourself today.</div>
@@ -118,12 +122,13 @@ export function HomeScreen() {
       <div class="hm2-sechead"><h2>How FailUp Works</h2></div>
       <div class="hm2-rail hm2-howrail">
         <button class="hm2-how" data-action="home-go" data-to="howto" aria-label="How FailUp Works. Learn about our super simple training strategy.">
+          <img class="hm2-howimg" src="./assets/hero.jpg" alt="">
           <span class="hm2-howart">${heroLines()}</span>
           <span class="hm2-howtext"><span class="hm2-howsub">Learn about our super simple training strategy.</span></span>
           <span class="hm2-howarrow">${ICON.arrow}</span>
         </button>
         <div class="hm2-maker">
-          <span class="hm2-makeric">${ICON.heart}</span>
+          <img class="hm2-makerphoto" src="./assets/maker.jpg" alt="Ethan and his golden retriever">
           <div class="hm2-makertitle">Hey, I made this.</div>
           <div class="hm2-makertext">Built by one guy, for his own training. Free forever, because subscriptions suck.</div>
           <a class="hm2-makerbtn" href="${LINKS.maker}" target="_blank" rel="noopener">Why I made it &amp; how to help</a>
@@ -205,12 +210,10 @@ export function HowItWorksScreen() {
       ['A bit more weight, or one more rep. Stack that up for a few months and you’ll be shocked.'])}
     ${sec(2, 'Why it works',
       '<b>Your body only changes when it has to.</b>',
-      ['Give your muscles more than they’re used to and they build back stronger. Same weight every week? They get comfy. Comfy doesn’t grow.'],
-      'Keep the challenge growing.')}
+      ['Give your muscles more than they’re used to and they build back stronger. Same weight every week? They get comfy. Comfy doesn’t grow.'])}
     ${sec(3, 'Why go to failure',
       '<b>Failure tells you the truth.</b>',
-      ['Failure is the rep you can’t finish with good form. Those last grinding reps build the most muscle, and hitting failure means you know your real limit. Most people stop early and guess.'],
-      'Today’s limit is next week’s goal.')}
+      ['Failure is the rep you can’t finish with good form. Those last grinding reps build the most muscle, and hitting failure means you know your real limit. Most people stop early and guess.'])}
     ${sec(4, 'How FailUp helps',
       '<b>You lift. FailUp does the math.</b>',
       [])}
@@ -233,7 +236,7 @@ export function HowItWorksScreen() {
       </div>
       <div class="hw-step">
         <div class="hw-steptitle">Aim for Purple</div>
-        <div class="hw-steptext">Sets turn purple if you complete a set at your goal weight, or fail trying.</div>
+        <div class="hw-steptext">Sets turn purple if you complete a set at your goal weight, or fail trying. It means you’re on the right path.</div>
         <div class="hw-vis">
           <div class="hv-sets">
             ${[['1', false], ['2', true], ['3', true]].map(([n, on]) => `<div class="hv-set"><span class="hv-badge${on ? ' on' : ''}">${n}</span><span class="hv-settext tnum">${on ? '100 lbs × 8' : '95 lbs × 8'}</span>${on ? '<span class="hv-hit">Goal hit</span>' : ''}</div>`).join('')}
