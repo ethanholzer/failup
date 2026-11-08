@@ -380,7 +380,7 @@ function sessionItem(exId, equip, sets = 3, reps = 8) {
 function prepSession(w) {
   state.session = {
     id: uid('s'), workoutId: w.id, workoutName: w.name, color: w.color, icon: w.icon,
-    location: db.settings.location || db.locations[0] || 'Home', started: false, exIndex: 0, expanded: true,
+    location: db.settings.location || db.locations[0] || 'Home', started: false, exIndex: 0, expanded: false,
     exercises: w.exercises.map(t => sessionItem(t.exId, t.equip, t.sets, t.reps)),
   };
   applyLocationDefaults(state.session);
@@ -406,7 +406,7 @@ function reopenSession(sid) {
   const i = db.sessions.findIndex(x => x.id === sid);
   if (i < 0) return false;
   const [s] = db.sessions.splice(i, 1);
-  state.session = { ...s, started: true, expanded: true, exIndex: s.exercises.length - 1, finishedAt: undefined };
+  state.session = { ...s, started: true, expanded: false, exIndex: s.exercises.length - 1, finishedAt: undefined };
   syncAllGoals();
   return true;
 }
@@ -669,7 +669,7 @@ function handle(a, d, el, ex) {
       const start = s.exercises.length;
       for (const id of ex.picked) s.exercises.push(sessionItem(id, defaultRef(exById(id))));
       applyLocationDefaults(s);
-      s.exIndex = start; s.expanded = true;
+      s.exIndex = start; s.expanded = false;
       resetPicker(); state.stack = ['home']; state.screen = 'session';
       break;
     }
@@ -750,7 +750,7 @@ function handle(a, d, el, ex) {
     }
     case 'lets-go':
       surge(s.color, s.icon, () => {
-        s.started = true; s.startedAt = new Date().toISOString(); s.exIndex = 0; s.expanded = true;
+        s.started = true; s.startedAt = new Date().toISOString(); s.exIndex = 0; s.expanded = false;
         state.stack = ['home']; state.screen = 'session'; render();
       });
       return false;
@@ -774,7 +774,7 @@ function handle(a, d, el, ex) {
       if (!reopenSession(state.log.sid)) break;
       ex.mode = 'quickadd'; ex.picked = []; ex.search = ''; ex.returnTo = 'lineup';
       state.stack = ['home', 'session']; state.screen = 'exercises'; break;
-    case 'sess-log': state.setDraft = setDraft(d.type); state.modal = 'setwidget'; break;
+    case 'sess-log': s.expanded = false; state.setDraft = setDraft(d.type); state.modal = 'setwidget'; break;   // the card folds up as the logger slides in
     case 'edit-set': state.setDraft = setDraft(null, +d.si); state.modal = 'setwidget'; break;
     case 'edit-logged-set': {
       const ls = db.sessions.find(x => x.id === state.log.sid), le = ls.exercises[+d.ei], st = le.sets[+d.si];

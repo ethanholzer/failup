@@ -2130,3 +2130,28 @@ body{ background:#e9e8ef; }
 .hm2-howimg{ z-index:0; }
 .hm2-how::before{ z-index:1 !important; }
 .hm2-howart, .hm2-howtext, .hm2-howarrow{ z-index:2 !important; }
+
+/* ---- solid workout color: number tiles filled with an angled gradient; muscle tags outlined ---- */
+.cw-badge, .sess-exbadge{
+  --tc:var(--cw-current,#4573A8);
+  background:linear-gradient(145deg, var(--tc) 0%, color-mix(in srgb, var(--tc) 72%, #000) 100%) !important;
+  color:#fff !important; border:none !important; border-radius:12px !important;
+  box-shadow:0 4px 10px color-mix(in srgb, var(--tc) 35%, transparent), 0 1px 2px rgba(0,0,0,.12) !important;
+  text-shadow:0 1px 1px rgba(0,0,0,.15);
+}
+.sess-exbadge{ --tc:var(--sess-color,#cf2a0f); }
+.mtag{ background:transparent !important; color:#111 !important; box-shadow:inset 0 0 0 1px var(--wc, #6c5ce7); font-weight:600 !important; }
+.sess-screen .mtag{ --wc:var(--sess-color); }
+.ex-row .ex-sub .mus, .goal-exmeta .mus{ background:transparent !important; color:#111 !important; box-shadow:inset 0 0 0 1px #c9c7d3; font-weight:600 !important; border-radius:6px; }
+.tint{ background:linear-gradient(145deg, var(--wc) 0%, color-mix(in srgb, var(--wc) 72%, #000) 100%) !important; box-shadow:0 4px 10px color-mix(in srgb, var(--wc) 30%, transparent); }
+
+/* ---- lighter gradient: a touch lighter than the workout color at the top left, the color itself at the bottom right ---- */
+.cw-badge, .sess-exbadge{ background:linear-gradient(145deg, color-mix(in srgb, var(--tc) 78%, #fff) 0%, var(--tc) 100%) !important; }
+.tint{ background:linear-gradient(145deg, color-mix(in srgb, var(--wc) 78%, #fff) 0%, var(--wc) 100%) !important; }
+
+/* ---- hierarchy: workout icon tiles are bigger than the exercise number tiles (44px) ---- */
+.wcard-tile, .lu-tile{ width:56px !important; height:56px !important; border-radius:16px !important; }
+.wcard-tile svg, .lu-tile svg{ width:30px; height:30px; }
+.wc-tile{ width:60px !important; height:60px !important; border-radius:16px !important; }
+.wc-tile svg{ width:32px; height:32px; }
+.wcard-top{ align-items:center; gap:14px !important; }
