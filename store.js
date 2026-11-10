@@ -132,6 +132,7 @@ function replaceDb(next) {
   for (const k of Object.keys(db)) delete db[k];
   Object.assign(db, next);
   db.settings = { units: 'lbs', location: 'Home', ...(db.settings || {}) };
+  if (!Array.isArray(db.suggestions)) db.suggestions = [];   // goal suggestions waiting on a yes/no
   migrateColors();
   buildExercises();
   invalidate();
@@ -184,7 +185,7 @@ export function importData(text) {
   save();
 }
 export function resetAll() { replaceDb(freshDb()); save(); }
-export function clearExerciseData() { db.sessions = []; db.goalEdits = []; db.active = null; save(); }
+export function clearExerciseData() { db.sessions = []; db.goalEdits = []; db.suggestions = []; db.active = null; save(); }
 
 /* --------------------------------- photos -------------------------------- */
 // Photos are data URLs kept in IndexedDB; records hold an "idb:" reference.
@@ -277,7 +278,9 @@ export function derived() {
 }
 export const goalFor = (exId, ref, sets, reps) => derived().goals[goalKey(exId, ref, sets, reps)] ?? null;
 export function setGoal(exId, ref, sets, reps, weight) {
-  db.goalEdits.push({ key: goalKey(exId, ref, sets, reps), weight, at: new Date().toISOString() });
+  const key = goalKey(exId, ref, sets, reps);
+  db.suggestions = (db.suggestions || []).filter(x => x.key !== key);   // a goal settles any waiting suggestion
+  db.goalEdits.push({ key, weight, at: new Date().toISOString() });
   invalidate();
 }
 // every goal for an exercise: [{ ref, sets, reps, weight }]
@@ -301,7 +304,7 @@ export function exerciseLog(exId) {
 export function exerciseStats(exId) {
   const log = exerciseLog(exId);
   const working = log.flatMap(x => x.e.sets.filter(st => st.type === 'working'));
-  const rpes = working.map(st => Math.min(10, Math.floor(st.feel * 10) + 1));
+  const rpes = working.filter(st => st.rated !== false).map(st => Math.min(10, Math.floor(st.feel * 10) + 1));
   return {
     logged: log.length,
     setups: new Set(log.map(x => x.e.equip)).size,
@@ -350,3 +353,9 @@ export function libPhoto(ex, ref) {
 }
 // The user's own photo wins; otherwise the library photo.
 export const exPhoto = (ex, ref) => (ex && photoSrc(ex.photo)) || libPhoto(ex, ref);
+
+// Bodyweight exercises can log added weight (+) or assistance (−).
+export const isBodyweight = ref => { const sv = eqById(ref); return genericOf(sv ? eqType(sv) : ref) === 'Bodyweight'; };
+
+// the generic kind of any equipment ref (a saved machine counts as its type)
+export const eqKind = ref => { if (!ref) return null; const sv = eqById(ref); return genericOf(sv ? eqType(sv) : ref); };

@@ -115,6 +115,17 @@ export const D = {
 };
 
 // No-photo placeholders: white icons on a soft blue tile.
-export const PH_EQUIP = () => I.equipment.replace(/fill="#111111"/g, 'fill="#fff"').replace(/stroke="#111111"/g, 'stroke="#fff"');
+// Generic equipment icons. Dumbbell and Bodyweight are Tabler Icons (MIT, see LICENSE-tabler-icons.txt);
+// Barbell, Cable Machine, Smith Machine and Specialized (a pendulum squat) are drawn to match on Tabler's grid.
+export const EQ_ICONS = {
+ "Barbell": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M1 12h22\"/><rect x=\"2.5\" y=\"6\" width=\"1.5\" height=\"12\" rx=\".75\"/><path d=\"M7 9v6\"/><rect x=\"20\" y=\"6\" width=\"1.5\" height=\"12\" rx=\".75\"/><path d=\"M17 9v6\"/></svg>",
+ "Dumbbell": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 12h1\" /><path d=\"M6 8h-2a1 1 0 0 0 -1 1v6a1 1 0 0 0 1 1h2\" /><path d=\"M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1\" /><path d=\"M9 12h6\" /><path d=\"M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1\" /><path d=\"M18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2\" /><path d=\"M22 12h-1\" /></svg>",
+ "Bodyweight": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0\" /><path d=\"M5 20l5 -.5l1 -2\" /><path d=\"M18 20v-5h-5.5l2.5 -6.5l-5.5 1l1.5 2\" /></svg>",
+ "Cable Machine": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 21v-18h12\"/><path d=\"M3 21h11\"/><circle cx=\"17\" cy=\"5\" r=\"1.5\"/><path d=\"M18.5 5v9\"/><path d=\"M16.5 14h4l-.5 2.5h-3z\"/><rect x=\"8\" y=\"12\" width=\"5\" height=\"7\" rx=\"1\"/><path d=\"M8 15.5h5\"/></svg>",
+ "Smith Machine": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 3v18\"/><path d=\"M19 3v18\"/><path d=\"M5 3h14\"/><path d=\"M3 21h4\"/><path d=\"M17 21h4\"/><path d=\"M2.5 12h19\"/><rect x=\"7.5\" y=\"9\" width=\"2\" height=\"6\" rx=\".5\"/><rect x=\"14.5\" y=\"9\" width=\"2\" height=\"6\" rx=\".5\"/></svg>",
+ "Specialized Machine": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 21h18\"/><path d=\"M17 21v-14\"/><circle cx=\"17\" cy=\"5.5\" r=\"1.5\"/><path d=\"M15.7 6.3l-8.2 5.2\"/><path d=\"M8.6 7.6l4.6 -2.9\"/><path d=\"M7.5 11.5l-1.9 3\"/><path d=\"M4 18.5l6 -1.5\"/><path d=\"M8 17.5l1.5 3.5\"/></svg>"
+};
+// Placeholder for equipment without a photo: the icon for its kind (or a general gym icon).
+export const PH_EQUIP = (kind) => EQ_ICONS[kind] || I.equipment.replace(/fill="#111111"/g, 'fill="#fff"').replace(/stroke="#111111"/g, 'stroke="#fff"');
 export const PH_EXERCISE = () => WORKOUT_ICONS.dumbbell.replace(/currentColor/g, '#fff');
 

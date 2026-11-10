@@ -46,18 +46,27 @@ improving the library file and people's own edits survive.
 
 ## How overload goals work
 Goals belong to an **exercise × equipment × volume** (for example Bench Press,
-Barbell, 3 × 8), and you always choose them. FailUp suggests one when you finish
-the required sets of an exercise:
+Barbell, 3 × 12), and you always confirm them. When you finish the planned sets of an
+exercise (or move on with fewer, which suggests a goal for the volume you did), FailUp
+suggests one, with a one-line reason.
 
-- **Last set went to failure (or the last two did):** "Set an overload goal?" offers the
-  weight you failed at, so the goal is to reach the volume at that weight without failing.
-- **Every required set hit the reps, none failed, all RPE 7 or higher:** "Raise your
-  goal?" offers that weight plus one increment (5 lbs, 2.5 kg, or 1 for "Simple
-  Numbers" equipment).
-- **Every required set hit the reps, but it felt easy (any set RPE 6 or lower):** "Too
-  light?" lets you pick a heavier goal weight for next time (starts one increment up).
-- You can also set or change a goal any time with the pencil on the Overload Tracker,
-  or Edit on an exercise card. A new goal starts with your next workout.
+- **Completed set:** hit the target reps, not marked F. **Failed attempt:** marked F, or
+  short of the target reps. **Anchor:** the heaviest completed set rated RPE 6+.
+- **No goal yet at this volume:**
+  - Every set completed at one weight and felt hard: one increment up.
+  - Same, but it felt easy (or 3+ extra reps on every set): "Too light?" picker, starting
+    +1 increment at RPE 6, +2 at RPE 4 to 5, +3 at RPE 3 or lower (+2 for extra reps).
+  - Same, but sets weren't rated: that weight, no raise, plus a nudge to rate sets.
+  - Otherwise, an anchor: the anchor weight (ramps, drop sets, mixed weights).
+  - Failed every set: picker starting one increment under the best attempt, to keep form.
+  - Some failures, no anchor: the weight of the best failed attempt.
+- **A goal already at this volume:** failure moves it to that weight; a clean, hard sweep raises it.
+- Warmups and extra sets never change the goal. Sets only count on the equipment you ended on.
+- "Not Now" keeps it as a suggestion on Workout Complete and on the Overload Tracker. Anything
+  never asked (ended early) shows up there too.
+- Your very first goal gets a celebration. Unrated sets show a dashed tag.
+- Bodyweight exercises take added (+) or assisted (−) weight.
+- You can also set or change a goal any time with the pencil on the Overload Tracker.
 
 **Purple sets:** a set's number box turns purple when it's at (or above) the goal
 weight and either reaches the goal reps or is marked as failure. Without a goal,
@@ -81,8 +90,9 @@ everything consistent.
   4. Progressive Overload Goals: recently changed goals as small graphs (tap for the Overload
      Tracker), with See All for a searchable list of every goal.
   5. Tell your friends: shares `LINKS.appStore` once it's set, otherwise the website.
-- **Start a workout:** pick one → Today's Plan (change location, sets, reps,
-  equipment, order, swap or add exercises for today only) → Let's Go.
+- **Start a workout:** pick one → Today's Plan (change location, set one volume for every
+  exercise, or change sets, reps, order, swap or add exercises for today only) → Let's Go.
+  Any change to today's plan or the live workout slides up Nevermind / Save Changes.
 - **Session:** log sets (type or step weight and reps, slide for effort), tap a
   logged set to edit or delete it, Extra Set, skip with the arrows or by tapping
   a progress segment. Skipped exercises stay unfilled and "Back to Skipped" takes
@@ -95,8 +105,12 @@ everything consistent.
 - **Swap Exercise:** opens the library filtered to the same muscle group, with
   Create for making a new exercise on the spot.
 - **Exercise History:** from the bottom of the Overload Tracker.
-- **Locations:** the workout's location sets each exercise's default equipment
-  (a saved machine of the same kind there, otherwise the generic type).
+- **Equipment:** each exercise in a workout has a Preferred Equipment Type (set in Create /
+  Edit Workout). When a workout starts, FailUp picks a saved machine of that type at the
+  workout's location, otherwise the generic type. Saving equipment asks what kind it is.
+  The swap sheet lists related saved equipment first, then every generic type.
+- **Exercise lists** show how many sets you've logged ("No sets yet" / "12 sets logged");
+  equipment is still used for filtering.
 - **Plans:** 1 to 10 day split, real calendar with month navigation, edit or end
   the plan from the home card's menu.
 - **Settings:** weight units for generic equipment, back up / restore (a JSON file
@@ -128,3 +142,8 @@ in the console.
 ## Porting to React later
 Each `Screen()` becomes a component, each `data-action` an `onClick`, `state` a UI
 store, and `db` in `store.js` a persisted store (the shapes carry over as is).
+
+## Equipment icons
+Generic equipment thumbnails use line icons on a light purple tile (`EQ_ICONS` in ui.js, copies in assets/equipment/).
+Dumbbell and Bodyweight come from [Tabler Icons](https://tabler.io/icons) (MIT, see LICENSE-tabler-icons.txt).
+Barbell, Cable Machine, Smith Machine and Specialized Machine (a pendulum squat) were drawn for FailUp on the same 24px grid and 2px stroke so the set matches.

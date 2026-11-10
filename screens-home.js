@@ -269,7 +269,7 @@ export function GoalsScreen() {
   <div class="gl-screen">
     ${statusBar()}
     <div class="nav"><button class="icon-btn" data-action="back" aria-label="Back">${I.chevL}</button><span class="nav-title">Overload Goals</span></div>
-    <div class="gl-search">${I.search}<input data-goalsearch placeholder="Search exercises or equipment" aria-label="Search goals"></div>
+    <div class="gl-search">${I.search}<input data-goalsearch placeholder="Search exercises or equipment" aria-label="Search goals"><button class="search-x" data-action="search-clear" aria-label="Clear search"><svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="#b4b2bd"/><path d="M6.8 6.8l6.4 6.4M13.2 6.8l-6.4 6.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
     <div class="gl-list" id="gl-list">
       ${items.map(g => `
       <button class="gl-row" data-action="home-tracker" data-key="${esc(g.key)}" data-q="${esc(`${g.ex.name} ${g.ex.muscle} ${eqLabel(g.ref)}`.toLowerCase())}">
