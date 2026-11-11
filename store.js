@@ -359,3 +359,25 @@ export const isBodyweight = ref => { const sv = eqById(ref); return genericOf(sv
 
 // the generic kind of any equipment ref (a saved machine counts as its type)
 export const eqKind = ref => { if (!ref) return null; const sv = eqById(ref); return genericOf(sv ? eqType(sv) : ref); };
+
+/* ------------------------------ overload graph data ------------------------------ */
+// A dot is a workout that completed S x R on this equipment at one weight: the first S working
+// sets (on that equipment) all at the same weight, each reaching R reps. Warmups and extra sets don't count.
+export function volumeDots(exId, ref, sets, reps) {
+  const out = [];
+  for (const s of db.sessions) for (const e of s.exercises) {
+    if (e.exId !== exId || !e.goal || e.goal.sets !== sets || e.goal.reps !== reps) continue;
+    const w = e.sets.filter(x => x.type === 'working' && (x.equip || e.equip) === ref).slice(0, sets);
+    if (w.length < sets || !w.every(x => x.reps >= reps && x.weight === w[0].weight)) continue;
+    out.push({ at: s.finishedAt, weight: w[0].weight, sid: s.id });
+  }
+  return out.sort((a, b) => (a.at < b.at ? -1 : 1));
+}
+// Every goal at this volume as a segment: from the day it was set until the next one replaced it (open = current).
+export function goalSegments(exId, ref, sets, reps) {
+  const key = goalKey(exId, ref, sets, reps);
+  const ev = db.goalEdits.filter(g => g.key === key).sort((a, b) => (a.at < b.at ? -1 : 1));
+  return ev.map((g, i) => ({ from: g.at, to: ev[i + 1] ? ev[i + 1].at : null, weight: g.weight }))
+    .filter(g => g.weight != null)
+    .map(g => ({ ...g, current: g.to == null }));
+}

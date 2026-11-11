@@ -4,7 +4,7 @@
 import { state, LINKS } from './data.js';
 import { I, statusBar, fmt, esc, wtTight, D } from './ui.js';
 import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay } from './store.js';
-import { resumeCard, todayCard, doneToday } from './screens-workout.js';
+import { resumeCard, todayCard, doneToday, planStats } from './screens-workout.js';
 
 const ICON = {
   contacts: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M8 16.5c.8-1.8 2.2-2.6 4-2.6s3.2.8 4 2.6"/><path d="M2.5 7h2M2.5 12h2M2.5 17h2"/></svg>',
@@ -58,6 +58,22 @@ function goalCard(g) {
     </button>`;
 }
 
+/* ---- plan stats + progress ---- */
+function planProgress(plan, pt) {
+  const st = planStats(plan);
+  const done = pt.status === 'ended' ? pt.total : pt.status === 'upcoming' ? 0 : pt.dayNum - 1;   // full days behind you
+  const pct = Math.round((done / pt.total) * 100);
+  const label = pt.status === 'upcoming' ? 'Not started' : pt.status === 'ended' ? 'Plan complete' : `Day ${pt.dayNum} of ${pt.total}`;
+  return `
+        <div class="hm2-stats">
+          <div class="hm2-stat"><div class="hm2-statnum tnum">${st.failures}</div><div class="hm2-statlbl">Failures earned</div></div>
+          <div class="hm2-stat"><div class="hm2-statnum tnum">${st.goals}</div><div class="hm2-statlbl">Goals reached</div></div>
+        </div>
+        <div class="hm2-prog">
+          <div class="hm2-progtop"><span>${label}</span><span class="tnum">${pct}%</span></div>
+          <div class="hm2-progbar"><span style="width:${pct}%"></span></div>
+        </div>`;
+}
 /* ---- primary card: paused workout > active plan > get started ---- */
 function primary() {
   if (state.session) return `
@@ -74,10 +90,11 @@ function primary() {
         <div class="hm2-planhead">
           <div>
             <div class="hm2-planname">${esc(plan.name)}</div>
-            <div class="hm2-planmeta">${plan.splitDays} day split · ${D.short(parseDay(plan.start))} to ${D.long(parseDay(plan.end))}</div>
+            <div class="hm2-planmeta">${plan.splitDays} day split</div>
           </div>
           <button class="hm2-kebab" data-action="plan-menu" aria-label="Plan options">${I.kebab}</button>
         </div>
+        ${planProgress(plan, pt)}
         <div class="hm2-today">Today · ${D.dow(new Date())}</div>
         ${todayCard(pt, plan)}
       </div>

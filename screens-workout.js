@@ -13,6 +13,10 @@ import { eqImg } from './screens-library.js';
 /* ------------------------------ shared logic ------------------------------ */
 export const exInfo = it => { const x = exById(it.exId); return x ? { name: x.name, muscle: x.muscle } : { name: it.name || 'Exercise', muscle: it.muscle || '' }; };
 // the number on the slider thumb: 1–9, then F
+// Effort slider geometry: 10 equal shades; the value is the shade under the thumb's center.
+// F is only the far right end. Thumb is 56px with a 4px inset.
+export const feelBand = feel => Math.min(9, Math.floor(feel * 10));
+export const feelLeft = feel => { const b = feelBand(feel); return b === 9 ? 'calc(100% - 60px)' : `clamp(4px, calc(${(b + 0.5) * 10}% - 28px), calc(100% - 60px))`; };
 export const rpeNum = feel => { const b = Math.min(9, Math.floor(feel * 10)); return b === 9 ? 'F' : String(b + 1); };
 export function rpeOf(feel) {
   const band = Math.min(9, Math.floor(feel * 10));
@@ -22,6 +26,11 @@ export function rpeOf(feel) {
 // goal reps or was taken to failure. No goal yet → never purple.
 export const setPurple = (st, e) => e.goal.weight != null && st.type === 'working' && st.weight >= e.goal.weight && (st.reps >= e.goal.reps || isFail(st));
 export const exPurple = e => e.goal.weight != null && e.sets.filter(st => setPurple(st, e)).length >= e.goal.sets;
+// A suggestion still waiting for this exercise (said "Not now" in this or an earlier workout).
+export function pendingSuggestion(e) {
+  if (e.declined) return e.declined;
+  return db.suggestions.find(x => x.exId === e.exId && x.equip === e.equip && x.sets === e.goal.sets && x.reps === e.goal.reps) || null;
+}
 export const workingSets = e => e.sets.filter(st => st.type === 'working');
 export const exComplete = e => workingSets(e).length >= e.goal.sets;
 
@@ -212,6 +221,18 @@ export function WorkoutDetailsScreen() {
 
 /* ---- Start Page / home ----
    Release 1.0 states, drawn with the Dev File home (dark panel, white cards). */
+export const todaySession = wid => [...db.sessions].reverse().find(s => s.workoutId === wid && dayKey(new Date(s.finishedAt)) === dayKey());
+// Plan stats for the home card: failures earned, and goals reached (each goal hit plus each new goal set) during the plan.
+export function planStats(plan) {
+  const from = plan.start, to = plan.end, inPlan = at => { const k = dayKey(new Date(at)); return k >= from && k <= to; };
+  const ses = db.sessions.filter(s => inPlan(s.finishedAt));
+  const failures = ses.reduce((n, s) => n + s.exercises.reduce((m, e) => m + e.sets.filter(x => x.type === 'working' && isFail(x)).length, 0), 0);
+  const out = derived().outcomes;
+  let goals = 0;
+  ses.forEach(s => s.exercises.forEach((e, i) => { if (out[`${s.id}:${i}`]?.type === 'hit') goals++; }));
+  goals += db.goalEdits.filter(g => g.weight != null && inPlan(g.at)).length;   // every new goal set during the plan counts too
+  return { failures, goals };
+}
 export const doneToday = wid => db.sessions.some(s => s.workoutId === wid && dayKey(new Date(s.finishedAt)) === dayKey());
 export function resumeCard() {
   const s = state.session;
@@ -274,8 +295,9 @@ export function workoutCard(w, primary, opts = {}) {
         ${opts.menu ? `<button class="wcard-kebab" data-action="workout-menu" data-id="${w.id}" aria-label="Workout options">${I.kebab}</button>` : ''}
       </div>
       <div class="wcard-actions">
-        ${opts.done ? `<span class="hm-done">${I.checkC('#6c5ce7')} Workout completed</span>` : ''}
-        <button class="wpill" data-action="workout-details" data-id="${w.id}">Details</button>
+        ${opts.done ? `<span class="hm-done">${I.checkC('#6c5ce7')} Workout completed</span>
+        <button class="wpill" data-action="view-complete" data-id="${esc(todaySession(w.id)?.id || '')}">View</button>` : `
+        <button class="wpill" data-action="workout-details" data-id="${w.id}">Details</button>`}
         ${primary && !opts.done ? `<button class="wpill dark" data-action="${primary.action}" data-id="${w.id}" ${primary.needsExercises && !w.exercises.length ? 'disabled' : ''}>${primary.label}</button>` : ''}
       </div>
     </div>`;
@@ -375,6 +397,10 @@ export function WorkoutSessionScreen() {
   // the machine's own photo, else the library photo of this exercise on that kind of equipment
   const imgSrc = sv && photoSrc(sv.photo);   // only your own machine photo; a library shot can suggest the wrong equipment
   const img = imgSrc ? `${PH_EQUIP(eqKind(ex.equip))}<img src="${imgSrc}" alt="" onerror="this.remove()">` : '';
+  // goal row button: View a waiting suggestion, the tracker once there's data, nothing for a brand-new exercise
+  const sugg = ex.newGoal == null ? pendingSuggestion(ex) : null;
+  const goalBtn = sugg ? `<button class="sess-dpill sess-view" data-action="goal-view">View</button>`
+    : (ex.goal.weight != null || last || workingSets(ex).length) ? `<button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>` : '';
   const detail = !s.expanded ? '' : `
     <div class="sess-exdetail">
       <div class="sess-swaprow"><button class="wpill sess-swapex" data-action="sess-swap-ex">${I.swap} Swap exercise</button></div>
@@ -390,9 +416,10 @@ export function WorkoutSessionScreen() {
         <button class="sess-dpill" data-action="open-volume" data-owner="session" aria-label="Volume settings">${I.filter}</button>
       </div>
       <div class="sess-drow">
-        <div><div class="dlabel">Overload Goal</div><div class="dval goal">${ex.goal.weight != null ? `${wtTight(ex.goal.weight, u)} at volume or to failure` : 'No Goal Yet'}</div>
+        <div><div class="dlabel">${sugg && ex.goal.weight == null ? 'Overload Goal Suggestion' : 'Overload Goal'}</div><div class="dval goal">${ex.goal.weight != null ? `${wtTight(ex.goal.weight, u)} at volume or to failure` : sugg ? `${sugg.sets} Sets · ${sugg.reps} Reps · ${wtTight(sugg.weight, u)}` : 'No Goal Yet'}</div>
+        ${sugg && ex.goal.weight != null ? `<div class="dlabel" style="margin-top:2px">Suggested: ${wtTight(sugg.weight, u)}</div>` : ''}
         ${ex.newGoal != null ? `<div class="dlabel" style="margin-top:2px">Next time: ${wtTight(ex.newGoal, u)}</div>` : ''}</div>
-        <button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>
+        ${goalBtn}
       </div>
     </div>`;
   const working = workingSets(ex);
@@ -448,7 +475,7 @@ export function ActiveSetSheet() {
   const a = state.setDraft;
   const [big, small] = steps(a.unit), ul = unitLabel(a.unit);
   const pct = Math.round(a.feel * 100);
-  const thumbLeft = `calc(4px + (100% - 64px) * ${a.feel.toFixed(4)})`;  // 4px inset at both ends, same as top/bottom
+  const thumbLeft = feelLeft(a.feel);   // the thumb rests in the middle of its shade (F: all the way right)
   const se = state.session && state.session.exercises[state.session.exIndex];
   const swOf = se ? se.goal.sets : 0, swEx = se ? `${exInfo(se).name} · ${eqLabel(se.equip)}` : '';
   return `
@@ -459,7 +486,7 @@ export function ActiveSetSheet() {
         <div class="sw-title">${a.edit ? 'Edit ' : ''}${a.type === 'warmup' ? `Warmup${a.setNum ? ' ' + a.setNum : ''}` : `Set ${a.setNum}`}${a.type !== 'warmup' && swOf ? `<span class="sw-of">${a.setNum > swOf ? 'Extra set' : `of ${swOf}`}</span>` : ''}</div>
         ${swEx ? `<div class="sw-exname">${esc(swEx)}</div>` : ''}
       </div>
-      ${a.hint ? `<div class="sw-hint${a.hint.goal ? ' goal' : ''}"><span class="sw-hint-ic">${a.hint.goal ? TARGET : I.trendUp('currentColor')}</span><span class="sw-hint-text"><span class="sw-hint-title tnum">${esc(a.hint.title)}</span><span class="sw-hint-sub">${esc(a.hint.sub)}</span></span></div>` : ''}
+      ${a.hint ? `<div class="sw-goalchip${a.hint.goal ? ' goal' : ''}">${a.hint.goal ? `Overload goal <b class="tnum">${esc(a.hint.title)}</b>` : 'No overload goal yet'}</div>` : ''}
       <div class="sw-group">
         <div class="sw-glabel">${a.bw ? `Weight <span class="sw-bw">${a.weight > 0 ? 'added' : a.weight < 0 ? 'assisted' : 'bodyweight only'}</span>` : 'Weight'}</div>
         <div class="sw-grow">
@@ -480,11 +507,13 @@ export function ActiveSetSheet() {
       </div>
       <div class="sw-feelwrap">
         <div class="sw-glabel">Effort Rating</div>
+        <div class="ff-wrap">
         <div class="sw-feel" data-feelbar>
           ${['#c8c4e7', '#beb9e7', '#b4ade7', '#aaa2e7', '#9f96e7', '#958be7', '#8b7fe7', '#8174e7', '#7768e7', '#426e8f'].map(c => `<span class="ff-seg" style="background:${c}"></span>`).join('')}
           <div class="ff-text">${a.touched && rpeOf(a.feel) === 'F' ? 'FAILURE' : ''}</div>
           <div class="ff-end"><span class="ff-f">F</span></div>
-          <div class="ff-thumb" style="left:${thumbLeft}"><span class="ff-num">${rpeNum(a.feel)}</span></div>
+          <div class="ff-thumb" style="left:${thumbLeft}"><svg class="ff-ring${rpeOf(a.feel) === 'F' && a.touched ? ' on' : ''}" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" pathLength="100"/></svg><span class="ff-num">${rpeNum(a.feel)}</span></div>
+        </div>
         </div>
       </div>
       <div class="sw-done"><button class="sw-donebtn" data-action="sw-done">DONE</button></div>
@@ -541,18 +570,28 @@ export function GoalAskSheet() {
   const [big, small] = steps(u), ul = unitLabel(u);
   const pick = g.kind === 'pick', raise = g.kind === 'raise';
   const title = g.first ? 'Your first goal!' : raise ? 'Raise your goal?' : pick ? (g.heavy ? 'Lighten it up?' : 'Too light?') : 'New overload goal!';
-  const picker = pick ? `
+  // New Goal: locked until you tap the pencil, so the suggestion is the easy path
+  const val = g.editing
+    ? `<label class="sw-val tnum"><span class="sw-numwrap"><input class="sw-in" data-goalaskfield inputmode="decimal" value="${fmt(g.weight)}" style="width:${Math.max(1, fmt(g.weight).length) + 0.3}ch" aria-label="New goal weight">${ul ? `<span class="u">${ul}</span>` : ''}</span></label>`
+    : `<div class="sw-val ga-locked tnum"><span class="sw-numwrap"><span>${fmt(g.weight)}</span>${ul ? `<span class="u">${ul}</span>` : ''}</span></div>`;
+  const picker = `
         <div class="ga-picker">
-          <div class="goal-wlabel">Next goal${ul ? ` (${ul})` : ''}</div>
+          <div class="goal-wlabel">New Goal</div>
+          ${g.editing ? `
           <div class="sw-grow">
             <button class="sw-adj" data-action="goalask-adj" data-d="-${big}">&minus;${big}</button>
             <button class="sw-adj" data-action="goalask-adj" data-d="-${small}">&minus;${small}</button>
-            <label class="sw-val tnum"><input class="sw-in" data-goalaskfield inputmode="decimal" value="${fmt(g.weight)}" aria-label="Next goal weight"></label>
+            ${val}
             <button class="sw-adj" data-action="goalask-adj" data-d="${small}">+${small}</button>
             <button class="sw-adj" data-action="goalask-adj" data-d="${big}">+${big}</button>
-          </div>
-          <div class="ga-from">Today: ${wt(g.from, u)}</div>
-        </div>` : '';
+          </div>` : `
+          <div class="ga-lockrow">
+            <span class="ga-spacer" aria-hidden="true"></span>
+            ${val}
+            <button class="sess-dpill ga-edit" data-action="goalask-edit" aria-label="Edit goal weight">${I.pencil}</button>
+          </div>`}
+          ${g.from != null ? `<div class="ga-from">Today: ${wt(g.from, u)}</div>` : ''}
+        </div>`;
   const ring = g.first ? '<div class="ga-first" data-goal-lottie aria-hidden="true"></div>' : '';
   return `
   <div class="scrim" data-action="goalask-no">
@@ -563,7 +602,6 @@ export function GoalAskSheet() {
         <div class="ug-titleblock">
           <div class="ug-title">${title}</div>
           <div class="ug-text">${esc(g.reason || '')}</div>
-          ${g.nudge ? '<div class="ga-nudge">Rate your sets and FailUp can push you harder.</div>' : ''}
         </div>
         ${picker}
         <div class="ug-summary">${esc(exInfo(e).name)} · ${g.sets} × ${g.reps} · ${raise ? `<s>${wtTight(g.from, u)}</s> ` : ''}<span>${wtTight(g.weight, u)}</span></div>

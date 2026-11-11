@@ -2328,3 +2328,54 @@ button:not(:disabled):active, label.xd-act:active{ transform:none; }
 .ph.kind { background: #eeebfd !important; color: #6c5ce7; display: flex !important; align-items: center; justify-content: center; }
 .ph.kind > svg { width: 60% !important; height: 60% !important; max-width: none !important; max-height: none !important; color: #6c5ce7; stroke: currentColor; }
 .ph.kind.photo > svg { position: absolute; }
+
+/* goal row: View a waiting suggestion */
+.sess-dpill.sess-view { width: auto; padding: 0 18px; font-weight: 600; font-size: 0.9375rem; color: #111; }
+
+/* New Goal: locked value + pencil, tap to edit */
+.ga-lockrow { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.ga-lockrow .ga-spacer { width: 48px; height: 48px; flex: none; }
+.sw-val.ga-locked { background: #eeebfd; color: #6c5ce7; box-shadow: inset 0 0 0 2px #6c5ce7; min-width: 132px; padding: 0 22px; cursor: default; align-items: center; }
+.sw-val.ga-locked .u { opacity: .8; }
+.ga-edit { width: 48px !important; height: 48px !important; color: #111; }
+.ga-edit svg { width: 22px; height: 22px; }
+/* New Goal box: number and units sit together, centered */
+.ga-picker .sw-val .sw-numwrap .u { position: static; margin-left: 4px; }
+.ga-picker .sw-val .sw-in { width: auto; min-width: 1ch; field-sizing: content; text-align: right; }
+.ga-picker .sw-val:not(.ga-locked) { min-width: 116px; padding: 0 14px; }
+.tk-legend .lg .swatch-line.past{ opacity: .3; }
+.h-delta.same{ color:#5f636b; }
+.h-delta.down{ color:#5f636b; }
+
+/* Home plan card: stats + progress */
+.hm2-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.hm2-stat { background: #eeebfd; border-radius: 14px; padding: 12px 14px; }
+.hm2-statnum { font-size: 1.625rem; line-height: 1.9rem; font-weight: 800; color: #6c5ce7; }
+.hm2-statlbl { font-size: 0.875rem; color: #4b4f58; margin-top: 2px; }
+.hm2-prog { margin-top: 16px; }
+.hm2-progtop { display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 600; color: #4b4f58; margin-bottom: 8px; }
+.hm2-progbar { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.hm2-progbar > span { display: block; height: 100%; border-radius: 4px; background: #111; transition: width .6s ease; }
+/* plan card labels match the set logger labels (Weight / Reps / Effort Rating) */
+.hm2-statlbl, .hm2-progtop, .hm2-progtop span, .hm2-today {
+  font-size: 0.9375rem !important; font-weight: 500 !important; color: #5f636b !important;
+  letter-spacing: normal !important; text-transform: none !important; line-height: normal !important;
+}
+/* exercise details opened from the picker */
+.xd-picking .xd-content { padding-bottom: 120px; }
+.xd-pickbar { z-index: 20; background: #fff; }
+.xd-pickbar .btn { flex: 1; }
+
+/* set logger: small goal line instead of the big card */
+.sw-goalchip { align-self: center; margin: 10px auto 2px; width: fit-content; padding: 6px 12px; border-radius: 999px; background: #f0f0f3; color: #5f636b; font-size: 0.875rem; font-weight: 500; }
+.sw-goalchip.goal { background: #eeebfd; color: #5a4fc4; }
+.sw-goalchip b { font-weight: 700; color: #3d2fb0; margin-left: 2px; }
+
+/* effort slider: purple ring draws around F */
+.ff-wrap { position: relative; }
+.ff-ring { position: absolute; width: 80px; height: 80px; right: -8px; bottom: -8px; pointer-events: none; overflow: visible; transform: rotate(-90deg); }
+.ff-ring circle { fill: none; stroke: #6c5ce7; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .45s cubic-bezier(.4,0,.2,1); }
+.ff-ring.on circle { stroke-dashoffset: 0; }
+/* F ring sits inside the white thumb */
+.sw-feel .ff-thumb .ff-ring { position: absolute; left: 50%; top: 50%; right: auto; bottom: auto; width: 46px; height: 46px; transform: translate(-50%, -50%) rotate(-90deg); }
+.sw-feel .ff-thumb .ff-num { position: relative; }

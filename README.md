@@ -62,8 +62,13 @@ suggests one, with a one-line reason.
   - Some failures, no anchor: the weight of the best failed attempt.
 - **A goal already at this volume:** failure moves it to that weight; a clean, hard sweep raises it.
 - Warmups and extra sets never change the goal. Sets only count on the equipment you ended on.
-- "Not Now" keeps it as a suggestion on Workout Complete and on the Overload Tracker. Anything
-  never asked (ended early) shows up there too.
+- The goal sheet opens when you tap Next Exercise (or Finish Workout on the last one). The arrows
+  and the lineup only browse, so they never lock in a goal for a partial volume. Logging more sets
+  after being asked asks again with the new count.
+- Every goal sheet has a weight stepper, so you can fix a suggestion before setting it.
+- "Not Now" keeps it as a suggestion on Workout Complete, the Overload Tracker, and the exercise
+  dropdown, where View reopens the sheet. Anything never asked (ended early) is kept too.
+- A brand-new exercise with no data shows "No Goal Yet" with no tracker button.
 - Your very first goal gets a celebration. Unrated sets show a dashed tag.
 - Bodyweight exercises take added (+) or assisted (−) weight.
 - You can also set or change a goal any time with the pencil on the Overload Tracker.

@@ -8,7 +8,7 @@ import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, statusBar, fmt, eqName, esc, wt, w
 import { WORKOUT_COLORS } from './data.js';
 import {
   db, EXERCISES, exById, GENERIC, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
-  derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind,
+  derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind, volumeDots, goalSegments,
 } from './store.js';
 import { rpeOf, setRow, listCtx } from './screens-workout.js';
 
@@ -31,72 +31,115 @@ function niceStep(span) {
   for (const s of [1, 2, 5, 10, 20, 25, 50, 100, 200]) if (span / s <= 4) return s;
   return 500;
 }
-// series: [{ label, w }], oldest → newest. Pure SVG string.
-export function overloadChart(series, goalWeight, unit) {
+// Overload graph. X is time: the chosen range ending today, plus a small sliver past today so a
+// goal set today is visible. Dots: workouts that completed the volume at one weight. Goals: a line
+// from the day each was set; past goals are faint and end when replaced, the current one runs off the right edge.
+const DAY = 86400000;
+export function rangeBounds(range, now = Date.now(), earliest = null) {
+  const d = new Date(now);
+  let x0;
+  if (range === '1W') x0 = now - 7 * DAY;
+  else if (range === 'All') x0 = earliest != null ? Math.min(earliest, now - 7 * DAY) : now - 7 * DAY;
+  else { const m = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 }[range]; const s = new Date(d); s.setMonth(s.getMonth() - m); x0 = s.getTime(); }
+  if (range === 'All' && earliest != null) x0 -= (now - x0) * 0.04;   // a little room before the first point
+  return { x0, today: now, x1: now + (now - x0) * 0.08 };
+}
+function xTicks(x0, x1, today) {
+  const span = (today - x0) / DAY, out = [];
+  const mid = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d; };
+  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const W = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  if (span <= 10) {
+    for (let d = mid(today); d.getTime() >= x0; d.setDate(d.getDate() - 1)) out.unshift({ t: d.getTime(), label: W[d.getDay()] });
+  } else if (span <= 45) {
+    for (let d = mid(today); d.getTime() >= x0; d.setDate(d.getDate() - 7)) out.unshift({ t: d.getTime(), label: `${M[d.getMonth()]} ${d.getDate()}` });
+  } else {
+    const every = span <= 200 ? 1 : span <= 400 ? 2 : span <= 800 ? 3 : span <= 1600 ? 6 : 12;
+    const yearly = span > 400;
+    const d = mid(today); d.setDate(1);
+    while (d.getMonth() % every) d.setMonth(d.getMonth() - 1);
+    for (; d.getTime() >= x0; d.setMonth(d.getMonth() - every))
+      out.unshift({ t: d.getTime(), label: yearly && (d.getMonth() === 0 || every >= 6) ? `${M[d.getMonth()]} '${String(d.getFullYear()).slice(2)}` : M[d.getMonth()] });
+  }
+  return out.filter(k => k.t <= x1);
+}
+export function overloadChart({ dots, goals, x0, x1, today }, unit) {
   const W = 377, H = 232;
   const padL = 16, padR = 40, padT = 24, padB = 28;
   const plotL = padL, plotR = W - padR, plotT = padT, plotB = H - padB;
-  const vals = series.map(d => d.w).concat(goalWeight != null ? [goalWeight] : []);
-  const empty = !series.length;
-  let lo = vals.length ? Math.min(...vals) : 0, hi = vals.length ? Math.max(...vals) : 40;
+  const T = a => new Date(a).getTime();
+  const inView = dots.filter(d => T(d.at) >= x0);
+  const segs = goals.filter(g => (g.to == null || T(g.to) >= x0) && T(g.from) <= x1);
+  const vals = inView.map(d => d.weight).concat(segs.map(g => g.weight));
+  if (!vals.length) return `
+  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet">
+    <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Archivo" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
+  </svg>`;
+  let lo = Math.min(...vals), hi = Math.max(...vals);
   if (hi - lo < 4) { lo -= 4; hi += 4; }
   const step = niceStep(hi - lo);
-  const yMin = Math.max(0, Math.floor(lo / step) * step - step / 2), yMax = Math.ceil(hi / step) * step + step / 2;
+  const yMin = lo >= 0 ? Math.max(0, Math.floor(lo / step) * step - step / 2) : Math.floor(lo / step) * step - step / 2;
+  const yMax = Math.ceil(hi / step) * step + step / 2;
   const yTicks = [];
   for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) yTicks.push(v);
   const y = v => plotB - ((v - yMin) / (yMax - yMin)) * (plotB - plotT);
-  const goalX = plotL + (plotR - plotL) * 0.80;
-  const n = series.length;
-  const x = i => n === 1 ? plotL + (goalX - plotL) / 2 : plotL + 8 + (i / (n - 1)) * (goalX - plotL - 16);
-  const pts = series.map((d, i) => ({ px: x(i), py: y(d.w), ...d }));
-  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p.px.toFixed(1)} ${p.py.toFixed(1)}`).join(' ');
-  const grid = yTicks.map(v => `<line x1="${plotL}" x2="${plotR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="#e4e4e8" stroke-width="1" stroke-dasharray="2 5"/>`).join('');
-  const yLabels = yTicks.map(v => `<text x="${W - 32}" y="${(y(v) + 4).toFixed(1)}" font-family="Archivo" font-size="13" fill="#000">${fmt(v)}</text>`).join('');
-  // label at most 5 points so they never collide
-  const every = Math.max(1, Math.ceil(n / 5));
-  const xLabels = pts.map((p, i) => (i % every && i !== n - 1) ? '' :
-    `<text x="${p.px.toFixed(1)}" y="${plotB + 18}" font-family="Archivo" font-size="11" fill="#000" text-anchor="middle">${p.label}</text>`).join('');
-  // the starting dot (goal set) is a purple ring; goals reached are solid
-  const dots = pts.map(p => p.start
-    ? `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="5.5" fill="#fff" stroke="${PURPLE}" stroke-width="2.5"/>`
-    : `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="5" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
-  if (empty) return `
-  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet">
-    ${grid}${goalWeight != null ? yLabels : ''}
-    <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Archivo" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
-  </svg>`;
-  const band = goalWeight == null ? '' : `
-    <rect x="${goalX.toFixed(1)}" y="${y(goalWeight).toFixed(1)}" width="${(plotR - goalX).toFixed(1)}" height="${(plotB - y(goalWeight)).toFixed(1)}" fill="url(#goalgrad)"/>
-    <line x1="${goalX.toFixed(1)}" x2="${plotR}" y1="${y(goalWeight).toFixed(1)}" y2="${y(goalWeight).toFixed(1)}" stroke="${PURPLE}" stroke-width="2"/>
-    <text x="${(goalX + 4).toFixed(1)}" y="${(y(goalWeight) - 7).toFixed(1)}" font-family="Archivo" font-weight="700" font-size="10" fill="${PURPLE}" letter-spacing=".04em">GOAL</text>`;
+  const x = t => plotL + ((t - x0) / (x1 - x0)) * (plotR - plotL);
+  const f = n => n.toFixed(1);
+  const grid = yTicks.map(v => `<line x1="${plotL}" x2="${plotR}" y1="${f(y(v))}" y2="${f(y(v))}" stroke="#e4e4e8" stroke-width="1" stroke-dasharray="2 5"/>`).join('');
+  const yLabels = yTicks.map(v => `<text x="${W - 32}" y="${f(y(v) + 4)}" font-family="Archivo" font-size="13" fill="#000">${fmt(v)}</text>`).join('');
+  const ticks = xTicks(x0, x1, today);
+  const xLabels = ticks.map(k => { const px = x(k.t); const anchor = px < plotL + 14 ? 'start' : 'middle';
+    return `<text x="${f(px)}" y="${plotB + 18}" font-family="Archivo" font-size="11" fill="#000" text-anchor="${anchor}">${k.label}</text>`; }).join('');
+  // goal lines: past ones faint, the current one solid with its band
+  const cur = segs.find(g => g.current);
+  const gx = g => [Math.max(x0, T(g.from)), g.to == null ? x1 : Math.min(x1, T(g.to))];
+  const past = segs.filter(g => !g.current).map(g => { const [a, b] = gx(g);
+    return `<line x1="${f(x(a))}" x2="${f(x(b))}" y1="${f(y(g.weight))}" y2="${f(y(g.weight))}" stroke="${PURPLE}" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>`; }).join('');
+  let current = '';
+  if (cur) {
+    const [a] = gx(cur), cx = x(a), cy = y(cur.weight);
+    current = `
+    <rect x="${f(cx)}" y="${f(cy)}" width="${f(plotR - cx)}" height="${f(plotB - cy)}" fill="url(#goalgrad)"/>
+    <line x1="${f(cx)}" x2="${plotR}" y1="${f(cy)}" y2="${f(cy)}" stroke="${PURPLE}" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="${f(Math.min(cx + 4, plotR - 28))}" y="${f(cy - 7)}" font-family="Archivo" font-weight="700" font-size="11" fill="${PURPLE}">Goal</text>`;
+  }
+  // the climb: dots joined in time order (one point before the range keeps the line coming in from the left)
+  const firstIn = dots.findIndex(d => T(d.at) >= x0);
+  const path = firstIn < 0 ? [] : dots.slice(Math.max(0, firstIn - 1));
+  const line = path.map((d, i) => `${i ? 'L' : 'M'}${f(x(T(d.at)))} ${f(y(d.weight))}`).join(' ');
+  const dotEls = inView.map(d => `<circle cx="${f(x(T(d.at)))}" cy="${f(y(d.weight))}" r="5" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
   return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Progressive overload chart">
-    <defs><linearGradient id="goalgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${PURPLE}" stop-opacity="0.5"/><stop offset="1" stop-color="${PURPLE}" stop-opacity="0"/></linearGradient></defs>
-    ${grid}${band}${yLabels}${xLabels}
-    ${n > 1 ? `<path d="${line}" fill="none" stroke="${PURPLE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
-    ${dots}
+    <defs>
+      <linearGradient id="goalgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${PURPLE}" stop-opacity="0.35"/><stop offset="1" stop-color="${PURPLE}" stop-opacity="0"/></linearGradient>
+      <clipPath id="plotclip"><rect x="${plotL}" y="0" width="${plotR - plotL}" height="${plotB}"/></clipPath>
+    </defs>
+    ${grid}${yLabels}${xLabels}
+    <g clip-path="url(#plotclip)">
+      ${past}${current}
+      ${path.length > 1 ? `<path d="${line}" fill="none" stroke="${PURPLE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+      ${dotEls}
+    </g>
   </svg>`;
 }
 
 /* ------------------------------ tracker screen ---------------------------- */
-const RANGES = { '1W': 7, '1M': 31, '3M': 92, '6M': 183, '1Y': 366, 'All': 1e6 };
+const RANGES = ['1W', '1M', '3M', '6M', '1Y', 'All'];
 export function trackerData() {
   const t = state.tracker, v = t.volume;
-  const key = goalKey(t.exId, t.equip, v.sets, v.reps);
-  // the first goal you set is the starting dot; every goal reached after it follows
-  const start = derived().starts[key];
-  const all = [...(start ? [start] : []), ...(derived().ach[key] || [])];
-  const cutoff = Date.now() - RANGES[t.range] * 86400000;
-  const shown = all.filter(a => new Date(a.at).getTime() >= cutoff);
-  return { all, shown, goal: goalFor(t.exId, t.equip, v.sets, v.reps), unit: eqUnits(t.equip) };
+  const dots = volumeDots(t.exId, t.equip, v.sets, v.reps);
+  const goals = goalSegments(t.exId, t.equip, v.sets, v.reps);
+  const firsts = [...dots.map(d => new Date(d.at).getTime()), ...goals.map(g => new Date(g.from).getTime())];
+  const b = rangeBounds(t.range, Date.now(), firsts.length ? Math.min(...firsts) : null);
+  return { dots, goals, ...b, goal: goalFor(t.exId, t.equip, v.sets, v.reps), unit: eqUnits(t.equip) };
 }
 export function TrackerScreen() {
   const t = state.tracker, v = t.volume;
   const ex = exById(t.exId) || { name: 'Exercise', muscle: '' };
-  const { all, shown, goal, unit } = trackerData();
-  const seg = Object.keys(RANGES).map(r => `<button data-action="set-range" data-range="${r}" class="${r === t.range ? 'on' : ''}">${r}</button>`).join('');
-  // history: newest first, grouped by month, with the change from the previous achievement
-  const items = all.map((a, i) => ({ ...a, delta: i ? a.weight - all[i - 1].weight : null, first: i === 0 || a.start })).reverse();
+  const data = trackerData(), { dots, goal, unit } = data;
+  const seg = RANGES.map(r => `<button data-action="set-range" data-range="${r}" class="${r === t.range ? 'on' : ''}">${r}</button>`).join('');
+  // history: newest first, grouped by month, with the change from the previous completed workout
+  const items = dots.map((a, i) => ({ ...a, delta: i ? a.weight - dots[i - 1].weight : null, first: i === 0 })).reverse();
   const months = [];
   for (const it of items) {
     const m = D.month(new Date(it.at));
@@ -111,7 +154,8 @@ export function TrackerScreen() {
           <div class="tk-hrow">
             <div><div class="h-weight tnum">${wtTight(it.weight, unit)}</div><div class="h-date">${D.dow(new Date(it.at))}</div></div>
             ${it.first ? `<div class="h-delta first">${I.plusCircle('#5f636b')} First Logged</div>`
-              : `<div class="h-delta">${I.trendUp(PURPLE)} ${it.delta >= 0 ? '+' : ''}${wtTight(it.delta, unit)}</div>`}
+              : it.delta === 0 ? `<div class="h-delta same">Same weight</div>`
+              : `<div class="h-delta${it.delta < 0 ? ' down' : ''}">${it.delta > 0 ? I.trendUp(PURPLE) : ''} ${it.delta > 0 ? '+' : ''}${wtTight(it.delta, unit)}</div>`}
           </div>`).join('')}
       </div>
     </div>`).join('');
@@ -122,7 +166,6 @@ export function TrackerScreen() {
   const equipImg = sv && photoSrc(sv.photo)
     ? `<img class="tk-equip-img" src="${photoSrc(sv.photo)}" alt="">`
     : `<div class="tk-equip-img ph${EQ_ICONS[eqKind(t.equip)] ? ' kind' : ''}">${PH_EQUIP(eqKind(t.equip))}</div>`;
-  const series = shown.map(a => ({ label: D.short(new Date(a.at)), w: a.weight, start: !!a.start }));
   return `
   <div class="tracker">
     ${statusBar()}
@@ -150,7 +193,7 @@ export function TrackerScreen() {
         ${sugg.reason ? `<div class="tk-sugg-reason">${esc(sugg.reason)}</div>` : ''}
         <div class="wcard-actions"><button class="wpill" data-action="sugg-no" data-key="${esc(sugg.key)}">Dismiss</button><button class="wpill dark" data-action="sugg-yes" data-key="${esc(sugg.key)}">Set Goal</button></div>
       </div>` : ''}
-      <div class="tk-chart">${overloadChart(series, goal, unit)}</div>
+      <div class="tk-chart">${overloadChart(data, unit)}</div>
       <div class="tk-goalrow">
         <div>
           <div class="g-label">${goal != null ? 'Overload Goal Displayed' : 'Overload Goal'}</div>
@@ -164,14 +207,14 @@ export function TrackerScreen() {
       <div class="tk-seg">${seg}</div>
       <div class="tk-legend">
         <div class="lg"><span class="swatch-line"></span> Current Goal</div>
-        <div class="lg"><span class="swatch-ring"></span> Goal Set</div>
-        <div class="lg"><span class="swatch-dot"></span> <span>Goal Achieved<br><span class="sub">(${v.sets} Sets, ${v.reps} Reps)</span></span></div>
+        <div class="lg"><span class="swatch-line past"></span> Past Goals</div>
+        <div class="lg"><span class="swatch-dot"></span> <span>Completed<br><span class="sub">(${v.sets} Sets, ${v.reps} Reps)</span></span></div>
       </div>
     </div>
     <div class="tk-body">
       <div class="card tk-explain">
         <h3>Progressive Overload</h3>
-        <p>The ring is your first goal. Each dot after it is a workout where you hit ${v.sets} × ${v.reps} at your goal. Keep it climbing.</p>
+        <p>Each dot is a workout where you did all ${v.sets} sets of ${v.reps} at one weight. The solid line is your current goal, starting the day you set it. Keep the dots climbing.</p>
         ${goal == null ? `<p class="tk-note">No goal yet for ${v.sets} sets of ${v.reps} reps on this setup. Tap the pencil, or finish a workout and FailUp suggests one.</p>` : ''}
       </div>
       ${history}
@@ -531,8 +574,10 @@ export function ExerciseDetailScreen() {
   const stat = (label, val) => `<div class="xd-stat"><div class="xd-statlabel">${label}</div>${val}</div>`;
   const own = photoSrc(e.photo), p = exPhoto(e);
   const howTo = (e.steps || []).filter(Boolean);
+  // opened from the exercise picker: a fixed Add / Swap In button instead of the edit actions
+  const pick = state.exPick && state.exPick.id === e.id && state.stack[state.stack.length - 1] === 'exercises' ? state.exPick : null;
   return `
-  <div class="xd-screen">
+  <div class="xd-screen${pick ? ' xd-picking' : ''}">
     <div class="xd-hero">
       ${statusBar()}
       <button class="icon-btn xd-back" data-action="back" aria-label="Back">${I.chevL}</button>
@@ -576,11 +621,12 @@ export function ExerciseDetailScreen() {
         <ol class="xd-steps">${howTo.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
       </div>` : ''}
     </div>
+    ${pick ? `<div class="cw-footer xd-pickbar"><button class="btn solid" data-action="xd-pick">${pick.swap ? 'Swap In Exercise' : 'Add Exercise'}</button></div>` : `
     <div class="xd-actions">
       <button class="xd-act" data-action="edit-exercise"><span class="xd-acticon">${I.editPen}</span><span>Edit Exercise</span>${I.smChevR}</button>
       <button class="xd-act" data-action="merge-exercise"><span class="xd-acticon">${I.merge}</span><span>Merge With Another Exercise</span>${I.smChevR}</button>
       <button class="xd-act" data-action="delete-exercise"><span class="xd-acticon del">${I.trash24}</span><span>Delete Exercise</span>${I.smChevR}</button>
-    </div>
+    </div>`}
   </div>`;
 }
 

@@ -11,6 +11,7 @@ import {
   db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, increment,
   goalFor, goalKey, setGoal, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf,
   exportData, importData, clearExerciseData, resetAll, isBodyweight,
+ volumeDots,
 } from './store.js';
 import {
   TrackerScreen, VolumeModal, ExercisesScreen, FilterSheet, exListInner, ColorPickerSheet, IconPickerSheet,
@@ -22,7 +23,7 @@ import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLab
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
-  listCtx, keepCurrentExercise, vol, exInfo, workingSets, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
+  listCtx, keepCurrentExercise, vol, exInfo, workingSets, pendingSuggestion, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY, LINKS } from './data.js';
 
@@ -109,6 +110,7 @@ function render() {
   mountGoalLottie();
   homeHeaderIcons();
   slideInCards();
+  planCardFlair();
   revealAdded();
   if (!save() && !state.warnedStorage) { state.warnedStorage = true; toast('Couldn’t save. This browser is blocking storage.'); }
 }
@@ -167,6 +169,31 @@ function revealAdded() {
   const r = card.getBoundingClientRect(), a = app.getBoundingClientRect();
   app.scrollTop += (r.top - a.top) - (a.height - r.height) / 2;
   if (!reduceMotion()) card.animate([{ transform: 'translateX(110%)', opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 520, delay: 160, easing: 'cubic-bezier(.16,.84,.3,1)', fill: 'backwards' });
+}
+// Home plan card: the progress bar fills from empty and the two stats count up,
+// each time you land on home (load, refresh, or coming back), not on every re-render there.
+let homeShown = false;
+function planCardFlair() {
+  const onHome = state.screen === 'home' && !state.modal;
+  const card = onHome && app.querySelector('.hm2-plan');
+  if (!onHome) { if (state.screen !== 'home') homeShown = false; return; }
+  if (homeShown || !card) return;
+  homeShown = true;
+  if (reduceMotion()) return;
+  const bar = card.querySelector('.hm2-progbar > span');
+  if (bar) { const w = bar.style.width; bar.style.transition = 'none'; bar.style.width = '0%'; bar.getBoundingClientRect();
+    bar.style.transition = 'width 1.1s cubic-bezier(.22,.8,.3,1) .15s'; bar.style.width = w; }
+  const pct = card.querySelector('.hm2-progtop .tnum'), target = pct ? parseInt(pct.textContent, 10) || 0 : 0;
+  const nums = [...card.querySelectorAll('.hm2-statnum')].map(el => ({ el, to: parseInt(el.textContent, 10) || 0 }));
+  if (pct) nums.push({ el: pct, to: target, suffix: '%' });
+  const t0 = performance.now() + 150, dur = 1100, ease = t => 1 - Math.pow(1 - t, 3);
+  nums.forEach(n => { n.el.textContent = '0' + (n.suffix || ''); });
+  const tick = now => {
+    const t = Math.min(1, Math.max(0, (now - t0) / dur));
+    nums.forEach(n => { if (n.el.isConnected) n.el.textContent = Math.round(ease(t) * n.to) + (n.suffix || ''); });
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 function slideInCards() {
   if (slideIO) { slideIO.disconnect(); slideIO = null; }
@@ -429,7 +456,7 @@ function finishSession() {
   db.sessions.push(rec);
   // anything you said "Not now" to, or never got asked about (fewer sets, ended early), waits as a suggestion
   done.forEach((e, j) => {
-    const a = e.declined || (!e.goalAsked && goalPrompt(e, true));
+    const a = e.declined || goalPrompt(e, true);
     if (a) keepSuggestion(e, a, rec.id, j);
   });
   state.session = null;
@@ -485,7 +512,7 @@ function setDraft(type, si) {
 // ---------------------------------------------------------------------------------------------
 const setRpe = x => (x.rated === false ? null : isFail(x) ? 10 : Math.min(9, Math.floor(x.feel * 10) + 1));
 function goalPrompt(e, leaving = false) {
-  if (e.goalAsked) return null;
+  if (e.goalAsked && e.goalAsked >= workingSets(e).length) return null;   // already asked about these sets (more sets later asks again)
   const u = eqUnits(e.equip), inc = increment(u), R = e.goal.reps, bw = isBodyweight(e.equip);
   let w = workingSets(e).filter(x => (x.equip || e.equip) === e.equip);   // only sets on the equipment you ended on
   if (!w.length) return null;
@@ -539,7 +566,8 @@ function goalPrompt(e, leaving = false) {
 function askOnLeave(it) {
   if (!it || state.modal) return;
   const a = goalPrompt(it, true);
-  if (a) { it.goalAsked = true; state.goalAsk = a; state.modal = 'goalask'; }
+  if (a) { it.goalAsked = workingSets(it).length; state.goalAsk = a; state.modal = 'goalask'; }
+  return !!a;
 }
 // Turn a prompt into a waiting suggestion (shown on Workout Complete and the Overload Tracker).
 function keepSuggestion(e, a, sid, ei) {
@@ -735,7 +763,7 @@ function handle(a, d, el, ex) {
       const exId = inSession ? it.exId : state.tracker.exId, ref = inSession ? it.equip : state.tracker.equip;
       const v = inSession ? it.goal : state.tracker.volume;
       state.volumeDraft = { context: inSession ? 'session' : 'tracker', sets: v.sets, reps: v.reps, unit: eqUnits(ref),
-        goalFor: (st, r) => goalFor(exId, ref, st, r), points: (st, r) => (derived().ach[goalKey(exId, ref, st, r)] || []).length };
+        goalFor: (st, r) => goalFor(exId, ref, st, r), points: (st, r) => volumeDots(exId, ref, st, r).length };
       state.modal = 'volume'; break;
     }
     case 'close-volume': state.modal = null; break;
@@ -777,7 +805,7 @@ function handle(a, d, el, ex) {
       break;
     case 'expand-recent': ex.recentOpen = true; break;
     case 'open-exercise':
-      if (ex.mode === 'add') addToCtx(d.id);
+      if (ex.mode === 'add') { state.exPick = { id: d.id, swap: listCtx(ex.returnTo || 'create').ui.swapIndex != null }; state.exDetail = d.id; go('exdetail'); }   // look first, then Add / Swap In
       else if (ex.mode === 'quickadd') toggleIn(ex.picked, d.id);
       else if (ex.mode === 'tracker') {
         const x = exById(d.id), t = state.tracker;
@@ -786,6 +814,7 @@ function handle(a, d, el, ex) {
         t.exId = d.id; t.volume = defaultVolume(d.id, t.equip); resetPicker(); back();
       } else { state.exDetail = d.id; go('exdetail'); }
       break;
+    case 'xd-pick': { const id = state.exPick && state.exPick.id; state.exPick = null; if (!id) break; back(); addToCtx(id); break; }
     case 'quickadd-done': {
       const start = s.exercises.length;
       for (const id of ex.picked) s.exercises.push(sessionItem(id, defaultRef(exById(id))));
@@ -909,14 +938,17 @@ function handle(a, d, el, ex) {
       break;
     case 'open-lineup': state.lineup = { expanded: s.exIndex, swapIndex: null }; go('lineup'); break;
     case 'sess-toggle': s.expanded = !s.expanded; break;
-    case 'sess-move': { const from = cur(); s.exIndex = Math.min(s.exercises.length - 1, Math.max(0, s.exIndex + +d.dir)); if (cur() !== from) askOnLeave(from); break; }
-    case 'sess-jump': { const from = cur(); s.exIndex = +d.i; if (cur() !== from) askOnLeave(from); break; }
+    case 'sess-move': s.exIndex = Math.min(s.exercises.length - 1, Math.max(0, s.exIndex + +d.dir)); break;   // arrows only browse; goals are asked on Next Exercise
+    case 'sess-jump': s.exIndex = +d.i; break;
     case 'sess-next': { const from = cur(), t = nextTarget(s); if (t != null) { s.exIndex = t; askOnLeave(from); } break; }
     case 'sess-pause': state.modal = 'pause'; break;
     case 'close-pause': state.modal = null; break;
     case 'pause-confirm': home(); break;
     case 'finish-early': state.modal = null; render(); surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
-    case 'sess-finish': surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
+    case 'sess-finish': {   // ask about the last exercise first, then finish once it's answered
+      if (askOnLeave(cur())) { state.goalAsk.thenFinish = true; break; }
+      surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
+    }
     case 'complete-home': home(); break;
     case 'add-more':
       if (!reopenSession(state.log.sid)) break;
@@ -943,11 +975,6 @@ function handle(a, d, el, ex) {
       const it = cur();
       if (a.edit) { it.sets[a.edit.si] = rec; break; }
       it.sets.push(rec);
-      // offer to set (or raise) an overload goal once the required sets are done
-      if (a.type === 'working') {
-        const ask = goalPrompt(it);
-        if (ask) { it.goalAsked = true; state.goalAsk = ask; state.modal = 'goalask'; break; }
-      }
       // Figma "Weight Adjustment Edgecase": reduced weight, goal volume, RPE 7+
       const r = rpeOf(a.feel), rpe = r === 'F' ? 10 : +r.slice(4);
       if (a.type === 'working' && it.goal.weight != null && a.weight < it.goal.weight && a.reps >= it.goal.reps && rpe >= 7 && !it.goalPrompted) {
@@ -967,17 +994,26 @@ function handle(a, d, el, ex) {
       } else cur().sets.splice(a.edit.si, 1);
       break;
     }
+    case 'goalask-edit': state.goalAsk.editing = true; break;
     case 'goalask-adj': { const g = state.goalAsk, bw = isBodyweight(s.exercises[g.ei].equip); g.weight = Math.max(bw ? -9999 : 0, Math.round((g.weight + +d.d) * 100) / 100); break; }
     case 'goalask-no': {   // "Not now": keep it as a suggestion for Workout Complete and the Overload Tracker
       const g = state.goalAsk, it = s.exercises[g.ei];
-      if (it) it.declined = g;
-      state.modal = null; state.goalAsk = null; break;
+      if (it) it.declined = { ...g, thenFinish: undefined, editing: false };
+      state.modal = null; state.goalAsk = null;
+      if (g.thenFinish) { render(); surge(s.color, s.icon, () => { finishSession(); render(); }); return false; }
+      break;
     }
     case 'goalask-yes': {
       const g = state.goalAsk, it = s.exercises[g.ei];
       setGoal(it.exId, it.equip, g.sets, g.reps, g.weight);
       it.newGoal = g.weight; it.newGoalVol = { sets: g.sets, reps: g.reps }; it.declined = null;   // takes effect next time
-      state.modal = null; state.goalAsk = null; toast(g.first ? 'Your first goal is set!' : 'Overload goal set'); break;
+      state.modal = null; state.goalAsk = null; toast(g.first ? 'Your first goal is set!' : 'Overload goal set');
+      if (g.thenFinish) { render(); surge(s.color, s.icon, () => { finishSession(); render(); }); return false; }
+      break;
+    }
+    case 'goal-view': {   // reopen a "Not now" suggestion from the exercise dropdown
+      const it = cur(), x = it.declined || pendingSuggestion(it); if (!x) break;
+      state.goalAsk = { kind: 'set', first: !db.goalEdits.length, ...x, ei: s.exercises.indexOf(it), thenFinish: undefined, editing: false }; state.modal = 'goalask'; break;
     }
     case 'sugg-yes': {   // accept a waiting suggestion (Workout Complete or the Overload Tracker)
       const x = db.suggestions.find(y => y.key === d.key); if (!x) break;
@@ -1019,6 +1055,7 @@ function handle(a, d, el, ex) {
     }
     case 'open-exhistory': state.exHistory = d.id; go('exhistory'); break;
     case 'workouts-tab': state.workoutsTab = d.tab; break;
+    case 'view-complete': if (!d.id || !db.sessions.some(x => x.id === d.id)) break; state.log = { sid: d.id, mode: 'complete' }; go('complete'); break;
     case 'view-session': state.log = { sid: d.id, mode: 'view' }; go('log'); break;
     case 'share-session': { const ls = db.sessions.find(x => x.id === state.log.sid); if (ls) shareSession(ls); return false; }
     case 'session-menu': {
@@ -1281,6 +1318,7 @@ function handle(a, d, el, ex) {
       if (scr === 'exercises' && ex.mode !== 'browse') { const c = ex.mode === 'add' ? listCtx() : null; if (c) c.ui.swapIndex = null; resetPicker(); }
       if (scr === 'lineup' && s && !s.started) state.session = null;
       if (scr === 'complete') { home(); break; }
+      if (scr === 'exdetail') state.exPick = null;
       if (scr === 'assignday') state.planwiz.pickDay = null;
       if (scr === 'create') state.create.err = null;
       back(); break;
@@ -1291,15 +1329,23 @@ function handle(a, d, el, ex) {
 
 /* ---- "How did it feel?" slider: drag the white thumb; its number counts 1–9, then F ---- */
 let feelDrag = null;
+// The value is the shade under the thumb's center; F only when the thumb is pushed all the way right.
+// Returns { feel, left }: feel is the middle of that shade (what gets saved), left follows the finger.
 function feelFromPointer(bar, x) {
-  const r = bar.getBoundingClientRect(), inset = 4 + 28;      // 4px gap + half the 56px thumb
-  return Math.min(1, Math.max(0, (x - r.left - inset) / (r.width - inset * 2)));
+  const r = bar.getBoundingClientRect(), W = r.width, half = 28, inset = 4;
+  const cx = Math.min(W - inset - half, Math.max(inset + half, x - r.left));
+  const atEnd = cx >= W - inset - half - 0.5;
+  const band = atEnd ? 9 : Math.min(8, Math.floor(cx / (W / 10)));
+  return { feel: (band + 0.5) / 10, left: `${cx - half}px` };
 }
-function paintFeel(bar, feel) {
+let ringAt = 0;
+function paintFeel(bar, f) {
   const th = bar.querySelector('.ff-thumb');
-  th.style.left = `calc(4px + (100% - 64px) * ${feel.toFixed(4)})`;
-  th.querySelector('.ff-num').textContent = rpeNum(feel);
-  bar.querySelector('.ff-text').textContent = rpeOf(feel) === 'F' ? 'FAILURE' : '';
+  th.style.left = f.left;
+  th.querySelector('.ff-num').textContent = rpeNum(f.feel);
+  bar.querySelector('.ff-text').textContent = rpeOf(f.feel) === 'F' ? 'FAILURE' : '';
+  const ring = bar.querySelector('.ff-ring'), on = rpeOf(f.feel) === 'F';
+  if (ring && ring.classList.contains('on') !== on) { ring.classList.toggle('on', on); ringAt = Date.now(); }
 }
 device.addEventListener('pointerdown', (e) => {
   const bar = e.target.closest('[data-feelbar]');
@@ -1307,15 +1353,15 @@ device.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   feelDrag = bar;
   try { bar.setPointerCapture(e.pointerId); } catch {}
-  state.setDraft.feel = feelFromPointer(bar, e.clientX); state.setDraft.touched = true;
-  paintFeel(bar, state.setDraft.feel);
+  const f = feelFromPointer(bar, e.clientX); state.setDraft.feel = f.feel; state.setDraft.touched = true;
+  paintFeel(bar, f);
 });
 device.addEventListener('pointermove', (e) => {
   if (!feelDrag || !state.setDraft) return;
-  state.setDraft.feel = feelFromPointer(feelDrag, e.clientX);
-  paintFeel(feelDrag, state.setDraft.feel);
+  const f = feelFromPointer(feelDrag, e.clientX); state.setDraft.feel = f.feel;
+  paintFeel(feelDrag, f);
 });
-const endFeel = () => { if (feelDrag) { feelDrag = null; render(); } };
+const endFeel = () => { if (!feelDrag) return; feelDrag = null; const wait = Math.max(0, 480 - (Date.now() - ringAt)); setTimeout(() => { if (!feelDrag && state.setDraft) render(); }, wait); };   // let the F ring finish drawing
 device.addEventListener('pointerup', endFeel);
 device.addEventListener('pointercancel', endFeel);
 
