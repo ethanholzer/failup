@@ -2432,3 +2432,15 @@ html, body, button, a, input, label, .app, .overlay { touch-action: manipulation
 .loc-done .ug-btn { flex: 1; }
 .eqd-loc.eqd-loccard { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; text-align: left !important; padding: 16px 16px 16px 20px !important; }
 .eqd-loccard .eqd-loctext { align-items: flex-start; }
+/* save-equipment steps: lists bleed to the edges without sideways scrolling */
+.wiz-body { overflow-x: hidden; touch-action: pan-y; }
+.wiz-body .pk-list { margin-left: -16px; margin-right: -16px; }
+/* share ask after a workout */
+.sa-body { display: flex; flex-direction: column; align-items: flex-start; }
+.sa-ic { margin-bottom: -10px; }
+.sa-body .ug-actions { width: 100%; }
+.sa-body .ug-btn.dark { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.sa-body .ug-btn.dark svg { width: 20px; height: 20px; }
+.sa-ic { background: #FFC83D !important; }
+.sa-body .ug-title { color: #111 !important; }
+.sa-body .ug-titleblock { margin-top: 0; }

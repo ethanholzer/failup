@@ -315,3 +315,18 @@ export function GoalsScreen() {
     </div>
   </div>`;
 }
+
+// After a workout (Back to Home on Workout Complete): ask to share FailUp
+export function ShareAskSheet() {
+  return `
+  <div class="scrim" data-action="shareask-close">
+    <div class="sheet ug-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="ug-body sa-body">
+        <span class="hm2-shareic sa-ic">${ICON.contacts}</span>
+        <div class="ug-titleblock"><div class="ug-title">Share FailUp with a friend</div><div class="ug-text">FailUp doesn’t have a marketing budget. Please help spread the word!</div></div>
+        <div class="ug-actions"><button class="ug-btn" data-action="shareask-close">Close</button><button class="ug-btn dark" data-action="shareask-share">${ICON.share}<span>Share</span></button></div>
+      </div>
+    </div>
+  </div>`;
+}

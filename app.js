@@ -16,10 +16,10 @@ import {
 import {
   TrackerScreen, VolumeModal, ExercisesScreen, FilterSheet, exListInner, ColorPickerSheet, IconPickerSheet,
   ExerciseWizard, EquipmentWizard, ExerciseDetailScreen, ExerciseHistoryScreen, EquipmentListScreen, EquipmentDetailScreen,
-  EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, LocationSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
+  EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, LocationSheet, EquipmentTypesSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
-import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts } from './screens-home.js';
+import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts, ShareAskSheet } from './screens-home.js';
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
@@ -64,7 +64,7 @@ const SCREENS = {
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
   color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet,
-  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
+  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
 };
 const NEEDS_SESSION = ['session', 'lineup'];
 function screenHTML() {
@@ -1079,7 +1079,9 @@ function handle(a, d, el, ex) {
       if (askOnLeave(cur())) { state.goalAsk.thenFinish = true; break; }
       surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
     }
-    case 'complete-home': home(); break;
+    case 'complete-home': home(); state.modal = 'shareask'; break;   // then ask to spread the word
+    case 'shareask-close': state.modal = null; break;
+    case 'shareask-share': state.modal = null; render(); shareApp(); return false;
     case 'add-more':
       if (!reopenSession(state.log.sid)) break;
       ex.mode = 'quickadd'; ex.picked = []; ex.search = ''; ex.returnTo = 'lineup';
@@ -1411,6 +1413,14 @@ function handle(a, d, el, ex) {
     case 'open-location': state.locPick = { target: d.target }; state.modal = 'location'; break;
     case 'close-location': state.modal = null; break;
     case 'pick-location': setLocation(state.locPick.target, d.name); state.modal = null; break;
+    case 'open-eqtypes': state.modal = 'eqtypes'; break;
+    case 'close-eqtypes': state.modal = null; break;
+    case 'toggle-eqtype': {   // a saved machine can count as several kinds (keep at least one)
+      const sv = db.equipment.find(x => x.id === state.eqDetail); if (!sv) break;
+      const t = eqTypes(sv).filter(x => GENERIC.includes(x)), i = t.indexOf(d.name);
+      if (i >= 0) { if (t.length === 1) { toast('Keep at least one kind'); break; } t.splice(i, 1); } else t.push(d.name);
+      sv.types = TYPE_ORDER.filter(x => t.includes(x)); sv.type = sv.types[0]; syncAllGoals(); break;
+    }
     case 'toggle-eqloc': {   // saved machine at one or more locations (keep at least one)
       const sv = db.equipment.find(x => x.id === state.eqDetail); if (!sv) break;
       const l = eqLocs(sv).slice(), i = l.indexOf(d.name);

@@ -744,6 +744,7 @@ export function EquipmentDetailScreen() {
         <div class="xd-name eqd-name">${eqLocs(sv).length > 1 ? esc(sv.name) : `${esc(sv.location)} ${esc(sv.name)}`}</div>
         <div class="xd-kv"><span>Listing Type</span><span>User Added</span></div>
       </div>
+      <div class="eqd-loc eqd-loccard"><span class="eqd-loctext"><span class="cw-label">What kind of equipment is it?</span><span class="eqd-locval">${esc(eqTypes(sv).join(', '))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-eqtypes" aria-label="Edit equipment kinds">${I.pencil}</button></div>
       <div class="eqd-loc eqd-loccard"><span class="eqd-loctext"><span class="cw-label">Where is this located?</span><span class="eqd-locval">${esc(eqLocText(sv))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-location" data-target="equipment" aria-label="Edit locations">${I.pencil}</button></div>
       <div class="xd-card eqd-units">
         <div class="xd-hgroup"><div class="xd-h">Equipment Details</div><div class="xd-sub">Units and how big your goal jumps are.</div></div>
@@ -891,6 +892,22 @@ export function LocationSheet() {
         <div class="pk-titleblock"><div class="vs-title">${eqsv ? 'Where is this located?' : 'Choose a location'}</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you lifting? FailUp grabs your saved gear there.' : 'Pick every place you have this same machine.'}</div></div>
         ${eqsv ? locationCells(cur, 'toggle-eqloc', 'add-location', true) : locationCells(cur, 'pick-location', 'add-location')}
         ${eqsv ? '<div class="ug-actions loc-done"><button class="ug-btn dark" data-action="close-location">Done</button></div>' : ''}
+      </div>
+    </div>
+  </div>`;
+}
+// Kinds a saved machine counts as (from its details page)
+export function EquipmentTypesSheet() {
+  const sv = db.equipment.find(x => x.id === state.eqDetail); if (!sv) return '';
+  const cur = eqTypes(sv);
+  return `
+  <div class="scrim" data-action="close-eqtypes">
+    <div class="sheet pk-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="pk-body loc-body">
+        <div class="pk-titleblock"><div class="vs-title">What kind of equipment is it?</div><div class="vs-sub">Pick every kind it can be.</div></div>
+        <div class="pk-list">${TYPE_ORDER.map(t => pickCell({ action: 'toggle-eqtype', data: { name: t }, on: cur.includes(t), multi: true, icon: PH_EQUIP(t), title: t })).join('')}</div>
+        <div class="ug-actions loc-done"><button class="ug-btn dark" data-action="close-eqtypes">Done</button></div>
       </div>
     </div>
   </div>`;
