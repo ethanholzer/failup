@@ -2379,3 +2379,56 @@ button:not(:disabled):active, label.xd-act:active{ transform:none; }
 /* F ring sits inside the white thumb */
 .sw-feel .ff-thumb .ff-ring { position: absolute; left: 50%; top: 50%; right: auto; bottom: auto; width: 46px; height: 46px; transform: translate(-50%, -50%) rotate(-90deg); }
 .sw-feel .ff-thumb .ff-num { position: relative; }
+
+/* Home: plan that hasn't started yet */
+.hm2-cdrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.hm2-cd { background: #f3f3f6; border-radius: 14px; padding: 12px 14px; }
+.hm2-cdnum { font-size: 1.75rem; line-height: 2rem; font-weight: 800; color: #111; }
+.hm2-firstup { margin-top: 14px; font-size: 0.9375rem; color: #5f636b; }
+.hm2-firstup b { color: #111; font-weight: 700; }
+
+/* list cells for picking (locations, equipment kinds) */
+.pk-list { display: flex; flex-direction: column; margin: 18px -20px 0; background: #fff; }
+.pk-cell { height: 76px !important; border-bottom: 1px solid #f0f0f3; }
+.pk-cell .pk-ic { width: 48px !important; height: 48px !important; border-radius: 12px !important; background: #f3f3f6; color: #111; display: flex; align-items: center; justify-content: center; flex: none; }
+.pk-cell .pk-ic svg { width: 24px; height: 24px; }
+.pk-cell .pk-ic.add { background: #111; color: #fff; }
+.pk-cell.on .pk-ic { background: #fff; }
+.pk-cell .fl-check { margin-left: auto; }
+.pk-cell .xd-eqtext { flex: 1; min-width: 0; text-align: left; }
+.loc-body .pk-list { margin: 8px 0 0; }
+.swp-none { padding: 14px 20px; color: #5f636b; font-size: 0.9375rem; }
+.swp-alllink { display: flex; align-items: center; gap: 6px; margin: 14px 20px 8px; padding: 0; background: none; border: none; color: #111; font-weight: 600; font-size: 0.9375rem; }
+.swp-alllink svg { width: 16px; height: 16px; }
+.ae-screen.has-tray .ae-list:last-of-type { padding-bottom: 110px; }
+.ae-cell { border-bottom: 1px solid #f0f0f3; }
+
+/* no double-tap zoom anywhere */
+html, body, button, a, input, label, .app, .overlay { touch-action: manipulation; }
+/* How FailUp Works: only scrolls up and down (cards sliding in can't push the page sideways) */
+.hw-screen { overflow-x: clip; touch-action: pan-y; }
+.app:has(.hw-screen) { overflow-x: hidden; }
+.sw-numwrap .pre { opacity: .55; font-weight: 600; margin-right: 2px; }
+.ex-createrow { width: 100%; text-align: left; }
+.ex-createrow .ex-createic { display: flex; align-items: center; justify-content: center; flex: none; }
+.ex-createtext { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.ex-createtitle { font-weight: 700; font-size: 1rem; color: #111; }
+.ex-createsub { font-size: 0.875rem; color: #5f636b; }
+.swp-sheethead { position: relative; }
+.swp-create { position: absolute; top: 2px; right: 20px; }
+.pk-cell .pk-ic.add { background: #f3f3f6 !important; color: #111 !important; }
+.ex-createrow .ex-createic { background: #ebebeb !important; color: #111 !important; }
+.ex-createrow .ex-createic svg { width: 22px; height: 22px; }
+.pk-cell .pk-ic.add svg path, .ex-createrow .ex-createic svg path { stroke: #111; }
+.ff-ring circle { opacity: 0; transition: stroke-dashoffset .45s cubic-bezier(.4,0,.2,1), opacity 0s linear .45s; }
+.ff-ring.on circle { opacity: 1; transition: stroke-dashoffset .45s cubic-bezier(.4,0,.2,1), opacity 0s; }
+
+/* equipment details: location card with edit */
+.eqd-loccard { display: flex; align-items: center; gap: 12px; }
+.eqd-loctext { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; text-align: left; }
+.eqd-locedit { flex: none; }
+.eqd-locedit svg { width: 20px; height: 20px; }
+.loc-done { margin-top: 16px; }
+.loc-done .ug-btn { flex: 1; }
+.eqd-loc.eqd-loccard { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; text-align: left !important; padding: 16px 16px 16px 20px !important; }
+.eqd-loccard .eqd-loctext { align-items: flex-start; }

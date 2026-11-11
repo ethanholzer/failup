@@ -397,17 +397,17 @@ export function WorkoutSessionScreen() {
   // the machine's own photo, else the library photo of this exercise on that kind of equipment
   const imgSrc = sv && photoSrc(sv.photo);   // only your own machine photo; a library shot can suggest the wrong equipment
   const img = imgSrc ? `${PH_EQUIP(eqKind(ex.equip))}<img src="${imgSrc}" alt="" onerror="this.remove()">` : '';
-  // goal row button: View a waiting suggestion, the tracker once there's data, nothing for a brand-new exercise
+  // goal row button: View a waiting suggestion, the tracker when there's a goal, nothing otherwise
   const sugg = ex.newGoal == null ? pendingSuggestion(ex) : null;
   const goalBtn = sugg ? `<button class="sess-dpill sess-view" data-action="goal-view">View</button>`
-    : (ex.goal.weight != null || last || workingSets(ex).length) ? `<button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>` : '';
+    : ex.goal.weight != null ? `<button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>` : '';
   const detail = !s.expanded ? '' : `
     <div class="sess-exdetail">
       <div class="sess-swaprow"><button class="wpill sess-swapex" data-action="sess-swap-ex">${I.swap} Swap exercise</button></div>
       <div class="sess-drow">
         <div class="sess-dleft">
           <div class="dimg generic ph kind${img ? ' photo' : ''}">${img || PH_EQUIP(eqKind(ex.equip))}</div>
-          <div><div class="dlabel">Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div>${sv ? `<div class="dlabel" style="margin-top:2px">At ${esc(sv.location)}</div>` : ''}</div>
+          <div><div class="dlabel">Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div>${sv ? `<div class="dlabel" style="margin-top:2px">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
         </div>
         <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
       </div>
@@ -445,7 +445,7 @@ export function WorkoutSessionScreen() {
           <span class="sess-exbadge tnum">${s.exIndex + 1}</span>
           <span class="sess-exmeta">
             <span class="sess-exname">${esc(info.name)}</span>
-            <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span>${esc(eqLabel(ex.equip))}${sv ? ` · ${esc(sv.location)}` : ''}</span>
+            <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span>${esc(eqLabel(ex.equip))}${sv ? ` · ${esc(sv.locations && state.session && sv.locations.includes(state.session.location) ? state.session.location : sv.location)}` : ''}</span>
           </span>
           <span class="sess-excaret">${s.expanded ? I.caretUp : I.caretDn}</span>
         </button>
@@ -492,7 +492,7 @@ export function ActiveSetSheet() {
         <div class="sw-grow">
           <button class="sw-adj" data-action="sw-w" data-d="-${big}">&minus;${big}</button>
           <button class="sw-adj" data-action="sw-w" data-d="-${small}">&minus;${small}</button>
-          <label class="sw-val tnum"><span class="sw-numwrap"><input class="sw-in" data-swfield="weight" inputmode="decimal" value="${fmt(a.weight)}" style="width:${Math.max(1, fmt(a.weight).length) + 0.3}ch" aria-label="Weight">${ul ? `<span class="u">${ul}</span>` : ''}</span></label>
+          <label class="sw-val tnum"><span class="sw-numwrap">${a.unit === 'simple' ? '<span class="pre">#</span>' : ''}<input class="sw-in" data-swfield="weight" inputmode="decimal" value="${fmt(a.weight)}" style="width:${Math.max(1, fmt(a.weight).length) + 0.3}ch" aria-label="Weight">${ul ? `<span class="u">${ul}</span>` : ''}</span></label>
           <button class="sw-adj" data-action="sw-w" data-d="${small}">+${small}</button>
           <button class="sw-adj" data-action="sw-w" data-d="${big}">+${big}</button>
         </div>
@@ -568,12 +568,12 @@ export function UpdateGoalSheet() {
 export function GoalAskSheet() {
   const g = state.goalAsk, e = state.session.exercises[g.ei] || state.session.exercises[state.session.exIndex], u = eqUnits(e.equip);
   const [big, small] = steps(u), ul = unitLabel(u);
-  const pick = g.kind === 'pick', raise = g.kind === 'raise';
+  const pick = g.kind === 'pick', raise = g.kind === 'raise' && !g.noGoal;
   const title = g.first ? 'Your first goal!' : raise ? 'Raise your goal?' : pick ? (g.heavy ? 'Lighten it up?' : 'Too light?') : 'New overload goal!';
   // New Goal: locked until you tap the pencil, so the suggestion is the easy path
   const val = g.editing
-    ? `<label class="sw-val tnum"><span class="sw-numwrap"><input class="sw-in" data-goalaskfield inputmode="decimal" value="${fmt(g.weight)}" style="width:${Math.max(1, fmt(g.weight).length) + 0.3}ch" aria-label="New goal weight">${ul ? `<span class="u">${ul}</span>` : ''}</span></label>`
-    : `<div class="sw-val ga-locked tnum"><span class="sw-numwrap"><span>${fmt(g.weight)}</span>${ul ? `<span class="u">${ul}</span>` : ''}</span></div>`;
+    ? `<label class="sw-val tnum"><span class="sw-numwrap">${u === 'simple' ? '<span class="pre">#</span>' : ''}<input class="sw-in" data-goalaskfield inputmode="decimal" value="${fmt(g.weight)}" style="width:${Math.max(1, fmt(g.weight).length) + 0.3}ch" aria-label="New goal weight">${ul ? `<span class="u">${ul}</span>` : ''}</span></label>`
+    : `<div class="sw-val ga-locked tnum"><span class="sw-numwrap">${u === 'simple' ? '<span class="pre">#</span>' : ''}<span>${fmt(g.weight)}</span>${ul ? `<span class="u">${ul}</span>` : ''}</span></div>`;
   const picker = `
         <div class="ga-picker">
           <div class="goal-wlabel">New Goal</div>
@@ -590,7 +590,7 @@ export function GoalAskSheet() {
             ${val}
             <button class="sess-dpill ga-edit" data-action="goalask-edit" aria-label="Edit goal weight">${I.pencil}</button>
           </div>`}
-          ${g.from != null ? `<div class="ga-from">Today: ${wt(g.from, u)}</div>` : ''}
+          ${g.from != null && !g.noGoal ? `<div class="ga-from">Today: ${wt(g.from, u)}</div>` : ''}
         </div>`;
   const ring = g.first ? '<div class="ga-first" data-goal-lottie aria-hidden="true"></div>' : '';
   return `
@@ -605,7 +605,7 @@ export function GoalAskSheet() {
         </div>
         ${picker}
         <div class="ug-summary">${esc(exInfo(e).name)} · ${g.sets} × ${g.reps} · ${raise ? `<s>${wtTight(g.from, u)}</s> ` : ''}<span>${wtTight(g.weight, u)}</span></div>
-        <div class="ug-actions"><button class="ug-btn" data-action="goalask-no">Not Now</button><button class="ug-btn dark" data-action="goalask-yes">Set Goal</button></div>
+        <div class="ug-actions"><button class="ug-btn" data-action="goalask-no">Not Now</button><button class="ug-btn dark" data-action="goalask-yes">${g.noGoal ? 'Set as Goal' : 'Set Goal'}</button></div>
       </div>
     </div>
   </div>`;

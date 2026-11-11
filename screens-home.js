@@ -74,6 +74,22 @@ function planProgress(plan, pt) {
           <div class="hm2-progbar"><span style="width:${pct}%"></span></div>
         </div>`;
 }
+/* ---- a plan that hasn't started yet: count down to day 1 ---- */
+export function countdownParts(startKey, now = Date.now()) {
+  const ms = Math.max(0, parseDay(startKey).getTime() - now);
+  return { d: Math.floor(ms / 864e5), h: Math.floor(ms / 36e5) % 24, m: Math.floor(ms / 6e4) % 60 };
+}
+function planCountdown(plan) {
+  const c = countdownParts(plan.start), first = plan.days[0];
+  const w = first && first.type === 'workout' ? db.workouts.find(x => x.id === first.workoutId) : null;
+  const box = (k, n, l) => `<div class="hm2-cd"><div class="hm2-cdnum tnum" data-cd="${k}">${n}</div><div class="hm2-statlbl">${l}</div></div>`;
+  return `
+        <div class="hm2-today">Starts ${D.dow(parseDay(plan.start))}</div>
+        <div class="hm2-cdrow" data-countdown="${plan.start}">
+          ${box('d', c.d, c.d === 1 ? 'Day' : 'Days')}${box('h', c.h, c.h === 1 ? 'Hour' : 'Hours')}${box('m', c.m, c.m === 1 ? 'Minute' : 'Minutes')}
+        </div>
+        ${w ? `<div class="hm2-firstup">First up: <b>${esc(w.name)}</b></div>` : first ? `<div class="hm2-firstup">Day 1 is a rest day</div>` : ''}`;
+}
 /* ---- primary card: paused workout > active plan > get started ---- */
 function primary() {
   if (state.session) return `
@@ -94,9 +110,10 @@ function primary() {
           </div>
           <button class="hm2-kebab" data-action="plan-menu" aria-label="Plan options">${I.kebab}</button>
         </div>
+        ${pt.status === 'upcoming' ? planCountdown(plan) : `
         ${planProgress(plan, pt)}
         <div class="hm2-today">Today · ${D.dow(new Date())}</div>
-        ${todayCard(pt, plan)}
+        ${todayCard(pt, plan)}`}
       </div>
       ${startToday ? '' : quick}`;
   return `

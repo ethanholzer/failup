@@ -47,7 +47,7 @@ improving the library file and people's own edits survive.
 ## How overload goals work
 Goals belong to an **exercise × equipment × volume** (for example Bench Press,
 Barbell, 3 × 12), and you always confirm them. When you finish the planned sets of an
-exercise (or move on with fewer, which suggests a goal for the volume you did), FailUp
+exercise (moving on with fewer sets skips the goal), FailUp
 suggests one, with a one-line reason.
 
 - **Completed set:** hit the target reps, not marked F. **Failed attempt:** marked F, or
@@ -152,3 +152,12 @@ store, and `db` in `store.js` a persisted store (the shapes carry over as is).
 Generic equipment thumbnails use line icons on a light purple tile (`EQ_ICONS` in ui.js, copies in assets/equipment/).
 Dumbbell and Bodyweight come from [Tabler Icons](https://tabler.io/icons) (MIT, see LICENSE-tabler-icons.txt).
 Barbell, Cable Machine, Smith Machine and Specialized Machine (a pendulum squat) were drawn for FailUp on the same 24px grid and 2px stroke so the set matches.
+
+## Equipment and locations (Nov 2026)
+- Saved equipment can count as several kinds (an Inspire FT2 is a Smith Machine and a Cable Machine). The kind list starts with Specialized Machine, Cable Machine, Smith Machine.
+- Starting a workout (or changing where it is) picks saved gear of each exercise's preferred kind at that location, the most used one when there are several.
+- The swap sheet shows everything saved where you're training, then the generic kinds. Picking something stages it; Save applies, Nevermind backs out.
+- Swapping mid-exercise moves the sets already logged to the new equipment. Going from a generic kind with a goal to a saved machine without one asks to bring the goal over; picking gear saved somewhere else asks whether to switch the workout's location.
+- Goals: finishing every set while stepping up in weight suggests the top weight. With no goal yet, the sheet always says Set as Goal and never shows a current goal.
+
+- Goals only come from the volume in the exercise dropdown: if you did fewer sets than it says by Next Exercise or Finish Workout, no goal is set or suggested. Extra sets are fine; the goal is based on the first sets up to that count.

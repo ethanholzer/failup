@@ -224,6 +224,10 @@ export const photoSrc = ref => !ref ? null : ref.startsWith('idb:') ? (photoCach
 // An equipment ref is either "eq:<id>" (saved) or a generic type name.
 export const eqById = ref => ref && ref.startsWith('eq:') ? db.equipment.find(e => 'eq:' + e.id === ref) : null;
 export function eqLabel(ref) { const sv = eqById(ref); return sv ? sv.name : (ref && ref.startsWith('eq:') ? 'Removed equipment' : genericOf(ref || 'Bodyweight')); }
+// a saved machine can live at more than one location (same model at home and at the rec center)
+export const eqLocs = sv => (sv.locations && sv.locations.length ? sv.locations : [sv.location]).filter(Boolean);
+export const eqAt = (sv, loc) => eqLocs(sv).includes(loc);
+export const eqLocText = sv => eqLocs(sv).join(', ');
 export const eqLocation = ref => (eqById(ref) || {}).location || null;
 export const eqUnits = ref => (eqById(ref) || {}).units || db.settings.units;
 export const unitLabel = u => u === 'kg' ? 'kg' : u === 'simple' ? '' : 'lbs';
@@ -231,7 +235,13 @@ export const unitWord = u => u === 'kg' ? 'Kilograms' : u === 'simple' ? 'Level'
 export const increment = u => u === 'kg' ? 2.5 : u === 'simple' ? 1 : 5;
 export const steps = u => u === 'kg' ? [2.5, 1] : u === 'simple' ? [2, 1] : [5, 2.5];
 // The kind of machine a saved piece is: "Cable Machine 1" → "Cable Machine".
-export const eqType = sv => sv.type || sv.name.replace(/\s+\d+$/, '');
+export const eqType = sv => (sv.types && sv.types[0]) || sv.type || sv.name.replace(/\s+\d+$/, '');
+// every kind a saved machine counts as (an Inspire FT2 can be a Smith Machine and a Cable Machine)
+export const eqTypes = sv => (sv.types && sv.types.length ? sv.types : [eqType(sv)]).map(genericOf);
+// how many sets have been logged on a saved machine (for picking the usual one)
+export const eqUse = id => db.sessions.reduce((n, s) => n + s.exercises.reduce((m, e) => m + e.sets.filter(x => (x.equip || e.equip) === 'eq:' + id).length, 0), 0);
+// order for picking an equipment kind: machines first, they're the usual case
+export const TYPE_ORDER = ['Specialized Machine', 'Cable Machine', 'Smith Machine', 'Barbell', 'Dumbbell', 'Bodyweight'];
 
 /* ------------------------------ goals replay ----------------------------- */
 export const goalKey = (exId, ref, sets, reps) => `${exId}|${ref}|${sets}x${reps}`;

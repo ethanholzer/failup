@@ -8,7 +8,7 @@
 import { state, WORKOUT_COLORS, PURPLE } from './data.js';
 import { I, fmt, esc, wt, wtTight, eqName, D, WORKOUT_ICONS } from './ui.js';
 import {
-  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, increment,
+  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, eqLocs, eqAt, increment,
   goalFor, goalKey, setGoal, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf,
   exportData, importData, clearExerciseData, resetAll, isBodyweight,
  volumeDots,
@@ -19,7 +19,7 @@ import {
   EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, LocationSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
-import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel } from './screens-home.js';
+import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts } from './screens-home.js';
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
@@ -111,6 +111,12 @@ function render() {
   homeHeaderIcons();
   slideInCards();
   planCardFlair();
+  planCountdownTick();
+  if (state.screen === 'exwiz' && state.exwiz && state.exwiz.focusName) {   // from "Create “…”": name filled in, keyboard up
+    state.exwiz.focusName = false;
+    const inp = app.querySelector('[data-exwizname]');
+    if (inp) { inp.focus({ preventScroll: true }); const n = inp.value.length; try { inp.setSelectionRange(n, n); } catch {} }
+  }
   revealAdded();
   if (!save() && !state.warnedStorage) { state.warnedStorage = true; toast('Couldn’t save. This browser is blocking storage.'); }
 }
@@ -169,6 +175,18 @@ function revealAdded() {
   const r = card.getBoundingClientRect(), a = app.getBoundingClientRect();
   app.scrollTop += (r.top - a.top) - (a.height - r.height) / 2;
   if (!reduceMotion()) card.animate([{ transform: 'translateX(110%)', opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 520, delay: 160, easing: 'cubic-bezier(.16,.84,.3,1)', fill: 'backwards' });
+}
+// Upcoming plan: keep the countdown boxes live; when day 1 arrives, re-render into the active card.
+let cdTimer = null;
+function planCountdownTick() {
+  clearInterval(cdTimer); cdTimer = null;
+  const row = app.querySelector('[data-countdown]'); if (!row) return;
+  cdTimer = setInterval(() => {
+    if (!row.isConnected) { clearInterval(cdTimer); return; }
+    const c = countdownParts(row.dataset.countdown);
+    if (!c.d && !c.h && !c.m) { clearInterval(cdTimer); render(); return; }
+    for (const k of ['d', 'h', 'm']) { const el = row.querySelector(`[data-cd="${k}"]`); if (el && el.textContent !== String(c[k])) el.textContent = c[k]; }
+  }, 15000);
 }
 // Home plan card: the progress bar fills from empty and the two stats count up,
 // each time you land on home (load, refresh, or coming back), not on every re-render there.
@@ -419,14 +437,22 @@ function genericFor(e, sv) {
 }
 // The workout's location picks each exercise's default equipment: a saved piece
 // of the same kind there, otherwise the generic type.
+// Match each exercise to saved gear where you're training: a saved machine of the preferred kind
+// at this location (the one you use most if there are several), else the generic kind.
+function pickSavedFor(type, location, keep) {
+  const here = db.equipment.filter(x => eqAt(x, location) && eqTypes(x).includes(type));
+  if (!here.length) return null;
+  if (keep && here.includes(keep)) return keep;
+  return here.map(x => [x, eqUse(x.id)]).sort((a, b) => b[1] - a[1] || a[0].name.localeCompare(b[0].name))[0][0];
+}
 function applyLocationDefaults(s) {
   for (const e of s.exercises) {
     if (e.sets.length) continue;                       // don't move sets already logged
     const sv = eqById(e.equip);
-    const type = sv ? eqType(sv) : e.equip;
-    const here = db.equipment.filter(x => x.location === s.location && eqType(x) === type);
-    if (here.length) e.equip = here.includes(sv) ? e.equip : 'eq:' + here[0].id;
-    else if (sv && sv.location !== s.location && GENERIC.includes(type)) e.equip = type;
+    const type = genericOf(sv ? eqType(sv) : e.equip);
+    const pick = pickSavedFor(type, s.location, sv);
+    if (pick) e.equip = 'eq:' + pick.id;
+    else if (sv && !eqAt(sv, s.location) && GENERIC.includes(type)) e.equip = type;
     syncGoal(e);
   }
 }
@@ -517,15 +543,15 @@ function goalPrompt(e, leaving = false) {
   let w = workingSets(e).filter(x => (x.equip || e.equip) === e.equip);   // only sets on the equipment you ended on
   if (!w.length) return null;
   let S = e.goal.sets;
-  if (w.length < S) { if (!leaving) return null; S = w.length; }
-  w = w.slice(0, S);                                                       // extra sets never change the goal
+  if (w.length < S) return null;                                           // only the volume set in the dropdown gets a goal (fewer sets: no goal)
+  w = w.slice(0, S);                                                       // extra sets are fine; the goal comes from the first S
   const ei = state.session.exercises.indexOf(e);
   const g = goalFor(e.exId, e.equip, S, R);
   const ok = W => bw || W > 0;
   const done = x => !isFail(x) && x.reps >= R;
   const failed = w.filter(x => !done(x));
   const lastFailNum = (() => { for (let i = w.length - 1; i >= 0; i--) if (!done(w[i])) return i + 1; return 0; })();
-  const out = (kind, weight, extra = {}) => (ok(weight) ? { kind, weight, sets: S, reps: R, ei, first: !db.goalEdits.length, ...extra } : null);
+  const out = (kind, weight, extra = {}) => (ok(weight) ? { kind, weight, sets: S, reps: R, ei, first: !db.goalEdits.length, noGoal: g == null, ...extra } : null);
   const show = x => wtTight(x, u);
   const jump = r => (r >= 6 ? 1 : r >= 4 ? 2 : 3);                          // how far "Too light?" starts
 
@@ -533,6 +559,9 @@ function goalPrompt(e, leaving = false) {
     const last = w[w.length - 1];
     if (!done(last)) return last.weight !== g ? out('set', last.weight, { reason: `You earned failure on set ${w.length}. ${show(last.weight)} is your new goal!` }) : null;
     if (failed.length) return null;
+    const top = Math.max(...w.map(x => x.weight));
+    if (new Set(w.map(x => x.weight)).size > 1)                            // stepped up mid-exercise and finished every set: goal is the top weight
+      return top > g ? out('raise', top, { from: g, reason: `You completed ${S}x${R}, working up to ${show(top)}. Make ${show(top)} your goal!` }) : null;
     const W = Math.min(...w.map(x => x.weight)), to = W + inc, r = w.map(setRpe);
     if (g >= to || r.some(x => x == null)) return null;
     if (r.every(x => x >= 7)) return out('raise', to, { from: W, reason: `You completed ${S}x${R} at ${show(W)}. Increase the weight to ${show(to)}!` });
@@ -546,7 +575,11 @@ function goalPrompt(e, leaving = false) {
     if (w.every(x => x.reps >= R + 3)) return out('pick', W + inc * 2, { from: W, light: true, reason: `Every set flew past ${R} reps. Time to go heavier.` });
     const lo = Math.min(...r);
     if (lo <= 6) return out('pick', W + inc * jump(lo), { from: W, light: true, reason: `You cruised through ${show(W)}. Pick a heavier goal.` });
-    return out('raise', W + inc, { from: W, reason: `You completed ${S}x${R} at ${show(W)}. Increase the weight to ${show(W + inc)}!` });
+    return out('set', W + inc, { reason: `You completed ${S}x${R} at ${show(W)}. Go for ${show(W + inc)} next time!` });   // no goal yet: a first goal, nothing to raise
+  }
+  if (!failed.length) {                                                    // stepped up mid-exercise, every set done: the top weight
+    const top = Math.max(...w.map(x => x.weight));
+    return out('set', top, { reason: `You completed ${S}x${R}, working up to ${show(top)}. That’s your new goal!` });
   }
   const anchors = w.filter(x => done(x) && (setRpe(x) == null || setRpe(x) >= 6));
   if (anchors.length) {                                                    // B
@@ -562,7 +595,7 @@ function goalPrompt(e, leaving = false) {
   const top = Math.max(...w.map(x => x.weight)), lo = Math.min(...w.map(setRpe).filter(x => x != null), 6);
   return out('pick', top + inc * jump(lo), { from: top, light: true, reason: `You cruised through ${show(top)}. Pick a heavier goal.` });   // E
 }
-// Ask about the exercise you're leaving (fewer sets than planned still gets a goal for what you did).
+// Ask about the exercise you're leaving (only when the sets in the dropdown are done).
 function askOnLeave(it) {
   if (!it || state.modal) return;
   const a = goalPrompt(it, true);
@@ -587,7 +620,7 @@ function resetPicker() {
 }
 function setLocation(target, name) {
   if (target === 'lineup') { state.session.location = name; db.settings.location = name; applyLocationDefaults(state.session); }
-  else if (target === 'equipment') { const sv = db.equipment.find(x => x.id === state.eqDetail); if (sv) sv.location = name; }
+  else if (target === 'equipment') { const sv = db.equipment.find(x => x.id === state.eqDetail); if (sv) { const l = eqLocs(sv); if (!l.includes(name)) l.push(name); sv.locations = l; sv.location = l[0]; } }
   else if (target === 'eqwiz') state.eqwiz.location = name;
 }
 function openWorkoutEditor(wid) {
@@ -595,6 +628,43 @@ function openWorkoutEditor(wid) {
   if (!w) return;
   state.create = { mode: 'edit', editId: wid, name: w.name, color: w.color, icon: w.icon, expanded: null, exercises: w.exercises.map(e => ({ ...e })) };
   go('create');
+}
+// Re-render the swap sheet or screen in place (keeps its scroll position).
+function rerenderSwap() {
+  const body = (state.modal === 'swap' ? overlay.querySelector('.swp-sheetbody') : app.querySelector('.ae-screen')) || null;
+  const top = body ? body.scrollTop : 0;
+  render();
+  const nb = state.modal === 'swap' ? overlay.querySelector('.swp-sheetbody') : app.querySelector('.ae-screen');
+  if (nb) nb.scrollTop = top;
+  return false;
+}
+// Apply an equipment swap. Mid-exercise, every set logged so far moves to the new equipment
+// (you probably just forgot to switch it at the start). Then offer to carry a goal over and to switch location.
+function applySwap(ref) {
+  const sw = state.swap;
+  if (sw.owner === 'tracker') { state.tracker.equip = ref; state.tracker.volume = defaultVolume(state.tracker.exId, ref); return; }
+  const it = swapTarget(); if (!it) return;
+  const old = it.equip; it.equip = ref;
+  if (sw.owner === 'session' || sw.owner === 'lineup') it.sets && it.sets.forEach(st => { delete st.equip; });
+  if (it.goal) syncGoal(it);
+  if (!['session', 'lineup'].includes(sw.owner) || !state.session) { toast('Equipment swapped'); return; }
+  const sv = eqById(ref), steps = [];
+  const G = it.goal || { sets: 3, reps: 8 };
+  const oldGoal = goalFor(it.exId, old, G.sets, G.reps);
+  if (sv && !eqById(old) && oldGoal != null && goalFor(it.exId, ref, G.sets, G.reps) == null) {
+    const u = eqUnits(ref);
+    steps.push(next => confirm({ title: 'Bring your goal over?', label: 'Use it', cancel: 'Not now',
+      text: `You have a ${esc(wt(oldGoal, eqUnits(old)))} goal for ${esc(exInfo(it).name)} on ${esc(old)}. Use it on ${esc(sv.name)} too?`,
+      run: () => { setGoal(it.exId, ref, G.sets, G.reps, oldGoal); syncGoal(it); toast('Goal brought over'); next(); }, no: next }));
+    void u;
+  }
+  if (sv && !eqAt(sv, state.session.location)) {
+    steps.push(next => confirm({ title: `Training at ${esc(sv.location)}?`, label: `Yes, switch`, cancel: `No, ${esc(state.session.location)}`,
+      text: `${esc(sv.name)} is saved at ${esc(sv.location)}. Switch today’s workout to ${esc(sv.location)}? FailUp will grab your saved gear there.`,
+      run: () => { setLocation('lineup', sv.location); toast(`Workout at ${sv.location}`); next(); }, no: next }));
+  }
+  const run = i => { if (i < steps.length) steps[i](() => run(i + 1)); };
+  if (steps.length) run(0); else toast('Equipment swapped');
 }
 function swapTarget() {
   const sw = state.swap;
@@ -661,7 +731,7 @@ function swapTypeGuess(returnTo) {
   const r = swapRef(), sv = eqById(r);
   return r ? genericOf(sv ? eqType(sv) : r) : null;
 }
-function freshEqWizard(returnTo) { state.eqwiz = { step: 1, location: (state.session && state.session.location) || db.settings.location || db.locations[0] || '', name: '', type: swapTypeGuess(returnTo), units: db.settings.units, photo: null, returnTo }; }
+function freshEqWizard(returnTo) { state.eqwiz = { step: 1, location: (state.session && state.session.location) || db.settings.location || db.locations[0] || '', name: '', type: swapTypeGuess(returnTo), types: swapTypeGuess(returnTo) ? [swapTypeGuess(returnTo)] : [], units: db.settings.units, photo: null, returnTo }; }
 
 // Replace one equipment ref with another everywhere (merge / delete).
 function replaceRef(from, toFn, { history } = {}) {
@@ -675,55 +745,115 @@ function replaceRef(from, toFn, { history } = {}) {
 }
 
 /* --------------------------- sharing (PNG summary) -------------------------- */
+// Share image: the Workout Complete screen as a PNG (same header, stats, new goals and set cards).
 async function shareSession(s) {
-  try { await document.fonts.load('800 40px Archivo'); await document.fonts.load('700 40px Archivo'); } catch {}
-  const W = 1080, P = 64, st = sessionStats(s);
-  const done = s.exercises.filter(e => e.sets.length);
-  const rowH = 76, cardHead = 128;
-  const H = 420 + done.reduce((a, e) => a + cardHead + e.sets.length * rowH + 40, 0) + 120;
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d');
+  try { await Promise.all(['800 40px Archivo', '700 40px Archivo', '600 40px Archivo', '500 40px Archivo'].map(f => document.fonts.load(f))); } catch {}
+  const K = 1080 / 393, W = 393, P = 16, st = sessionStats(s), out = derived().outcomes;
+  const done = s.exercises.map((e, i) => ({ e, i })).filter(x => x.e.sets.length);
+  const hits = s.exercises.filter((e, i) => (out[`${s.id}:${i}`] || {}).type === 'hit').length;
+  const newGoals = s.exercises.map((e, i) => ({ e, o: out[`${s.id}:${i}`] })).filter(x => x.o && x.o.newGoal != null);
+  const ROW = 52, CARDHEAD = 72;
+  const goalLine = x => (out[`${s.id}:${x.i}`] || {}).newGoal != null;
+  const cardH = x => CARDHEAD + x.e.sets.length * ROW + (goalLine(x) ? 64 : 0) + 14;
+  let H = 24 + 60 + 24 + 76 + 20 + (newGoals.length ? 60 + newGoals.length * 56 + 16 + 20 : 0) + done.reduce((a, x) => a + cardH(x) + 12, 0) + 70;
+  const c = document.createElement('canvas'); c.width = Math.round(W * K); c.height = Math.round(H * K);
+  const g = c.getContext('2d'); g.scale(K, K); g.textBaseline = 'alphabetic';
   const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
-  g.fillStyle = '#ebebeb'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#5f636b'; g.font = '600 34px Archivo'; g.textBaseline = 'alphabetic';
-  g.fillText('Workout Complete', P, 170);
-  g.fillStyle = '#fff'; rr(P, 200, W - P * 2, 130, 12); g.fill();
-  g.fillStyle = s.color; g.fillRect(P, 200, 14, 130);
-  g.fillStyle = '#111'; g.font = '700 52px Archivo'; g.fillText(s.workoutName, P + 40, 262);
-  g.fillStyle = s.color; g.font = '700 28px Archivo';
-  g.fillText(`${st.exercises} EXERCISES • ${st.sets} SETS • ${st.fails} TO FAILURE`.toUpperCase(), P + 40, 306);
-  let y = 370;
-  for (const e of done) {
-    const info = exInfo(e), u = eqUnits(e.equip), h = cardHead + e.sets.length * rowH + 10;
+  const font = (w, px) => { g.font = `${w} ${px}px Archivo, sans-serif`; };
+  const text = (t, x, y, color, w, px, align = 'left') => { g.fillStyle = color; font(w, px); g.textAlign = align; g.fillText(t, x, y); g.textAlign = 'left'; };
+  const fit = (t, max) => { if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
+  const tile = (x, y, size, r) => { const gr = g.createLinearGradient(x, y, x + size, y + size); gr.addColorStop(0, mix(s.color, '#ffffff', 0.28)); gr.addColorStop(1, s.color); g.fillStyle = gr; rr(x, y, size, size, r); g.fill(); };
+  const icon = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null);
+    const svg = (WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick).replace(/currentColor|#111111|#000000|#000\b/g, '#fff');
+    const svgx = svg.includes('xmlns=') ? svg : svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+    im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgx); });
+  g.fillStyle = '#f4f4f6'; g.fillRect(0, 0, W, H);
+  // header: tile, name, date · exercises
+  let y = 24;
+  g.save(); g.shadowColor = 'rgba(0,0,0,.18)'; g.shadowBlur = 10; g.shadowOffsetY = 3; tile(P, y, 60, 16); g.restore();
+  if (icon) g.drawImage(icon, P + 14, y + 14, 32, 32);
+  font(800, 28); text(fit(s.workoutName, W - P - 92), P + 74, y + 30, '#111', 800, 28);
+  text(`${D.dow(new Date(s.finishedAt))}, ${new Date(s.finishedAt).getFullYear()} · ${plural(done.length, 'exercise')}`, P + 74, y + 52, '#5f636b', 500, 14);
+  y += 60 + 24;
+  // stats
+  const bw = (W - P * 2 - 16) / 3;
+  [[st.sets, 'Sets'], [st.fails, 'Fails'], [hits, 'Goals Reached']].forEach(([n, l], k) => {
+    const x = P + k * (bw + 8), goal = k === 2;
+    g.fillStyle = goal ? '#eeebfd' : '#fff'; rr(x, y, bw, 76, 16); g.fill();
+    text(String(n), x + bw / 2, y + 38, goal ? PURPLE : '#111', 800, 26, 'center');
+    text(l, x + bw / 2, y + 60, '#5f636b', 500, 13, 'center');
+  });
+  y += 76 + 20;
+  // new goals
+  if (newGoals.length) {
+    const h = 60 + newGoals.length * 56 + 16;
+    g.fillStyle = '#fff'; rr(P, y, W - P * 2, h, 16); g.fill(); g.strokeStyle = PURPLE; g.lineWidth = 2; rr(P + 1, y + 1, W - P * 2 - 2, h - 2, 15); g.stroke();
+    text('New goals', P + 16, y + 30, '#111', 700, 18); text('For next time. Go get ’em.', P + 16, y + 48, '#5f636b', 500, 13);
+    let ry = y + 60;
+    for (const { e, o } of newGoals) {
+      const u = eqUnits(e.equip), v = e.newGoalVol || e.goal;
+      g.fillStyle = '#ececf0'; g.fillRect(P + 16, ry, W - P * 2 - 32, 1);
+      font(700, 15); text(fit(exInfo(e).name, 200), P + 16, ry + 24, '#111', 700, 15);
+      text(`${e.equipName || eqLabel(e.equip)} · ${v.sets} × ${v.reps}`, P + 16, ry + 42, '#5f636b', 500, 13);
+      const wv = wtTight(o.newGoal, u); font(800, 17); const ww = g.measureText(wv).width;
+      text(wv, W - P - 16, ry + 33, PURPLE, 800, 17, 'right');
+      if (o.before != null) { const bv = wtTight(o.before, u); font(500, 13); const bwid = g.measureText(bv).width, bx = W - P - 16 - ww - 8;
+        text(bv, bx, ry + 32, '#9a9aa2', 500, 13, 'right'); g.fillStyle = '#9a9aa2'; g.fillRect(bx - bwid, ry + 27, bwid, 1.2); }
+      ry += 56;
+    }
+    y += h + 20;
+  }
+  // exercise cards
+  for (const x of done) {
+    const { e, i } = x, info = exInfo(e), u = eqUnits(e.equip), h = cardH(x);
     g.fillStyle = '#fff'; rr(P, y, W - P * 2, h, 20); g.fill();
-    g.fillStyle = '#111'; g.font = '700 46px Archivo'; g.fillText(info.name, P + 32, y + 66);
-    g.fillStyle = '#5f636b'; g.font = '700 24px Archivo'; g.fillText(`${info.muscle} • ${e.equipName || eqLabel(e.equip)}`.toUpperCase(), P + 32, y + 104);
-    let n = 0, ry = y + cardHead;
+    g.save(); g.shadowColor = 'rgba(0,0,0,.15)'; g.shadowBlur = 6; g.shadowOffsetY = 2; tile(P + 16, y + 16, 40, 10); g.restore();
+    text(String(i + 1), P + 36, y + 42, '#fff', 800, 17, 'center');
+    font(700, 16); text(fit(info.name, W - P * 2 - 90), P + 70, y + 34, '#111', 700, 16);
+    font(600, 12); const mw = g.measureText(info.muscle).width + 16;
+    g.strokeStyle = s.color; g.lineWidth = 1.2; rr(P + 70.5, y + 43.5, mw, 19, 5); g.stroke();
+    text(info.muscle, P + 78, y + 57, '#111', 600, 12);
+    text(e.equipName || eqLabel(e.equip), P + 70 + mw + 10, y + 57, '#5f636b', 500, 14);
+    let n = 0, ry = y + CARDHEAD;
     for (const set of e.sets) {
       const warm = set.type === 'warmup', label = warm ? 'W' : String(++n);
-      g.fillStyle = warm ? '#828282' : setPurple(set, e) ? PURPLE : '#111';
-      rr(P + 32, ry, 56, 56, 6); g.fill();
-      g.fillStyle = '#fff'; g.font = '900 28px Archivo'; g.textAlign = 'center'; g.fillText(label, P + 60, ry + 38); g.textAlign = 'left';
-      g.fillStyle = '#111'; g.font = '500 32px Archivo'; g.fillText(`${wt(set.weight, u)} × ${set.reps} reps`, P + 112, ry + 39);
-      if (!warm) {
-        const tag = isFail(set) ? 'F' : rpeOf(set.feel), tw = isFail(set) ? 48 : 112;
-        g.strokeStyle = PURPLE; g.lineWidth = 2; g.fillStyle = isFail(set) ? PURPLE : '#fff';
-        rr(W - P - 32 - tw, ry + 6, tw, 44, 6); g.fill(); g.stroke();
-        g.fillStyle = isFail(set) ? '#fff' : '#8174e7'; g.font = '700 22px Archivo'; g.textAlign = 'center';
-        g.fillText(tag, W - P - 32 - tw / 2, ry + 36); g.textAlign = 'left';
+      if (ry > y + CARDHEAD) { g.fillStyle = '#f0f0f3'; g.fillRect(P + 16, ry, W - P * 2 - 32, 1); }
+      g.fillStyle = warm ? '#828282' : setPurple(set, e) ? PURPLE : '#111'; rr(P + 20, ry + 10, 32, 32, 7); g.fill();
+      text(label, P + 36, ry + 32, '#fff', 800, 15, 'center');
+      text(`${wt(set.weight, u)} × ${set.reps} reps`, P + 64, ry + 31, '#111', 500, 15);
+      if (!warm && set.rated !== false) {
+        const f = isFail(set), tag = f ? 'F' : rpeOf(set.feel); font(700, 12); const tw = f ? 26 : g.measureText(tag).width + 18;
+        g.fillStyle = f ? PURPLE : '#eeebfd'; rr(W - P - 20 - tw, ry + 14, tw, 24, 6); g.fill();
+        text(tag, W - P - 20 - tw / 2, ry + 30, f ? '#fff' : '#5a4fc4', 700, 12, 'center');
       }
-      ry += rowH;
+      ry += ROW;
     }
-    y += h + 30;
+    if (goalLine(x)) {
+      const o = out[`${s.id}:${i}`], v = e.newGoalVol || e.goal;
+      g.fillStyle = '#eeebfd'; rr(P + 12, ry + 6, W - P * 2 - 24, 52, 12); g.fill();
+      text('New Goal Set', P + 28, ry + 28, '#111', 700, 14);
+      const pre = `${v.sets} Sets · ${v.reps} Reps · `; font(500, 13); const pw = g.measureText(pre).width;
+      text(pre, P + 28, ry + 46, '#5f636b', 500, 13); text(wtTight(o.newGoal, u), P + 28 + pw, ry + 46, PURPLE, 700, 13);
+    }
+    y += h + 12;
   }
-  g.font = '800 52px Archivo'; g.fillStyle = PURPLE; g.fillText('Fail', P, H - 60);
-  g.fillStyle = '#111'; g.fillText('Up', P + g.measureText('Fail').width, H - 60);
-  g.fillStyle = '#5f636b'; g.font = '500 26px Archivo'; g.textAlign = 'right'; g.fillText(D.long(new Date(s.finishedAt)), W - P, H - 66); g.textAlign = 'left';
+  // footer
+  font(800, 22); const fw = g.measureText('Fail').width;
+  text('Fail', P, H - 30, PURPLE, 800, 22); text('Up', P + fw, H - 30, '#111', 800, 22);
+  text('Earn failure. Raise the goal.', W - P, H - 33, '#5f636b', 500, 13, 'right');
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   const file = new File([blob], `failup-${s.workoutName.replace(/\W+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
+  if (window.__shareTest) { window.__shareTest(c.toDataURL('image/png')); return; }
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: `${s.workoutName} · FailUp` }); } catch {}
   } else downloadBlob(blob, file.name);
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+// blend two hex colors (t = share of b)
+function mix(a, b, t) {
+  const p = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(x => x + x).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+  const A = p(a), B = p(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
 function downloadBlob(blob, name) {
   const a = document.createElement('a');
@@ -823,7 +953,7 @@ function handle(a, d, el, ex) {
       resetPicker(); state.stack = ['home']; state.screen = 'session';
       break;
     }
-    case 'create-exercise-start': freshExWizard({ addTo: ex.mode === 'add' }); go('exwiz'); break;
+    case 'create-exercise-start': freshExWizard({ addTo: ex.mode === 'add', name: d.name || '', focusName: true }); go('exwiz'); break;
 
     /* ---------------- workout editor ---------------- */
     case 'open-color': state.pickDraft = state.create.color; state.modal = 'color'; break;
@@ -1207,7 +1337,7 @@ function handle(a, d, el, ex) {
     case 'swap-add': state.modal = null; freshEqWizard('swap'); go('eqwiz'); break;
     case 'edit-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail);
-      state.eqwiz = { step: 1, editId: sv.id, location: sv.location, name: sv.name, type: GENERIC.includes(eqType(sv)) ? eqType(sv) : null, units: sv.units, photo: sv.photo, returnTo: 'eqdetail' };
+      state.eqwiz = { step: 1, editId: sv.id, location: sv.location, name: sv.name, type: GENERIC.includes(eqType(sv)) ? eqType(sv) : null, types: eqTypes(sv).filter(t => GENERIC.includes(t)), units: sv.units, photo: sv.photo, returnTo: 'eqdetail' };
       go('eqwiz'); break;
     }
     case 'eq-units': { const sv = db.equipment.find(x => x.id === state.eqDetail); sv.units = d.unit; syncAllGoals(); break; }
@@ -1219,9 +1349,10 @@ function handle(a, d, el, ex) {
         if (!name) { w.err = 'Give the equipment a name.'; break; }
         if (db.equipment.some(x => x.id !== w.editId && x.location === w.location && x.name.toLowerCase() === name.toLowerCase())) { w.err = `There’s already a ${name} at ${w.location}.`; break; }
       }
-      if (w.step === 3 && !w.type) { w.err = 'Pick the kind of equipment this is.'; break; }
+      if (w.step === 3 && !(w.types || []).length) { w.err = 'Pick at least one kind.'; break; }
       if (w.step < 5) { w.step++; break; }
-      const rec = { name: w.name.trim(), location: w.location, type: w.type, units: w.units, photo: w.photo || null };
+      const types = TYPE_ORDER.filter(t => w.types.includes(t)).sort((a, b) => w.types.indexOf(a) - w.types.indexOf(b));
+      const rec = { name: w.name.trim(), location: w.location, type: types[0], types, units: w.units, photo: w.photo || null };
       if (w.editId) { Object.assign(db.equipment.find(x => x.id === w.editId), rec); back(); syncAllGoals(); toast('Equipment saved'); break; }
       const sv = { id: uid('e'), ...rec }; db.equipment.push(sv);
       const ref = 'eq:' + sv.id;
@@ -1235,23 +1366,23 @@ function handle(a, d, el, ex) {
     case 'eqwiz-headback': if (state.eqwiz.step > 1) { state.eqwiz.err = null; state.eqwiz.step--; } else back(); break;
     case 'eqwiz-location': state.eqwiz.location = d.name; state.eqwiz.err = null; break;
     case 'eqwiz-units': state.eqwiz.units = d.name; break;
-    case 'eqwiz-type': state.eqwiz.type = d.name; state.eqwiz.err = null; break;
+    case 'eqwiz-type': {   // pick one or more kinds
+      const w = state.eqwiz, t = w.types || (w.types = []), i = t.indexOf(d.name);
+      if (i >= 0) t.splice(i, 1); else t.push(d.name);
+      w.type = t[0] || null; w.err = null; break;
+    }
     case 'eqwiz-addloc': state.newLoc = { name: '', target: 'eqwiz' }; go('newloc'); break;
     case 'open-swap': state.swap = { owner: d.owner || listCtx().owner, index: +d.i || 0 }; state.modal = 'swap'; break;
     case 'swap-all': state.modal = null; go('swap'); break;
-    case 'swap-toggle': {   // what shows in this exercise's quick swap sheet
-      const x = exById(swapExId()); if (!x) break;
-      const i = x.equipment.indexOf(d.key);
-      if (i >= 0) x.equipment.splice(i, 1); else x.equipment.push(d.key);
-      break;
-    }
-    case 'close-swap': state.modal = null; break;
-    case 'swap-pick': {
-      const ref = d.ref, sw = state.swap;
-      if (sw.owner === 'tracker') { state.tracker.equip = ref; state.tracker.volume = defaultVolume(state.tracker.exId, ref); }
-      else { const it = swapTarget(); if (it.equip !== ref) beginChange(sw.owner); it.equip = ref; if (it.goal) syncGoal(it); }
+    case 'close-swap': state.modal = null; state.swap.sel = null; break;
+    case 'swap-pick': { const sw = state.swap; sw.sel = d.ref === swapRef() ? null : d.ref; return rerenderSwap(); }   // stage it; Save applies
+    case 'swap-cancel': state.swap.sel = null; return rerenderSwap();
+    case 'swap-save': {
+      const sw = state.swap, ref = sw.sel; sw.sel = null;
       if (state.screen === 'swap') back();
-      state.modal = null; break;
+      state.modal = null;
+      if (ref) applySwap(ref);
+      break;
     }
     case 'delete-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail), ref = 'eq:' + sv.id;
@@ -1280,6 +1411,12 @@ function handle(a, d, el, ex) {
     case 'open-location': state.locPick = { target: d.target }; state.modal = 'location'; break;
     case 'close-location': state.modal = null; break;
     case 'pick-location': setLocation(state.locPick.target, d.name); state.modal = null; break;
+    case 'toggle-eqloc': {   // saved machine at one or more locations (keep at least one)
+      const sv = db.equipment.find(x => x.id === state.eqDetail); if (!sv) break;
+      const l = eqLocs(sv).slice(), i = l.indexOf(d.name);
+      if (i >= 0) { if (l.length === 1) { toast('Keep at least one location'); break; } l.splice(i, 1); } else l.push(d.name);
+      sv.locations = l; sv.location = l[0]; break;
+    }
     case 'add-location': state.newLoc = { name: '', target: state.locPick.target }; go('newloc'); break;
     case 'save-location': {
       const n = state.newLoc, name = n.name.trim();
@@ -1291,7 +1428,7 @@ function handle(a, d, el, ex) {
     }
 
     /* ---------------- confirm ---------------- */
-    case 'confirm-no': state.modal = null; state.confirm = null; break;
+    case 'confirm-no': { const no = state.confirm && state.confirm.no; state.modal = null; state.confirm = null; if (no) no(); break; }
     case 'confirm-yes': { const run = state.confirm.run; state.modal = null; state.confirm = null; run(); break; }
 
     /* ---------------- settings ---------------- */
@@ -1319,6 +1456,7 @@ function handle(a, d, el, ex) {
       if (scr === 'lineup' && s && !s.started) state.session = null;
       if (scr === 'complete') { home(); break; }
       if (scr === 'exdetail') state.exPick = null;
+      if (scr === 'swap' && state.swap) state.swap.sel = null;
       if (scr === 'assignday') state.planwiz.pickDay = null;
       if (scr === 'create') state.create.err = null;
       back(); break;
