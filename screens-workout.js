@@ -3,9 +3,9 @@
 // set sheets, Workout Complete / past workout logs, and the plan wizard.
 // ============================================================================
 import { state } from './data.js';
-import { I, WORKOUT_ICONS, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP } from './ui.js';
+import { I, WORKOUT_ICONS, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP, eqName } from './ui.js';
 import {
-  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind,
+  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
 } from './store.js';
 import { eqImg } from './screens-library.js';
@@ -36,7 +36,7 @@ export const exComplete = e => workingSets(e).length >= e.goal.sets;
 
 // One logged set. `tap` makes it a button that opens the set editor.
 export function setRow(st, label, kind, e, unit, tap) {
-  const tag = kind !== 'working' ? '' : st.rated === false ? '<span class="set-tag unrated" aria-label="Effort not rated"></span>' : isFail(st) ? '<span class="set-tag fail">F</span>' : `<span class="set-tag">${rpeOf(st.feel)}</span>`;
+  const tag = kind !== 'working' ? '' : st.rated === false ? '<span class="set-tag unrated" aria-label="Effort not rated">RPE</span>' : isFail(st) ? '<span class="set-tag fail">F</span>' : `<span class="set-tag">${rpeOf(st.feel)}</span>`;
   const pr = kind === 'working' && setPurple(st, e) ? ' pr' : '';
   const inner = `
     <span class="set-badge ${kind}${pr}">${label}</span>
@@ -107,10 +107,13 @@ export function exerciseCards(ctx) {
       <div class="cw-ex-detail">
         <div class="cw-detail-main">
           ${ctx.owner === 'create' ? `
-          <button class="cw-pref" data-action="open-preftype" data-owner="create" data-i="${i}">
+          <button class="cw-pref lu-eqrow" data-action="open-preftype" data-owner="create" data-i="${i}">
+            ${prefThumb(it.equip)}
             <span class="cw-pref-text"><span class="cw-label">Preferred Equipment Type</span><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span><span class="cw-pref-note">For convenience. Easy to swap mid-workout.</span></span>
             <span class="cw-pref-btn">${I.swap24}</span>
           </button>` : ''}
+          ${ctx.owner === 'lineup' && !ro ? lineupEquipRow(it, i) : ''}
+          ${ro ? `<div class="cw-pref lu-eqrow ro">${prefThumb(it.equip)}<span class="cw-pref-text"><span class="cw-label">Preferred Equipment Type</span><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span></span></div>` : ''}
           ${ro ? `<div class="cw-volrow"><div class="cw-label">Volume</div><div class="cw-volval tnum">${v.sets} Sets · ${v.reps} Reps</div></div>` : `<div class="cw-steppers">${stepper('Sets', 'sets')}${stepper('Reps', 'reps')}</div>`}
           <div class="cw-goal">
             <div class="cw-goal-text"><div class="cw-label">Overload Goal</div><div class="cw-goal-val tnum">${v.sets} Sets · ${v.reps} Reps · <span class="lbs">${g != null ? wtTight(g, u) : 'No Goal Yet'}</span></div></div>
@@ -167,6 +170,42 @@ export function CreateWorkoutScreen() {
 }
 
 /* ---- Today's Lineup: before the session (Let's Go) and during it ---- */
+// Today's Plan: the equipment this exercise will start on. The workout's preferred kind,
+// matched to your most used saved machine of that kind where you're training. Tap to swap for today.
+const prefThumb = ref => { const sv = eqById(ref); return eqImg(sv, 'xd-eqimg', prefLabel(ref)); };
+function lineupEquipRow(it, i) {
+  const sv = eqById(it.equip);
+  const kind = it.pref || genericOf(sv ? eqType(sv) : it.equip);
+  const name = sv ? sv.name : eqName(it.equip);
+  const sub = sv ? kind : (GENERIC.includes(kind) && state.session ? `Nothing saved at ${esc(state.session.location)}` : '');
+  return `
+          <button class="cw-pref lu-eqrow" data-action="open-swap" data-owner="lineup" data-i="${i}">
+            ${eqImg(sv, 'xd-eqimg', kind)}
+            <span class="cw-pref-text"><span class="cw-label">Default Equipment</span><span class="cw-pref-val">${esc(name)}</span>${sub ? `<span class="cw-pref-note">${sub}</span>` : ''}</span>
+            <span class="cw-pref-btn">${I.swap24}</span>
+          </button>`;
+}
+// Rest timer: on/off and length live on the session (defaults from settings)
+export const restOf = s => s.rest || (db.settings.rest || { on: false, secs: 60 });
+const CLOCK_R = 25, CLOCK_C = 2 * Math.PI * CLOCK_R;
+export function restButton(s) {
+  const r = restOf(s), run = state.restRun, left = run ? Math.max(0, Math.ceil((run.end - Date.now()) / 1000)) : r.secs;
+  const frac = run ? Math.max(0, (run.end - Date.now()) / (run.total * 1000)) : 1;
+  return `
+    <div class="rest-wrap${state.restOpen ? ' open' : ''}${run ? ' running' : ''}" data-rest>
+      <button class="rest-adj" data-action="rest-adj" data-d="-15" aria-label="15 seconds less">&minus;</button>
+      <button class="rest-btn" data-action="rest-tap" aria-label="Rest timer ${left} seconds">
+        <svg class="rest-clock" viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="27" y="1.5" width="10" height="5" rx="2" />
+          <path d="M47 11.5l3.6-3.6" />
+          <circle class="rest-track" cx="32" cy="36" r="${CLOCK_R}" />
+          <circle class="rest-prog" cx="32" cy="36" r="${CLOCK_R}" stroke-dasharray="${CLOCK_C.toFixed(2)}" stroke-dashoffset="${(CLOCK_C * (1 - frac)).toFixed(2)}" />
+        </svg>
+        <span class="rest-num tnum" data-rest-num>${left}s</span>
+      </button>
+      <button class="rest-adj" data-action="rest-adj" data-d="15" aria-label="15 seconds more">+</button>
+    </div>`;
+}
 export function LineupScreen() {
   const s = state.session, ctx = listCtx('lineup');
   const n = s.workoutId ? timesCompleted(s.workoutId) : 0;
@@ -185,14 +224,19 @@ export function LineupScreen() {
           <div><div class="lu-title">${esc(s.workoutName)}</div><div class="lu-count">${n ? `Workout completed ${plural(n, 'time')}` : 'First time doing this workout'}</div></div>
         </div>
         <div class="lu-loc">
-          <div class="lu-loctext"><div class="cw-label">Where is this Workout?</div><div class="lu-locname">${esc(s.location)}</div></div>
+          <div class="lu-loctext"><div class="cw-label">Where is this workout?</div><div class="lu-locname">${esc(s.location)}</div></div>
           <button class="lu-locpill" data-action="open-location" data-target="lineup" aria-label="Change location">${I.swap24}</button>
         </div>
       </div>
       ${pre && ctx.items.length ? `
       <div class="lu-loc lu-vol">
-        <div class="lu-loctext"><div class="cw-label">Adjust all Volume</div><div class="lu-locname tnum">${masterVolLabel(ctx.items)}</div></div>
+        <div class="lu-loctext"><div class="cw-label">Adjust all volume</div><div class="lu-locname tnum">${masterVolLabel(ctx.items)}</div></div>
         <button class="lu-locpill" data-action="open-mastervol" aria-label="Set the volume for every exercise">${I.filter}</button>
+      </div>` : ''}
+      ${ctx.items.length ? `
+      <div class="lu-loc lu-vol lu-rest">
+        <div class="lu-loctext"><div class="cw-label">Rest timer</div><div class="lu-locname">${restOf(s).on ? `${restOf(s).secs}s between sets` : 'Off'}</div></div>
+        <button class="lu-switch${restOf(s).on ? ' on' : ''}" data-action="rest-toggle" role="switch" aria-checked="${restOf(s).on}" aria-label="Rest timer"><span></span></button>
       </div>` : ''}
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
       ${exerciseCards(ctx)}
@@ -445,7 +489,7 @@ export function WorkoutSessionScreen() {
           <span class="sess-exbadge tnum">${s.exIndex + 1}</span>
           <span class="sess-exmeta">
             <span class="sess-exname">${esc(info.name)}</span>
-            <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span>${esc(eqLabel(ex.equip))}${sv ? ` · ${esc(sv.locations && state.session && sv.locations.includes(state.session.location) ? state.session.location : sv.location)}` : ''}</span>
+            <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span><span class="sess-eqtext">${esc(eqLabel(ex.equip))}${sv ? ` · ${esc(sv.locations && state.session && sv.locations.includes(state.session.location) ? state.session.location : sv.location)}` : ''}</span></span>
           </span>
           <span class="sess-excaret">${s.expanded ? I.caretUp : I.caretDn}</span>
         </button>
@@ -465,6 +509,7 @@ export function WorkoutSessionScreen() {
       ${ghosts}
       ${complete ? `<button class="set-extra" data-action="sess-log" data-type="working">${I.plus20} Extra Set</button>` : ''}
     </div>
+    ${!complete && !state.pending && restOf(s).on ? restButton(s) : ''}
     ${state.pending ? pendingTray() : `<div class="sess-footer">${footer}</div>`}
   </div>`;
 }
@@ -767,13 +812,13 @@ function planDayMeta(day) {
 const dayBadge = (m, i) => `<span class="plan-daybadge ${m.cls === 'work' ? 'work' : m.cls === 'empty' ? 'empty' : 'rest'}">${i + 1}</span>`;
 export function PlanWizard() {
   const w = state.planwiz, STEPS = 5;
-  const segs = Array.from({ length: STEPS }, (_, i) => `<div class="wiz-seg ${i < w.step ? 'on' : ''}"></div>`).join('');
+  const segs = `<div class="wiz-fill" style="width:${(w.step / STEPS * 100).toFixed(2)}%"></div>`;   // one bar across the screen, filled purple
   const totalDays = daysBetween(w.start, w.end) + 1;
   const cycles = Math.floor(totalDays / w.splitDays);
   const err = w.err ? `<div class="wiz-err">${esc(w.err)}</div>` : '';
   let body = '';
   if (w.step === 1) {
-    const chips = ['Push Pull Legs', 'Upper / Lower', 'Full Body', 'Bro Split'].map(n => `<button class="qchip" data-action="plan-quickname" data-name="${n}">${n}</button>`).join('');
+    const chips = ['Bro Split', 'Push Pull Legs', 'The Bulkening', 'Lean Supreme', 'FAIL TO WIN'].map(n => `<button class="qchip" data-action="plan-quickname" data-name="${n}">${n}</button>`).join('');
     body = `
       <div class="wiz-title">Name your plan</div>
       <div class="wiz-help">You’ll see it on your home screen.</div>

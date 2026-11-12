@@ -3,7 +3,8 @@
 // ============================================================================
 import { state, LINKS } from './data.js';
 import { I, statusBar, fmt, esc, wtTight, D } from './ui.js';
-import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay } from './store.js';
+import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay, volumeDots, goalSegments } from './store.js';
+import { overloadChart, rangeBounds } from './screens-library.js';
 import { resumeCard, todayCard, doneToday, planStats } from './screens-workout.js';
 
 const ICON = {
@@ -42,18 +43,25 @@ function spark(pts) {
   return `<svg class="hg-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="${H - 1}" x2="${W}" y2="${H - 1}" stroke="#ecebf3" stroke-width="2"/>${line}${dots}</svg>`;
 }
 
+// the same graph the tracker opens with (All), shrunk: dots, the climb, past goals faint, current goal solid
+function goalMini(g) {
+  const dots = volumeDots(g.exId, g.ref, g.sets, g.reps), goals = goalSegments(g.exId, g.ref, g.sets, g.reps);
+  const firsts = [...dots.map(d => new Date(d.at).getTime()), ...goals.map(x => new Date(x.from).getTime())];
+  const b = rangeBounds('All', Date.now(), firsts.length ? Math.min(...firsts) : null);
+  return overloadChart({ dots, goals, ...b }, eqUnits(g.ref), true);
+}
 function goalCard(g) {
-  const u = eqUnits(g.ref), reached = g.pts.filter(p => !p.start).length;
+  const u = eqUnits(g.ref), done = volumeDots(g.exId, g.ref, g.sets, g.reps).length;
   return `
     <button class="hg-card" data-action="home-tracker" data-key="${esc(g.key)}">
       <span class="hg-top">
         <span class="hg-name">${esc(g.ex.name)}</span>
         <span class="hg-sub">${esc(eqLabel(g.ref))} · ${g.sets} × ${g.reps}</span>
       </span>
-      ${spark(g.pts)}
+      ${goalMini(g)}
       <span class="hg-foot">
         <span class="hg-w tnum">${wtTight(g.weight, u)}</span>
-        <span class="hg-meta">${reached ? `${reached} reached` : 'Goal set'} · ${D.short(new Date(g.updated))}</span>
+        <span class="hg-meta">${done ? `${done} completed` : 'Goal set'} · ${D.short(new Date(g.updated))}</span>
       </span>
     </button>`;
 }
@@ -92,9 +100,18 @@ function planCountdown(plan) {
 }
 /* ---- primary card: paused workout > active plan > get started ---- */
 function primary() {
-  if (state.session) return `
+  if (state.session) {
+    // a paused quick workout keeps your plan on screen underneath (not when the paused one is today's plan workout)
+    const pt = db.plan ? planToday() : null, day = pt && pt.status === 'active' ? pt.day : null;
+    const isPlanToday = day && day.type === 'workout' && day.workoutId === state.session.workoutId;
+    return `
       <div class="hm2-label light">You left off here</div>
-      ${resumeCard()}`;
+      ${resumeCard()}
+      ${db.plan && !isPlanToday ? planPart(true) : ''}`;
+  }
+  return planPart(false);
+}
+function planPart(underPaused) {
   const plan = db.plan;
   const quick = `<button class="hm2-quick" data-action="home-go" data-to="quickselect">${I.quickstart}<span>Quickstart</span></button>`;
   // a workout on deck that you haven't done yet: its yellow Start is the main button, so no Quickstart
@@ -115,7 +132,7 @@ function primary() {
         <div class="hm2-today">Today · ${D.dow(new Date())}</div>
         ${todayCard(pt, plan)}`}
       </div>
-      ${startToday ? '' : quick}`;
+      ${startToday || underPaused ? '' : quick}`;
   return `
       <div class="hm2-card hm2-start">
         <div class="hm2-starttitle">Push yourself today.</div>

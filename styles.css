@@ -2444,3 +2444,77 @@ html, body, button, a, input, label, .app, .overlay { touch-action: manipulation
 .sa-ic { background: #FFC83D !important; }
 .sa-body .ug-title { color: #111 !important; }
 .sa-body .ug-titleblock { margin-top: 0; }
+/* Today's Plan: default equipment row */
+.lu-eqrow .xd-eqimg { width: 52px; height: 52px; border-radius: 12px; flex: none; object-fit: cover; }
+.lu-eqrow.ro { cursor: default; }
+.pk-cell .pk-ic.kind { background: #eeebfd !important; color: #6c5ce7 !important; }
+.pk-cell .pk-ic.kind svg { width: 28px; height: 28px; }
+
+/* creation flows: room between the step title and its grey subtitle */
+.wiz-title + .wiz-help, .wl-title + .wl-help, .eql-title + .eql-help { margin-top: 12px !important; }
+.wiz-help + .wiz-err, .wiz-help + .pk-list { margin-top: 20px; }
+/* live workout: a long machine name wraps under itself, beside the muscle tag */
+.sess-exsub, .sess-exrow .sess-exsub { display: flex !important; flex-wrap: nowrap !important; align-items: flex-start !important; }
+.sess-exsub .mtag { flex: none; }
+.sess-exsub .sess-eqtext { flex: 1; min-width: 0; padding-top: 1px; }
+.sess-exsub, .sess-exrow .sess-exsub { gap: 0 !important; }
+
+/* live workout flame (behind the screen content) */
+.device { background: var(--bg); }
+.app { position: relative; z-index: 1; }
+.app:has(> .sess-screen), .app > .sess-screen { background: transparent !important; }
+.flame-layer { --fl: 0; position: absolute; left: 0; right: 0; bottom: 0; height: 46%; z-index: 0; pointer-events: none;
+  transform-origin: 50% 100%; transform: scaleY(calc(.18 + .82 * var(--fl))); opacity: 0;
+  transition: transform 1.6s cubic-bezier(.22,.8,.3,1), opacity 1.6s ease; }
+.flame-layer.on { opacity: calc(.18 + .72 * var(--fl)); }
+.flame-anim { position: absolute; inset: 0; }
+.flame-anim svg { width: 100% !important; height: 100% !important; }
+.flame-layer.burst { animation: flameBurst 1.8s cubic-bezier(.2,.8,.3,1); }
+@keyframes flameBurst { 0% { transform: scaleY(1); } 35% { transform: scaleY(1.28); opacity: 1; } 100% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .flame-layer, .flame-layer.burst { transition: opacity .3s; animation: none; } }
+/* the flame wall sits in the bottom third of its square comp: zoom it so the fire fills the layer */
+.flame-layer { height: 52%; overflow: hidden; }
+.flame-anim { inset: auto; left: 50%; bottom: -2%; width: 210%; aspect-ratio: 1; transform: translateX(-50%); }
+.set-tag.unrated { display: inline-flex !important; align-items: center; justify-content: center; font-size: 0.6875rem !important; font-weight: 700; letter-spacing: .02em; color: #a79cf2 !important; line-height: 1; }
+/* saved machine name lines up with "At [location]" under it */
+.wiz-namecard input { padding: 0 !important; margin: 0 !important; text-indent: 0 !important; display: block; }
+/* swap sheet: Save a new machine / View all cells */
+.swp-sheet .pk-cell { padding-left: 20px; padding-right: 20px; }
+
+/* creation flows: one full-width progress bar, purple fill */
+.wiz-header { display: flex; align-items: center; }
+.wiz-progress { flex: 1 1 auto !important; width: 100%; max-width: none !important; height: 6px; border-radius: 3px; background: #ececf0; overflow: hidden; display: block !important; margin: 0 !important; }
+.wiz-fill { height: 100%; border-radius: 3px; background: #6c5ce7; }
+.wiz-header .wiz-count { display: none; }
+/* plan name suggestions */
+.wiz-quick .qchip { background: #eeebfd !important; border-color: transparent !important; color: #3d2fb0 !important; }
+.wiz-quick .qchip { color: #111 !important; font-weight: 500 !important; }
+.wiz-quick { margin-top: 10px !important; }
+.hm2-label.light { color: #111 !important; font-size: 0.9375rem !important; font-weight: 600 !important; margin: 4px 4px -2px !important; }
+.hm2-primary .hm2-plan { margin-top: 6px; }
+
+/* ---- rest timer ---- */
+.lu-switch { width: 52px; height: 32px; border-radius: 16px; background: #dcdce2; position: relative; flex: none; transition: background .2s; border: none; padding: 0; }
+.lu-switch span { position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .22s cubic-bezier(.3,.8,.3,1); }
+.lu-switch.on { background: #1f9d55; }
+.lu-switch.on span { transform: translateX(20px); }
+.lu-rest { margin-top: 12px; }
+
+.rest-wrap { position: absolute; right: 16px; bottom: 122px; z-index: 6; display: flex; align-items: center; gap: 0; height: 72px; padding: 0; border-radius: 36px; background: #fff; box-shadow: 0 6px 18px rgba(20,20,30,.16); transition: padding .25s cubic-bezier(.3,.8,.3,1), gap .25s; }
+.rest-wrap .rest-adj { width: 0; height: 48px; opacity: 0; overflow: hidden; border: none; border-radius: 24px; background: #f0f0f3; font-size: 1.5rem; font-weight: 600; color: #111; padding: 0; transition: width .25s cubic-bezier(.3,.8,.3,1), opacity .2s; }
+.rest-wrap.open { padding: 0 12px; gap: 6px; }
+.rest-wrap.open .rest-adj { width: 48px; opacity: 1; }
+.rest-btn { position: relative; width: 72px; height: 72px; border: none; background: none; padding: 0; display: flex; align-items: center; justify-content: center; flex: none; }
+.rest-clock { position: absolute; inset: 6px; width: 60px; height: 60px; overflow: visible; }
+.rest-clock rect, .rest-clock path { fill: none; stroke: #111; stroke-width: 3; stroke-linecap: round; }
+.rest-clock .rest-track { fill: none; stroke: #e6e6ea; stroke-width: 4; }
+.rest-clock .rest-prog { fill: none; stroke: #111; stroke-width: 4; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 32px 36px; transition: stroke-dashoffset .25s linear; }
+.rest-num { position: relative; top: 4px; font-size: 0.9375rem; font-weight: 700; color: #111; letter-spacing: -.02em; }
+.rest-wrap.running .rest-num { font-size: 1rem; }
+/* bigger timer button, ring centered in the white circle */
+.rest-wrap { height: 84px; border-radius: 42px; bottom: 118px; }
+.rest-btn { width: 84px; height: 84px; }
+.rest-clock { inset: auto; left: 10px; top: 6px; width: 64px; height: 64px; }
+.rest-num { top: 0; font-size: 1rem; }
+.rest-wrap .rest-adj { height: 52px; border-radius: 26px; }
+.rest-wrap.open .rest-adj { width: 52px; }

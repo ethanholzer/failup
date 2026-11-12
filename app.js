@@ -23,7 +23,7 @@ import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLab
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
-  listCtx, keepCurrentExercise, vol, exInfo, workingSets, pendingSuggestion, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
+  listCtx, keepCurrentExercise, vol, exInfo, workingSets, pendingSuggestion, restOf, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY, LINKS } from './data.js';
 
@@ -112,6 +112,8 @@ function render() {
   slideInCards();
   planCardFlair();
   planCountdownTick();
+  flameUpdate();
+  wizBarGrow();
   if (state.screen === 'exwiz' && state.exwiz && state.exwiz.focusName) {   // from "Create “…”": name filled in, keyboard up
     state.exwiz.focusName = false;
     const inp = app.querySelector('[data-exwizname]');
@@ -175,6 +177,90 @@ function revealAdded() {
   const r = card.getBoundingClientRect(), a = app.getBoundingClientRect();
   app.scrollTop += (r.top - a.top) - (a.height - r.height) / 2;
   if (!reduceMotion()) card.animate([{ transform: 'translateX(110%)', opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 520, delay: 160, easing: 'cubic-bezier(.16,.84,.3,1)', fill: 'backwards' });
+}
+// Rest timer: counts from the moment the set was logged (stays right if the phone sleeps),
+// then slides up the next set's logger. A soft chime and a buzz where the phone allows.
+let restTick = null, audioCtx = null;
+function restStart(secs) {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {}   // unlock sound while we still have the tap
+  state.restRun = { end: Date.now() + secs * 1000, total: secs, ei: state.session.exIndex };
+  clearInterval(restTick); restTick = setInterval(restUpdate, 250);
+}
+function restStop() { state.restRun = null; state.restOpen = false; clearInterval(restTick); restTick = null; }
+function restUpdate() {
+  const run = state.restRun; if (!run) return restStop();
+  const left = run.end - Date.now(), w = app.querySelector('[data-rest]');
+  if (w) {
+    const n = w.querySelector('[data-rest-num]'), pr = w.querySelector('.rest-prog');
+    const txt = `${Math.max(0, Math.ceil(left / 1000))}s`; if (n.textContent !== txt) n.textContent = txt;
+    const C = 2 * Math.PI * 25; pr.setAttribute('stroke-dashoffset', (C * (1 - Math.max(0, left / (run.total * 1000)))).toFixed(2));
+  }
+  if (left > 0) return;
+  restStop();
+  restChime();
+  const s = state.session;
+  if (state.screen === 'session' && s && s.exIndex === run.ei && !state.modal) {
+    s.expanded = false; state.setDraft = setDraft('working'); state.modal = 'setwidget';
+  }
+  render();
+}
+function restChime() {
+  try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch {}
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = audioCtx.currentTime;
+    [[880, 0], [1175, 0.16]].forEach(([f, d]) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.35);
+      o.start(t + d); o.stop(t + d + 0.4);
+    });
+  } catch {}
+}
+// tapping anywhere outside the expanded timer folds it back up (and the tap still does its thing)
+document.addEventListener('pointerdown', e => {
+  if (!state.restOpen || e.target.closest('[data-rest]')) return;
+  state.restOpen = false; const w = app.querySelector('[data-rest]'); if (w) w.classList.remove('open');
+}, true);
+// Creation flows: the progress bar slides from the last step's width to this one's
+let wizPct = null;
+function wizBarGrow() {
+  const f = app.querySelector('.wiz-fill');
+  if (!f) { wizPct = null; return; }
+  const to = f.style.width;
+  if (wizPct != null && wizPct !== to && !reduceMotion()) f.animate([{ width: wizPct }, { width: to }], { duration: 420, easing: 'cubic-bezier(.22,.8,.3,1)' });
+  wizPct = to;
+}
+// Live workout flame: grows taller and more opaque with each set that's on track for the goal
+// (at the goal weight or heavier, and every rep or failure). Off track, it dies down. Full volume on track: a burst.
+const flameEl = document.getElementById('flame');
+let flameAnim = null, flameData = null, flameKey = null, flameBurst = null;
+function flameLevel() {
+  if (state.screen !== 'session' || !state.session) return null;
+  const e = state.session.exercises[state.session.exIndex];
+  if (!e || e.goal.weight == null) return null;
+  const g = e.goal.weight, S = e.goal.sets, R = e.goal.reps;
+  const w = workingSets(e).filter(x => (x.equip || e.equip) === e.equip).slice(0, S);
+  const on = w.every(x => x.weight >= g && (x.reps >= R || isFail(x)));
+  return { key: state.session.id + ':' + state.session.exIndex, n: on ? w.length : 0, S };
+}
+function flameUpdate() {
+  if (!flameEl) return;
+  const lv = flameLevel();
+  if (!lv) { flameEl.classList.remove('on', 'burst'); flameEl.style.setProperty('--fl', 0); flameKey = null; return; }
+  if (lv.key !== flameKey) { flameKey = lv.key; flameBurst = null; flameEl.classList.remove('burst'); }
+  const level = lv.n / lv.S;
+  flameEl.style.setProperty('--fl', level.toFixed(3));
+  flameEl.classList.toggle('on', lv.n > 0);
+  if (lv.n >= lv.S && flameBurst !== lv.key) {   // the whole volume on track: one big flare
+    flameBurst = lv.key; flameEl.classList.remove('burst'); void flameEl.offsetWidth; flameEl.classList.add('burst');
+  }
+  if (lv.n < lv.S) flameEl.classList.remove('burst');
+  if (!flameAnim && window.lottie && lv.n > 0) {
+    const box = flameEl.querySelector('.flame-anim');
+    const start = d => { if (flameAnim) return; flameAnim = window.lottie.loadAnimation({ container: box, renderer: 'svg', loop: true, autoplay: !reduceMotion(), animationData: d, rendererSettings: { preserveAspectRatio: 'xMidYMax meet' } }); };
+    if (flameData) start(flameData); else fetch('./assets/flame.json').then(r => r.json()).then(d => { flameData = d; start(d); }).catch(() => {});
+  }
 }
 // Upcoming plan: keep the countdown boxes live; when day 1 arrives, re-render into the active card.
 let cdTimer = null;
@@ -439,18 +525,25 @@ function genericFor(e, sv) {
 // of the same kind there, otherwise the generic type.
 // Match each exercise to saved gear where you're training: a saved machine of the preferred kind
 // at this location (the one you use most if there are several), else the generic kind.
-function pickSavedFor(type, location, keep) {
+// sets of one exercise logged on a saved machine
+const exUse = (exId, id) => db.sessions.reduce((n, s) => n + s.exercises.reduce((m, e) => m + (e.exId === exId ? e.sets.filter(x => (x.equip || e.equip) === 'eq:' + id).length : 0), 0), 0);
+// Most used saved machine of a kind at a location: most sets of this exercise first, then most sets overall.
+function pickSavedFor(type, location, exId) {
   const here = db.equipment.filter(x => eqAt(x, location) && eqTypes(x).includes(type));
   if (!here.length) return null;
-  if (keep && here.includes(keep)) return keep;
-  return here.map(x => [x, eqUse(x.id)]).sort((a, b) => b[1] - a[1] || a[0].name.localeCompare(b[0].name))[0][0];
+  return here.map(x => [x, exUse(exId, x.id), eqUse(x.id)]).sort((a, b) => b[1] - a[1] || b[2] - a[2] || a[0].name.localeCompare(b[0].name))[0][0];
 }
-function applyLocationDefaults(s) {
+// the workout's preferred generic kind for a session exercise
+const prefOf = e => e.pref || genericOf(eqById(e.equip) ? eqType(eqById(e.equip)) : e.equip);
+// relocate: the location changed, so every exercise without sets is re-picked (even ones swapped by hand)
+function applyLocationDefaults(s, relocate = false) {
   for (const e of s.exercises) {
     if (e.sets.length) continue;                       // don't move sets already logged
+    if (e.manual && !relocate) continue;               // you picked this one yourself
+    e.manual = false;
     const sv = eqById(e.equip);
-    const type = genericOf(sv ? eqType(sv) : e.equip);
-    const pick = pickSavedFor(type, s.location, sv);
+    const type = prefOf(e);
+    const pick = GENERIC.includes(type) ? pickSavedFor(type, s.location, e.exId) : null;
     if (pick) e.equip = 'eq:' + pick.id;
     else if (sv && !eqAt(sv, s.location) && GENERIC.includes(type)) e.equip = type;
     syncGoal(e);
@@ -458,7 +551,8 @@ function applyLocationDefaults(s) {
 }
 function sessionItem(exId, equip, sets = 3, reps = 8) {
   const x = exById(exId);
-  return { exId, name: x ? x.name : '', muscle: x ? x.muscle : '', equip, goal: { sets, reps, weight: null }, sets: [] };
+  const sv = eqById(equip);
+  return { exId, name: x ? x.name : '', muscle: x ? x.muscle : '', equip, pref: genericOf(sv ? eqType(sv) : equip), goal: { sets, reps, weight: null }, sets: [] };
 }
 function prepSession(w) {
   state.session = {
@@ -619,7 +713,7 @@ function resetPicker() {
   ex.mode = 'browse'; ex.swapping = false; ex.picked = []; ex.search = '';
 }
 function setLocation(target, name) {
-  if (target === 'lineup') { state.session.location = name; db.settings.location = name; applyLocationDefaults(state.session); }
+  if (target === 'lineup') { state.session.location = name; db.settings.location = name; applyLocationDefaults(state.session, true); }
   else if (target === 'equipment') { const sv = db.equipment.find(x => x.id === state.eqDetail); if (sv) { const l = eqLocs(sv); if (!l.includes(name)) l.push(name); sv.locations = l; sv.location = l[0]; } }
   else if (target === 'eqwiz') state.eqwiz.location = name;
 }
@@ -644,7 +738,7 @@ function applySwap(ref) {
   const sw = state.swap;
   if (sw.owner === 'tracker') { state.tracker.equip = ref; state.tracker.volume = defaultVolume(state.tracker.exId, ref); return; }
   const it = swapTarget(); if (!it) return;
-  const old = it.equip; it.equip = ref;
+  const old = it.equip; it.equip = ref; it.manual = true;
   if (sw.owner === 'session' || sw.owner === 'lineup') it.sets && it.sets.forEach(st => { delete st.equip; });
   if (it.goal) syncGoal(it);
   if (!['session', 'lineup'].includes(sw.owner) || !state.session) { toast('Equipment swapped'); return; }
@@ -1068,12 +1162,12 @@ function handle(a, d, el, ex) {
       break;
     case 'open-lineup': state.lineup = { expanded: s.exIndex, swapIndex: null }; go('lineup'); break;
     case 'sess-toggle': s.expanded = !s.expanded; break;
-    case 'sess-move': s.exIndex = Math.min(s.exercises.length - 1, Math.max(0, s.exIndex + +d.dir)); break;   // arrows only browse; goals are asked on Next Exercise
-    case 'sess-jump': s.exIndex = +d.i; break;
-    case 'sess-next': { const from = cur(), t = nextTarget(s); if (t != null) { s.exIndex = t; askOnLeave(from); } break; }
+    case 'sess-move': restStop(); s.exIndex = Math.min(s.exercises.length - 1, Math.max(0, s.exIndex + +d.dir)); break;   // arrows only browse; goals are asked on Next Exercise
+    case 'sess-jump': restStop(); s.exIndex = +d.i; break;
+    case 'sess-next': { restStop(); const from = cur(), t = nextTarget(s); if (t != null) { s.exIndex = t; askOnLeave(from); } break; }
     case 'sess-pause': state.modal = 'pause'; break;
     case 'close-pause': state.modal = null; break;
-    case 'pause-confirm': home(); break;
+    case 'pause-confirm': restStop(); home(); break;
     case 'finish-early': state.modal = null; render(); surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
     case 'sess-finish': {   // ask about the last exercise first, then finish once it's answered
       if (askOnLeave(cur())) { state.goalAsk.thenFinish = true; break; }
@@ -1086,7 +1180,16 @@ function handle(a, d, el, ex) {
       if (!reopenSession(state.log.sid)) break;
       ex.mode = 'quickadd'; ex.picked = []; ex.search = ''; ex.returnTo = 'lineup';
       state.stack = ['home', 'session']; state.screen = 'exercises'; break;
-    case 'sess-log': s.expanded = false; state.setDraft = setDraft(d.type); state.modal = 'setwidget'; break;   // the card folds up as the logger slides in
+    case 'sess-log': restStop(); s.expanded = false; state.setDraft = setDraft(d.type); state.modal = 'setwidget'; break;
+    case 'rest-toggle': {   // Today's Plan switch; the choice becomes your default too
+      const r = { ...restOf(s) }; r.on = !r.on; s.rest = r; db.settings.rest = { ...r }; if (!r.on) restStop(); break;
+    }
+    case 'rest-tap': state.restOpen = !state.restOpen; break;
+    case 'rest-adj': {
+      const r = { ...restOf(s) }; r.secs = Math.min(600, Math.max(15, r.secs + +d.d)); s.rest = r; db.settings.rest = { ...r };
+      if (state.restRun) { state.restRun.end = Math.max(Date.now() + 1000, state.restRun.end + +d.d * 1000); state.restRun.total = Math.max(state.restRun.total + +d.d, 1); }
+      state.restOpen = true; break;
+    }   // the card folds up as the logger slides in
     case 'edit-set': state.setDraft = setDraft(null, +d.si); state.modal = 'setwidget'; break;
     case 'edit-logged-set': {
       const ls = db.sessions.find(x => x.id === state.log.sid), le = ls.exercises[+d.ei], st = le.sets[+d.si];
@@ -1107,6 +1210,8 @@ function handle(a, d, el, ex) {
       const it = cur();
       if (a.edit) { it.sets[a.edit.si] = rec; break; }
       it.sets.push(rec);
+      // rest timer: after a working set, until the set volume is done
+      if (a.type === 'working' && restOf(s).on && workingSets(it).length < it.goal.sets) restStart(restOf(s).secs);
       // Figma "Weight Adjustment Edgecase": reduced weight, goal volume, RPE 7+
       const r = rpeOf(a.feel), rpe = r === 'F' ? 10 : +r.slice(4);
       if (a.type === 'working' && it.goal.weight != null && a.weight < it.goal.weight && a.reps >= it.goal.reps && rpe >= 7 && !it.goalPrompted) {
@@ -1279,7 +1384,7 @@ function handle(a, d, el, ex) {
         const dup = EXERCISES.find(x => x.id !== w.editId && x.name.toLowerCase() === w.name.trim().toLowerCase() && x.muscle === w.primary);
         if (dup) { w.err = `You already have ${dup.name} (${dup.muscle}). Use a different name, or go back and use that one.`; break; }
       }
-      if (w.step === 4 && !w.equipment.length && !w.saved.length) { w.err = 'Pick at least one kind of equipment.'; break; }
+      if (w.step === 4 && !w.equipment.length) { w.err = 'Pick at least one kind of equipment.'; break; }
       if (w.step < 5) { w.step++; break; }
       const abbr = { Chest: 'CH', Shoulders: 'SH', Back: 'BK', Biceps: 'BI', Triceps: 'TR', Forearms: 'FO', Abs: 'AB', Quads: 'QU', Hamstrings: 'HA', Glutes: 'GL', Calves: 'CA' }[w.primary] || w.primary.slice(0, 2).toUpperCase();
       const fields = { name: w.name.trim(), muscle: w.primary, abbr, equipment: [...w.equipment, ...w.saved], secondary: w.secondary.map(v => v.toLowerCase()), photo: w.photo || null };

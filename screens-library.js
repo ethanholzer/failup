@@ -63,23 +63,27 @@ function xTicks(x0, x1, today) {
   }
   return out.filter(k => k.t <= x1);
 }
-export function overloadChart({ dots, goals, x0, x1, today }, unit) {
-  const W = 377, H = 232;
-  const padL = 16, padR = 40, padT = 24, padB = 28;
+// mini: the home goal card's thumbnail, same data and geometry, no labels
+export function overloadChart({ dots, goals, x0, x1, today }, unit, mini = false) {
+  const W = mini ? 236 : 377, H = mini ? 76 : 232;
+  const padL = mini ? 8 : 16, padR = mini ? 8 : 40, padT = mini ? 10 : 24, padB = mini ? 8 : 28;
+  const uid = mini ? 'm' + Math.random().toString(36).slice(2, 7) : '';
   const plotL = padL, plotR = W - padR, plotT = padT, plotB = H - padB;
   const T = a => new Date(a).getTime();
   const inView = dots.filter(d => T(d.at) >= x0);
   const segs = goals.filter(g => (g.to == null || T(g.to) >= x0) && T(g.from) <= x1);
   const vals = inView.map(d => d.weight).concat(segs.map(g => g.weight));
   if (!vals.length) return `
-  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet">
+  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet"${mini ? ' class="hg-spark"' : ''}>
     <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Archivo" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
   </svg>`;
-  let lo = Math.min(...vals), hi = Math.max(...vals);
-  if (hi - lo < 4) { lo -= 4; hi += 4; }
-  const step = niceStep(hi - lo);
-  const yMin = lo >= 0 ? Math.max(0, Math.floor(lo / step) * step - step / 2) : Math.floor(lo / step) * step - step / 2;
-  const yMax = Math.ceil(hi / step) * step + step / 2;
+  // Y axis counts in the equipment's goal increment (5 lbs, 2.5 kg, 1 for numbered stacks), or a multiple of it
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const inc = increment(unit) || 5;
+  const step = inc * ([1, 2, 4, 5, 10, 20, 50, 100].find(k => (hi - lo) / (inc * k) <= 4) || 200);
+  const pad = mini ? step / 2 : step;
+  const yMin = lo >= 0 ? Math.max(0, Math.floor(lo / step) * step - pad) : Math.floor(lo / step) * step - pad;
+  const yMax = Math.ceil(hi / step) * step + pad;
   const yTicks = [];
   for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) yTicks.push(v);
   const y = v => plotB - ((v - yMin) / (yMax - yMin)) * (plotB - plotT);
@@ -99,23 +103,23 @@ export function overloadChart({ dots, goals, x0, x1, today }, unit) {
   if (cur) {
     const [a] = gx(cur), cx = x(a), cy = y(cur.weight);
     current = `
-    <rect x="${f(cx)}" y="${f(cy)}" width="${f(plotR - cx)}" height="${f(plotB - cy)}" fill="url(#goalgrad)"/>
+    <rect x="${f(cx)}" y="${f(cy)}" width="${f(plotR - cx)}" height="${f(plotB - cy)}" fill="url(#goalgrad${uid})"/>
     <line x1="${f(cx)}" x2="${plotR}" y1="${f(cy)}" y2="${f(cy)}" stroke="${PURPLE}" stroke-width="2.5" stroke-linecap="round"/>
-    <text x="${f(Math.min(cx + 4, plotR - 28))}" y="${f(cy - 7)}" font-family="Archivo" font-weight="700" font-size="11" fill="${PURPLE}">Goal</text>`;
+    ${mini ? '' : `<text x="${f(Math.min(cx + 4, plotR - 28))}" y="${f(cy - 7)}" font-family="Archivo" font-weight="700" font-size="11" fill="${PURPLE}">Goal</text>`}`;
   }
   // the climb: dots joined in time order (one point before the range keeps the line coming in from the left)
   const firstIn = dots.findIndex(d => T(d.at) >= x0);
   const path = firstIn < 0 ? [] : dots.slice(Math.max(0, firstIn - 1));
   const line = path.map((d, i) => `${i ? 'L' : 'M'}${f(x(T(d.at)))} ${f(y(d.weight))}`).join(' ');
-  const dotEls = inView.map(d => `<circle cx="${f(x(T(d.at)))}" cy="${f(y(d.weight))}" r="5" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
+  const dotEls = inView.map(d => `<circle cx="${f(x(T(d.at)))}" cy="${f(y(d.weight))}" r="${mini ? 4 : 5}" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
   return `
-  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Progressive overload chart">
+  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Progressive overload chart"${mini ? ' class="hg-spark"' : ''}>
     <defs>
-      <linearGradient id="goalgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${PURPLE}" stop-opacity="0.35"/><stop offset="1" stop-color="${PURPLE}" stop-opacity="0"/></linearGradient>
-      <clipPath id="plotclip"><rect x="${plotL}" y="0" width="${plotR - plotL}" height="${plotB}"/></clipPath>
+      <linearGradient id="goalgrad${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${PURPLE}" stop-opacity="0.35"/><stop offset="1" stop-color="${PURPLE}" stop-opacity="0"/></linearGradient>
+      <clipPath id="plotclip${uid}"><rect x="${plotL}" y="0" width="${plotR - plotL}" height="${plotB}"/></clipPath>
     </defs>
-    ${grid}${yLabels}${xLabels}
-    <g clip-path="url(#plotclip)">
+    ${mini ? '' : grid + yLabels + xLabels}
+    <g clip-path="url(#plotclip${uid})">
       ${past}${current}
       ${path.length > 1 ? `<path d="${line}" fill="none" stroke="${PURPLE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
       ${dotEls}
@@ -442,7 +446,7 @@ function exMuscleGrid(selected, action, exclude) {
 const wizErr = w => w.err ? `<div class="wiz-err">${esc(w.err)}</div>` : '';
 export function ExerciseWizard() {
   const w = state.exwiz, STEPS = 5;
-  const segs = Array.from({ length: STEPS }, (_, i) => `<div class="wiz-seg ${i < w.step ? 'on' : ''}"></div>`).join('');
+  const segs = `<div class="wiz-fill" style="width:${(w.step / STEPS * 100).toFixed(2)}%"></div>`;   // one bar across the screen, filled purple
   let body = '';
   if (w.step === 1) {
     body = `
@@ -454,30 +458,13 @@ export function ExerciseWizard() {
   } else if (w.step === 3) {
     body = `<div class="wiz-title">Select any secondary muscle groups</div><div class="wiz-help">(Optional) Select all that apply</div>${exMuscleGrid(w.secondary, 'exwiz-secondary', w.primary)}`;
   } else if (w.step === 4) {
-    const savedRows = db.equipment.map(sv => {
-      const ref = 'eq:' + sv.id, on = w.saved.includes(ref), p = photoSrc(sv.photo);
-      return `<button class="wiz-eqrow" data-action="exwiz-saved" data-ref="${ref}">
-        <span class="eqimg${p ? '' : ' ph kind'}">${p ? `<img src="${p}" alt="">` : PH_EQUIP(eqKind(ref))}</span>
-        <span class="eqtext"><span class="eqname">${esc(sv.name)}</span><span class="eqloc">At ${esc(eqLocText(sv))}</span></span>
-        <span class="wiz-check red ${on ? 'on' : ''}">${on ? I.checkW : ''}</span>
-      </button>`;
-    }).join('');
-    const genRows = EQ_TYPES.map(name => {
-      const on = w.equipment.includes(name);
-      return `<button class="wiz-eqrow generic" data-action="exwiz-equip" data-name="${name}">
-        <span class="eqtext"><span class="eqname">${eqName(name)}</span></span>
-        <span class="wiz-check red ${on ? 'on' : ''}">${on ? I.checkW : ''}</span>
-      </button>`;
-    }).join('');
+    // only generic kinds here; saved machines get picked mid-workout
+    const kinds = [...EQ_TYPES].sort((x, y) => TYPE_ORDER.indexOf(eqName(x)) - TYPE_ORDER.indexOf(eqName(y)));
     body = `
       <div class="wiz-title">What kind of equipment?</div>
-      <div class="wiz-help">Select all types of equipment you could use for this exercise</div>${wizErr(w)}
-      <div class="wiz-eqcard">
-        <div class="wiz-eqnote"><p>Add what you use for this. Swap between them mid-workout.</p><button class="wiz-eqadd" data-action="exwiz-addequip">Add</button></div>
-        <div class="wiz-eqsection"><span class="lbl">Saved (${db.equipment.length})</span></div>
-        ${savedRows || '<div class="wiz-eqempty">Nothing saved yet. Tap Add. Makes mid-workout swaps way faster.</div>'}
-        <div class="wiz-eqsection"><span class="lbl">Generic Equipment (${EQ_TYPES.length})</span></div>
-        ${genRows}
+      <div class="wiz-help">Select every kind you could use for this exercise. You can pick your saved machines mid-workout.</div>${wizErr(w)}
+      <div class="pk-list">
+        ${kinds.map(k => pickCell({ action: 'exwiz-equip', data: { name: k }, on: w.equipment.includes(k), multi: true, kind: true, icon: PH_EQUIP(eqName(k)), title: eqName(k) })).join('')}
       </div>`;
   } else {
     const p = photoSrc(w.photo);
@@ -503,13 +490,13 @@ export function ExerciseWizard() {
 
 /* A tappable list cell used for picking things (locations, equipment kinds). Selected = light green + green check. */
 const PIN = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
-export function pickCell({ action, data = {}, on = false, icon, title, sub = '', multi = false, add = false }) {
+export function pickCell({ action, data = {}, on = false, icon, title, sub = '', multi = false, add = false, kind = false }) {
   const attrs = Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
   const tick = add ? `<span class="xd-chev">${I.smChevR}</span>`
     : multi ? `<span class="fl-check${on ? ' on' : ''}">${on ? I.checkW : ''}</span>`
     : on ? `<span class="swp-tick">${I.checkW}</span>` : '';
   return `<button class="xd-eqrow swp-row pk-cell${on ? ' on' : ''}${add ? ' add' : ''}" data-action="${action}"${attrs}${multi ? ` role="checkbox" aria-checked="${on}"` : ''}>
-      <span class="xd-eqimg pk-ic${add ? ' add' : ''}">${icon}</span>
+      <span class="xd-eqimg pk-ic${add ? ' add' : ''}${kind ? ' kind' : ''}">${icon}</span>
       <span class="xd-eqtext"><span class="xd-eqname">${esc(title)}</span>${sub ? `<span class="xd-eqsub">${esc(sub)}</span>` : ''}</span>
       ${tick}
     </button>`;
@@ -524,7 +511,7 @@ export function locationCells(cur, pickAction, addAction, multi = false) {
 /* ===================== SAVE EQUIPMENT (4-step wizard) ===================== */
 export function EquipmentWizard() {
   const w = state.eqwiz, STEPS = 5;
-  const segs = Array.from({ length: STEPS }, (_, i) => `<div class="wiz-seg ${i < w.step ? 'on' : ''}"></div>`).join('');
+  const segs = `<div class="wiz-fill" style="width:${(w.step / STEPS * 100).toFixed(2)}%"></div>`;   // one bar across the screen, filled purple
   const UNITS = [['lbs', 'Pounds (lbs)'], ['kg', 'Kilograms (kg)'], ['simple', 'Simple Numbers']];
   let body = '';
   if (w.step === 1) {
@@ -535,14 +522,14 @@ export function EquipmentWizard() {
   } else if (w.step === 2) {
     body = `
       <div class="wiz-title">Name the Equipment</div>
-      <div class="wiz-help">Like “Cable Machine 2.”</div>
+      <div class="wiz-help">Something you can recognize at a glance.</div>
       <div class="wiz-namecard"><input type="text" placeholder="e.g. Assisted Pull-up Machine" data-eqwizname value="${esc(w.name)}" autocomplete="off"><div class="loc">At ${esc(w.location)}</div></div>${wizErr(w)}`;
   } else if (w.step === 3) {
     body = `
       <div class="wiz-title">What kind of equipment is it?</div>
       <div class="wiz-help">Pick every kind it can be. FailUp uses this to grab your saved gear when a workout calls for it.</div>
       <div class="pk-list">
-        ${TYPE_ORDER.map(t => pickCell({ action: 'eqwiz-type', data: { name: t }, on: (w.types || []).includes(t), multi: true, icon: PH_EQUIP(t), title: t })).join('')}
+        ${TYPE_ORDER.map(t => pickCell({ action: 'eqwiz-type', data: { name: t }, on: (w.types || []).includes(t), multi: true, kind: true, icon: PH_EQUIP(t), title: t })).join('')}
       </div>${wizErr(w)}`;
   } else if (w.step === 4) {
     body = `
@@ -858,13 +845,13 @@ export function EquipmentSwapSheet(currentRef, exId, location) {
       <div class="swp-sheethead">
         <div class="vs-title">Swap equipment</div>
         <div class="vs-sub">${ex ? `For ${esc(ex.name)}` : 'Pick what you’re using'}</div>
-        <button class="nav-create swp-create" data-action="swap-add">Create</button>
       </div>
       <div class="swp-sheetbody">
         <div class="swp-sechdr"><span>${location ? `Saved at ${esc(location)}` : 'Saved'}</span></div>
-        ${savedRows || `<div class="swp-none">${location ? `Nothing saved at ${esc(location)} yet.` : 'No saved equipment yet.'}</div>`}
+        ${pickCell({ action: 'swap-add', icon: I.plus20, title: 'Save a new machine', add: true }).replace('<span class="xd-chev">' + I.smChevR + '</span>', '')}
+        ${savedRows}
+        ${db.equipment.length ? pickCell({ action: 'swap-all', icon: I.list || I.smChevR, title: `View All Saved Equipment (${db.equipment.length})`, add: true }).replace('pk-ic add', 'pk-ic add swp-allic') : ''}
         <div class="swp-sechdr"><span>Generic</span></div>${genRows}
-        ${db.equipment.length ? `<button class="swp-alllink" data-action="swap-all">See equipment at other locations ${I.smChevR}</button>` : ''}
       </div>
       ${tray}
     </div>
@@ -906,7 +893,7 @@ export function EquipmentTypesSheet() {
       <div class="sheet-grab"></div>
       <div class="pk-body loc-body">
         <div class="pk-titleblock"><div class="vs-title">What kind of equipment is it?</div><div class="vs-sub">Pick every kind it can be.</div></div>
-        <div class="pk-list">${TYPE_ORDER.map(t => pickCell({ action: 'toggle-eqtype', data: { name: t }, on: cur.includes(t), multi: true, icon: PH_EQUIP(t), title: t })).join('')}</div>
+        <div class="pk-list">${TYPE_ORDER.map(t => pickCell({ action: 'toggle-eqtype', data: { name: t }, on: cur.includes(t), multi: true, kind: true, icon: PH_EQUIP(t), title: t })).join('')}</div>
         <div class="ug-actions loc-done"><button class="ug-btn dark" data-action="close-eqtypes">Done</button></div>
       </div>
     </div>

@@ -161,3 +161,9 @@ Barbell, Cable Machine, Smith Machine and Specialized Machine (a pendulum squat)
 - Goals: finishing every set while stepping up in weight suggests the top weight. With no goal yet, the sheet always says Set as Goal and never shows a current goal.
 
 - Goals only come from the volume in the exercise dropdown: if you did fewer sets than it says by Next Exercise or Finish Workout, no goal is set or suggested. Extra sets are fine; the goal is based on the first sets up to that count.
+
+## Live workout flame
+During an exercise with a goal, a purple flame rises from the bottom of the screen. Each working set at the goal weight or heavier, with every rep or a failure, makes it taller and more opaque; finishing the whole volume on track flares it once. A set that falls short puts it out for that exercise. `assets/flame.json` is "Fire - Feu - Fuego" by Tom Fabre on LottieFiles (Lottie Simple License), recolored from orange and yellow to FailUp purples.
+
+## Rest timer
+Turn it on from Today's Plan (the choice and length become your default). During the workout a stopwatch button sits above the Set button showing the rest length. Logging a working set starts the countdown; at zero it chimes, buzzes where the phone allows, and slides up the next set's logger. It stops once the exercise's set volume is logged, and resets when you move to another exercise or log a set early. Tap it for −15s / +15s (15s to 10 min); tap anywhere else to fold it back. The countdown is based on the time the set was logged, so it stays right if the phone sleeps.
