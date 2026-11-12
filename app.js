@@ -19,7 +19,7 @@ import {
   EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, LocationSheet, EquipmentTypesSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
-import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts, ShareAskSheet } from './screens-home.js';
+import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts, ShareAskSheet, SafetySheet } from './screens-home.js';
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
@@ -52,7 +52,9 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('on'), 2600);
 }
 
+import { OnboardScreen, obSteps } from './screens-onboard.js';
 const SCREENS = {
+  onboard: OnboardScreen,
   home: HomeScreen, quickselect: QuickSelectScreen, session: WorkoutSessionScreen, create: CreateWorkoutScreen,
   exwiz: ExerciseWizard, eqwiz: EquipmentWizard, planwiz: PlanWizard, exercises: ExercisesScreen, tracker: TrackerScreen,
   workouts: WorkoutsScreen, assignday: AssignDayScreen, lineup: LineupScreen, exdetail: ExerciseDetailScreen,
@@ -64,7 +66,7 @@ const SCREENS = {
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
   color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet,
-  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
+  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, safety: SafetySheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
 };
 const NEEDS_SESSION = ['session', 'lineup'];
 function screenHTML() {
@@ -114,6 +116,7 @@ function render() {
   planCountdownTick();
   flameUpdate();
   wizBarGrow();
+  if (state.screen === 'onboard') mountObFlame();
   if (state.screen === 'exwiz' && state.exwiz && state.exwiz.focusName) {   // from "Create “…”": name filled in, keyboard up
     state.exwiz.focusName = false;
     const inp = app.querySelector('[data-exwizname]');
@@ -222,6 +225,28 @@ document.addEventListener('pointerdown', e => {
   if (!state.restOpen || e.target.closest('[data-rest]')) return;
   state.restOpen = false; const w = app.querySelector('[data-rest]'); if (w) w.classList.remove('open');
 }, true);
+// ---- first-launch intro ----
+function startIntro(replay = false) { state.ob = { step: 'welcome', known: [], units: db.settings.units || 'lbs', location: db.settings.location || '', dir: '', replay }; state.stack = []; state.screen = 'onboard'; state.modal = null; }
+function obGo(delta) {
+  const ob = state.ob, steps = obSteps(ob), i = steps.indexOf(ob.step);
+  ob.dir = delta > 0 ? 'fwd' : 'back';
+  ob.step = steps[Math.min(steps.length - 1, Math.max(0, i + delta))];
+}
+function obFinish() {
+  const ob = state.ob;
+  if (ob.replay) { state.ob = null; return; }   // watching it again changes nothing
+  db.settings.units = ob.units;
+  if (ob.location) { if (!db.locations.includes(ob.location)) db.locations.push(ob.location); db.settings.location = ob.location; }
+  db.settings.onboarded = true; state.ob = null;
+}
+let obFlame = null;
+function mountObFlame() {
+  const box = app.querySelector('[data-ob-flame]');
+  if (!box || !window.lottie) return;
+  const go = d => window.lottie.loadAnimation({ container: box, renderer: 'svg', loop: true, autoplay: !reduceMotion(), animationData: d, rendererSettings: { preserveAspectRatio: 'xMidYMax slice' } });
+  if (flameData) go(flameData); else fetch('./assets/flame.json').then(r => r.json()).then(d => { flameData = d; if (box.isConnected) go(d); }).catch(() => {});
+  void obFlame;
+}
 // Creation flows: the progress bar slides from the last step's width to this one's
 let wizPct = null;
 function wizBarGrow() {
@@ -1150,11 +1175,13 @@ function handle(a, d, el, ex) {
       break;
     }
     case 'lets-go':
+      if (!db.settings.safetySeen && !db.sessions.length && !navigator.webdriver) { state.modal = 'safety'; break; }   // once, before the first workout
       surge(s.color, s.icon, () => {
         s.started = true; s.startedAt = new Date().toISOString(); s.exIndex = 0; s.expanded = false;
         state.stack = ['home']; state.screen = 'session'; render();
       });
       return false;
+    case 'safety-ok': db.settings.safetySeen = true; state.modal = null; render(); return handle('lets-go', {}, null, null);
     case 'resume-session': state.stack = ['home']; state.screen = s.started ? 'session' : 'lineup'; break;
     case 'discard-session':
       confirm({ title: 'Discard workout?', danger: true, label: 'Discard', text: s.started ? 'The sets you logged in this workout will be deleted.' : 'Today’s lineup changes will be cleared.',
@@ -1184,6 +1211,26 @@ function handle(a, d, el, ex) {
     case 'rest-toggle': {   // Today's Plan switch; the choice becomes your default too
       const r = { ...restOf(s) }; r.on = !r.on; s.rest = r; db.settings.rest = { ...r }; if (!r.on) restStop(); break;
     }
+    case 'ob-next': obGo(1); break;
+    case 'ob-back': obGo(-1); break;
+    case 'ob-skip': state.ob.dir = 'fwd'; state.ob.step = 'nosub'; break;
+    case 'ob-share': shareApp(); return false;
+    case 'ob-known': { const k = state.ob.known, i = k.indexOf(d.k); if (i >= 0) k.splice(i, 1); else k.push(d.k); break; }
+    case 'ob-new': state.ob.known = []; obGo(1); break;
+    case 'ob-units': state.ob.units = d.u; break;
+    case 'ob-loc': state.ob.location = state.ob.location === d.name ? '' : d.name; break;
+    case 'ob-addloc': {
+      const inp = app.querySelector('[data-ob-locinput]'), name = inp && inp.value.trim();
+      if (!name) { inp && inp.focus(); return false; }
+      if (!db.locations.includes(name)) db.locations.push(name);
+      state.ob.location = name; break;
+    }
+    case 'ob-starter': obFinish(); home(); go('quickselect'); break;
+    case 'ob-build': obFinish(); home();
+      state.create = { mode: 'new', editId: null, name: '', color: WORKOUT_COLORS[db.workouts.length % WORKOUT_COLORS.length].hex, icon: 'kick', expanded: null, exercises: [] };
+      go('create'); break;
+    case 'intro-replay': startIntro(true); break;
+    case 'ob-close': state.ob = null; home(); break;
     case 'rest-tap': state.restOpen = !state.restOpen; break;
     case 'rest-adj': {
       const r = { ...restOf(s) }; r.secs = Math.min(600, Math.max(15, r.secs + +d.d)); s.rest = r; db.settings.rest = { ...r };
@@ -1711,4 +1758,9 @@ window.__failup = { db, state, render };   // handy for debugging in the console
 
 /* ---- boot ---- */
 load();
-loadPhotos().finally(() => { applyHash(); render(); });
+loadPhotos().finally(() => {
+  applyHash();
+  // first launch: the intro (automated test browsers skip it unless #intro asks for it)
+  if ((!db.settings.onboarded && !db.sessions.length && !navigator.webdriver && !location.hash) || location.hash === '#intro') startIntro();
+  render();
+});

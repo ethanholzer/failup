@@ -172,7 +172,7 @@ export function HomeScreen() {
     <section class="hm2-sec">
       <div class="hm2-sechead"><h2>How FailUp Works</h2></div>
       <div class="hm2-rail hm2-howrail">
-        <button class="hm2-how" data-action="home-go" data-to="howto" aria-label="How FailUp Works. Learn about our super simple training strategy.">
+        <button class="hm2-how" data-action="intro-replay" aria-label="How FailUp Works. Learn about our super simple training strategy.">
           <img class="hm2-howimg" src="./assets/hero.jpg" alt="">
           <span class="hm2-howart">${heroLines()}</span>
           <span class="hm2-howtext"><span class="hm2-howsub">Learn about our super simple training strategy.</span></span>
@@ -343,6 +343,26 @@ export function ShareAskSheet() {
         <span class="hm2-shareic sa-ic">${ICON.contacts}</span>
         <div class="ug-titleblock"><div class="ug-title">Share FailUp with a friend</div><div class="ug-text">FailUp doesn’t have a marketing budget. Please help spread the word!</div></div>
         <div class="ug-actions"><button class="ug-btn" data-action="shareask-close">Close</button><button class="ug-btn dark" data-action="shareask-share">${ICON.share}<span>Share</span></button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Before the very first workout: how to fail without getting hurt
+export function SafetySheet() {
+  return `
+  <div class="scrim">
+    <div class="sheet ug-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="ug-body sa-body sf-body">
+        <span class="sf-ic">F</span>
+        <div class="ug-titleblock"><div class="ug-title">Fail safely</div><div class="ug-text">FailUp asks you to push sets to failure, so do it where failing is safe.</div></div>
+        <ul class="sf-list">
+          <li><b>Machines and dumbbells</b> are the easiest place to fail. Let the weight down under control.</li>
+          <li><b>Barbell bench or squat?</b> Set the safety pins or bars, or grab a spotter.</li>
+          <li><b>Stop when form breaks.</b> The last clean rep is what counts.</li>
+        </ul>
+        <div class="ug-actions"><button class="ug-btn dark" data-action="safety-ok">Got it, let’s lift</button></div>
       </div>
     </div>
   </div>`;

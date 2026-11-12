@@ -1001,6 +1001,7 @@ export function SettingsScreen() {
       </div>
     </div>
     <div class="xd-actions">
+      ${row('intro-replay', I.history, 'Replay the Intro', 'The one-minute tour of how FailUp works')}
       ${row('export-data', I.share, 'Back Up My Data', 'Save a backup file')}
       <label class="xd-act st-act"><span class="xd-acticon">${I.history}</span><span><span class="st-label">Restore From Backup</span><span class="st-sub">Replaces what’s on this device</span></span>${I.smChevR}<input type="file" accept=".json,application/json" data-import hidden></label>
       ${row('clear-data', I.trash24, 'Clear My Exercise Data', 'Deletes logged workouts and goals', true)}

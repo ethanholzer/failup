@@ -167,3 +167,7 @@ During an exercise with a goal, a purple flame rises from the bottom of the scre
 
 ## Rest timer
 Turn it on from Today's Plan (the choice and length become your default). During the workout a stopwatch button sits above the Set button showing the rest length. Logging a working set starts the countdown; at zero it chimes, buzzes where the phone allows, and slides up the next set's logger. It stops once the exercise's set volume is logged, and resets when you move to another exercise or log a set early. Tap it for −15s / +15s (15s to 10 min); tap anywhere else to fold it back. The countdown is based on the time the set was logged, so it stays right if the phone sleeps.
+
+## First-launch intro
+New installs (no workouts logged) open a short purple intro: welcome, "What's already familiar?" (tap the terms you know), a teaching card for each term you didn't tap (progressive overload, training to failure, volume), how the FailUp loop works, then a no-subscriptions promise with a share button, then Start failing (a starter workout) or Build my own workout, with a lbs/kg toggle. Skip jumps to the promise screen. A "Fail safely" sheet slides up once, before the first workout. Replay it from Settings, or open the app at `#intro`.
+Sources cited on the cards: Plotkin et al., PeerJ 2022 (load vs. rep progression); Robinson et al., Sports Medicine 2024 (proximity to failure).
