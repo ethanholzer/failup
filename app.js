@@ -23,7 +23,7 @@ import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLab
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
-  listCtx, keepCurrentExercise, vol, exInfo, workingSets, pendingSuggestion, restOf, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
+  listCtx, keepCurrentExercise, vol, exInfo, workingSets, pendingSuggestion, restOf, restLeft, mmss, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY, LINKS } from './data.js';
 
@@ -181,30 +181,25 @@ function revealAdded() {
   app.scrollTop += (r.top - a.top) - (a.height - r.height) / 2;
   if (!reduceMotion()) card.animate([{ transform: 'translateX(110%)', opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 520, delay: 160, easing: 'cubic-bezier(.16,.84,.3,1)', fill: 'backwards' });
 }
-// Rest timer: counts from the moment the set was logged (stays right if the phone sleeps),
-// then slides up the next set's logger. A soft chime and a buzz where the phone allows.
+// Rest timer: counts from the moment the set was logged (stays right if the phone sleeps).
+// It lives on the set logger; when it runs out it chimes, and opens the logger if it's closed.
 let restTick = null, audioCtx = null;
 function restStart(secs) {
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {}   // unlock sound while we still have the tap
-  state.restRun = { end: Date.now() + secs * 1000, total: secs, ei: state.session.exIndex };
+  state.restRun = { end: Date.now() + secs * 1000, total: secs, paused: null };
   clearInterval(restTick); restTick = setInterval(restUpdate, 250);
 }
-function restStop() { state.restRun = null; state.restOpen = false; clearInterval(restTick); restTick = null; }
+function restStop() { state.restRun = null; clearInterval(restTick); restTick = null; }
 function restUpdate() {
   const run = state.restRun; if (!run) return restStop();
-  const left = run.end - Date.now(), w = app.querySelector('[data-rest]');
-  if (w) {
-    const n = w.querySelector('[data-rest-num]'), pr = w.querySelector('.rest-prog');
-    const txt = `${Math.max(0, Math.ceil(left / 1000))}s`; if (n.textContent !== txt) n.textContent = txt;
-    const C = 2 * Math.PI * 25; pr.setAttribute('stroke-dashoffset', (C * (1 - Math.max(0, left / (run.total * 1000)))).toFixed(2));
-  }
+  if (run.paused != null) return;
+  const left = run.end - Date.now(), txt = mmss(Math.max(0, Math.ceil(left / 1000)));
+  document.querySelectorAll('[data-rest-num]').forEach(n => { if (n.textContent !== txt) n.textContent = txt; });   // the tray and the logger
   if (left > 0) return;
   restStop();
   restChime();
   const s = state.session;
-  if (state.screen === 'session' && s && s.exIndex === run.ei && !state.modal) {
-    s.expanded = false; state.setDraft = setDraft('working'); state.modal = 'setwidget';
-  }
+  if (state.screen === 'session' && s && !state.modal) { s.expanded = false; state.setDraft = setDraft('working'); state.modal = 'setwidget'; }
   render();
 }
 function restChime() {
@@ -220,11 +215,6 @@ function restChime() {
     });
   } catch {}
 }
-// tapping anywhere outside the expanded timer folds it back up (and the tap still does its thing)
-document.addEventListener('pointerdown', e => {
-  if (!state.restOpen || e.target.closest('[data-rest]')) return;
-  state.restOpen = false; const w = app.querySelector('[data-rest]'); if (w) w.classList.remove('open');
-}, true);
 // ---- first-launch intro ----
 function startIntro(replay = false) { state.ob = { step: 'welcome', known: [], units: db.settings.units || 'lbs', location: db.settings.location || '', dir: '', replay }; state.stack = []; state.screen = 'onboard'; state.modal = null; }
 function obGo(delta) {
@@ -1193,18 +1183,21 @@ function handle(a, d, el, ex) {
     case 'resume-session': state.stack = ['home']; state.screen = s.started ? 'session' : 'lineup'; break;
     case 'discard-session':
       confirm({ title: 'Discard workout?', danger: true, label: 'Discard', text: s.started ? 'The sets you logged in this workout will be deleted.' : 'Today’s lineup changes will be cleared.',
-        run: () => { state.session = null; home(); } });
+        run: () => { restStop(); state.session = null; home(); } });
       break;
+    case 'end-session':   // from the paused card on Home: save what was logged and show the summary
+      restStop(); state.stack = ['home']; state.screen = 'session'; state.modal = null; render();
+      surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
     case 'open-lineup': state.lineup = { expanded: s.exIndex, swapIndex: null }; go('lineup'); break;
     case 'sess-toggle': s.expanded = !s.expanded; break;
-    case 'sess-move': restStop(); s.exIndex = Math.min(s.exercises.length - 1, Math.max(0, s.exIndex + +d.dir)); break;   // arrows only browse; goals are asked on Next Exercise
-    case 'sess-jump': restStop(); s.exIndex = +d.i; break;
-    case 'sess-next': { restStop(); const from = cur(), t = nextTarget(s); if (t != null) { s.exIndex = t; askOnLeave(from); } break; }
+    case 'sess-move': s.exIndex = Math.min(s.exercises.length - 1, Math.max(0, s.exIndex + +d.dir)); break;   // arrows only browse; goals are asked on Next Exercise
+    case 'sess-jump': s.exIndex = +d.i; break;
+    case 'sess-next': { const from = cur(), t = nextTarget(s); if (t != null) { s.exIndex = t; askOnLeave(from); } break; }
     case 'sess-pause': state.modal = 'pause'; break;
     case 'close-pause': state.modal = null; break;
     case 'pause-confirm': restStop(); home(); break;
-    case 'finish-early': state.modal = null; render(); surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
-    case 'sess-finish': {   // ask about the last exercise first, then finish once it's answered
+    case 'finish-early': restStop(); state.modal = null; render(); surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
+    case 'sess-finish': { restStop();   // ask about the last exercise first, then finish once it's answered
       if (askOnLeave(cur())) { state.goalAsk.thenFinish = true; break; }
       surge(s.color, s.icon, () => { finishSession(); render(); }); return false;
     }
@@ -1215,7 +1208,7 @@ function handle(a, d, el, ex) {
       if (!reopenSession(state.log.sid)) break;
       ex.mode = 'quickadd'; ex.picked = []; ex.search = ''; ex.returnTo = 'lineup';
       state.stack = ['home', 'session']; state.screen = 'exercises'; break;
-    case 'sess-log': restStop(); s.expanded = false; state.setDraft = setDraft(d.type); state.modal = 'setwidget'; break;
+    case 'sess-log': s.expanded = false; state.setDraft = setDraft(d.type); state.modal = 'setwidget'; break;
     case 'rest-toggle': {   // Today's Plan switch; the choice becomes your default too
       const r = { ...restOf(s) }; r.on = !r.on; s.rest = r; db.settings.rest = { ...r }; if (!r.on) restStop(); break;
     }
@@ -1249,12 +1242,26 @@ function handle(a, d, el, ex) {
       return false;
     }
     case 'ob-close': state.ob = null; home(); break;
-    case 'rest-tap': state.restOpen = !state.restOpen; break;
-    case 'rest-adj': {
-      const r = { ...restOf(s) }; r.secs = Math.min(600, Math.max(15, r.secs + +d.d)); s.rest = r; db.settings.rest = { ...r };
-      if (state.restRun) { state.restRun.end = Math.max(Date.now() + 1000, state.restRun.end + +d.d * 1000); state.restRun.total = Math.max(state.restRun.total + +d.d, 1); }
-      state.restOpen = true; break;
-    }   // the card folds up as the logger slides in
+    case 'rest-play': {   // start, pause or resume
+      const run = state.restRun;
+      if (!run) restStart(restOf(s).secs);
+      else if (run.paused != null) { run.end = Date.now() + run.paused; run.paused = null; clearInterval(restTick); restTick = setInterval(restUpdate, 250); }
+      else { run.paused = Math.max(0, run.end - Date.now()); clearInterval(restTick); restTick = null; }
+      break;
+    }
+    case 'rest-adj': {   // the first tap lands on the nearest multiple of 15 that way, then steps by 15
+      const dir = +d.d, run = state.restRun;
+      const now = run ? Math.ceil(restLeft() / 1000) : restOf(s).secs;
+      const next = dir > 0 ? Math.floor(now / 15) * 15 + 15 : Math.ceil(now / 15) * 15 - 15;
+      if (run) {
+        if (next <= 0) { restStop(); break; }   // stepping below zero skips the rest
+        if (run.paused != null) run.paused = next * 1000; else run.end = Date.now() + next * 1000;
+        run.total = Math.max(run.total, next);
+      } else {
+        const r = { ...restOf(s) }; r.secs = Math.min(600, Math.max(15, next)); s.rest = r; db.settings.rest = { ...r };
+      }
+      break;
+    }
     case 'edit-set': state.setDraft = setDraft(null, +d.si); state.modal = 'setwidget'; break;
     case 'edit-logged-set': {
       const ls = db.sessions.find(x => x.id === state.log.sid), le = ls.exercises[+d.ei], st = le.sets[+d.si];
@@ -1276,7 +1283,8 @@ function handle(a, d, el, ex) {
       if (a.edit) { it.sets[a.edit.si] = rec; break; }
       it.sets.push(rec);
       // rest timer: after a working set, until the set volume is done
-      if (a.type === 'working' && restOf(s).on && workingSets(it).length < it.goal.sets) restStart(restOf(s).secs);
+      const resting = a.type === 'working' && restOf(s).on && workingSets(it).length < it.goal.sets;
+      if (resting) restStart(restOf(s).secs);
       // Figma "Weight Adjustment Edgecase": reduced weight, goal volume, RPE 7+
       const r = rpeOf(a.feel), rpe = r === 'F' ? 10 : +r.slice(4);
       if (a.type === 'working' && it.goal.weight != null && a.weight < it.goal.weight && a.reps >= it.goal.reps && rpe >= 7 && !it.goalPrompted) {
@@ -1284,6 +1292,7 @@ function handle(a, d, el, ex) {
         state.goalUpdate = { from: it.goal.weight, to: a.weight };
         state.modal = 'updategoal';
       }
+      if (resting && !state.modal) { s.expanded = false; state.setDraft = setDraft('working'); state.modal = 'setwidget'; }
       break;
     }
     case 'sw-delete': {

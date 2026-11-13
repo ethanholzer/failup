@@ -189,24 +189,25 @@ function lineupEquipRow(it, i) {
 }
 // Rest timer: on/off and length live on the session (defaults from settings)
 export const restOf = s => s.rest || (db.settings.rest || { on: false, secs: 60 });
-const CLOCK_R = 25, CLOCK_C = 2 * Math.PI * CLOCK_R;
-export function restButton(s) {
-  const r = restOf(s), run = state.restRun, left = run ? Math.max(0, Math.ceil((run.end - Date.now()) / 1000)) : r.secs;
-  const frac = run ? Math.max(0, (run.end - Date.now()) / (run.total * 1000)) : 1;
+export const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+export const restLeft = () => { const run = state.restRun; return run ? Math.max(0, run.paused != null ? run.paused : run.end - Date.now()) : 0; };
+const STOPWATCH = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 2.5h5M12 2.5v2.6M18.4 6.6l1.4-1.4"/><circle cx="12" cy="13.5" r="8"/><path d="M12 13.5V9.5"/></svg>';
+const PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.2-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z" fill="currentColor"/></svg>';
+const PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></svg>';
+// Rest timer row, only on the set logger: stopwatch, minus, time, plus, play/pause
+export function restRow(s) {
+  const r = restOf(s), run = state.restRun, live = run && run.paused == null;
+  const secs = run ? Math.ceil(restLeft() / 1000) : r.secs;
   return `
-    <div class="rest-wrap${state.restOpen ? ' open' : ''}${run ? ' running' : ''}" data-rest>
-      <button class="rest-adj" data-action="rest-adj" data-d="-15" aria-label="15 seconds less">&minus;</button>
-      <button class="rest-btn" data-action="rest-tap" aria-label="Rest timer ${left} seconds">
-        <svg class="rest-clock" viewBox="0 0 64 64" aria-hidden="true">
-          <rect x="27" y="1.5" width="10" height="5" rx="2" />
-          <path d="M47 11.5l3.6-3.6" />
-          <circle class="rest-track" cx="32" cy="36" r="${CLOCK_R}" />
-          <circle class="rest-prog" cx="32" cy="36" r="${CLOCK_R}" stroke-dasharray="${CLOCK_C.toFixed(2)}" stroke-dashoffset="${(CLOCK_C * (1 - frac)).toFixed(2)}" />
-        </svg>
-        <span class="rest-num tnum" data-rest-num>${left}s</span>
-      </button>
-      <button class="rest-adj" data-action="rest-adj" data-d="15" aria-label="15 seconds more">+</button>
-    </div>`;
+      <div class="rt-row${run ? ' on' : ''}${live ? ' live' : ''}" data-rest>
+        <span class="rt-ic">${STOPWATCH}</span>
+        <span class="rt-mid">
+          <button class="rt-adj" data-action="rest-adj" data-d="-1" aria-label="Less rest"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 12h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+          <span class="rt-time tnum" data-rest-num aria-live="off">${mmss(secs)}</span>
+          <button class="rt-adj" data-action="rest-adj" data-d="1" aria-label="More rest"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 12h12M12 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+        </span>
+        <button class="rt-play" data-action="rest-play" aria-label="${live ? 'Pause rest timer' : 'Start rest timer'}">${live ? PAUSE : PLAY}</button>
+      </div>`;
 }
 export function LineupScreen() {
   const s = state.session, ctx = listCtx('lineup');
@@ -296,7 +297,7 @@ export function resumeCard() {
           <div class="wcard-sub">${s.started ? `Exercise ${s.exIndex + 1} of ${s.exercises.length} · ${plural(st.sets, 'set')} logged` : plural(s.exercises.length, 'exercise')}</div>
         </div>
       </div>
-      <div class="wcard-actions"><button class="wpill" data-action="discard-session">Discard</button><button class="wpill dark" data-action="resume-session">${s.started ? 'Resume' : 'Continue'}</button></div>
+      <div class="wcard-actions">${s.started ? '<button class="wpill" data-action="end-session">End</button>' : '<button class="wpill" data-action="discard-session">Discard</button>'}<button class="wpill dark" data-action="resume-session">${s.started ? 'Resume' : 'Continue'}</button></div>
     </div>`;
 }
 const restTile = '<div class="wcard-tile hm-resttile">☾</div>';
@@ -513,8 +514,7 @@ export function WorkoutSessionScreen() {
       ${ghosts}
       ${complete ? `<button class="set-extra" data-action="sess-log" data-type="working">${I.plus20} Extra Set</button>` : ''}
     </div>
-    ${!complete && !state.pending && restOf(s).on ? restButton(s) : ''}
-    ${state.pending ? pendingTray() : `<div class="sess-footer">${footer}</div>`}
+    ${state.pending ? pendingTray() : `<div class="sess-footer${restOf(s).on ? ' has-rest' : ''}"><div class="sess-footrow">${footer}</div>${restOf(s).on ? restRow(s) : ''}</div>`}
   </div>`;
 }
 
@@ -531,6 +531,7 @@ export function ActiveSetSheet() {
   <div class="scrim" data-action="sess-cancelset">
     <div class="sheet" data-stop>
       <div class="sheet-grab"></div>
+      ${state.session && !a.edit && restOf(state.session).on ? restRow(state.session) : ''}
       <div class="sw-head">
         <div class="sw-title">${a.edit ? 'Edit ' : ''}${a.type === 'warmup' ? `Warmup${a.setNum ? ' ' + a.setNum : ''}` : `Set ${a.setNum}`}${a.type !== 'warmup' && swOf ? `<span class="sw-of">${a.setNum > swOf ? 'Extra set' : `of ${swOf}`}</span>` : ''}</div>
         ${swEx ? `<div class="sw-exname">${esc(swEx)}</div>` : ''}
@@ -676,7 +677,7 @@ export function PauseSheet() {
       <div class="mn-head"><div class="vs-title">Pause Workout?</div><div class="vs-sub">Everything’s saved.</div></div>
       <div class="mn-list">
         ${row('pause-confirm', I.pause, 'Pause Workout', 'Resume it from the home screen')}
-        ${st.sets ? row('finish-early', I.checkC('#1C1B1F'), 'Finish Workout Now', `Save the ${st.sets} set${st.sets === 1 ? '' : 's'} you’ve logged`) : ''}
+        ${row('finish-early', I.checkC('#1C1B1F'), 'End Workout', st.sets ? `Save the ${st.sets} set${st.sets === 1 ? '' : 's'} you’ve logged and see your summary` : 'Nothing logged yet, so nothing will be saved')}
         ${row('close-pause', I.arrowR.replace(/fill="white"/g, 'fill="#1C1B1F"'), 'Keep Going', 'Back to your workout')}
         ${row('discard-session', I.trash24, 'Discard Workout', 'Delete everything from this workout', true)}
       </div>
