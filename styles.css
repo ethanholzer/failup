@@ -2855,3 +2855,37 @@ a.ob-stat { display: flex; flex-direction: column; gap: 6px; text-decoration: no
 .rt-play { justify-self: end; margin: 0; }
 .rt-adj { padding: 0; }
 .rt-adj svg, .rt-play svg { display: block; }
+
+/* How FailUp works: four steps that land after the tracker demo */
+.ob-s-loop .ob-trk { max-width: 290px; margin: 0 auto 14px; padding: 12px 12px 10px; }
+.ob-s-loop .ob-trk .ob-set { height: 44px; }
+.ob-steps { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; text-align: left; }
+.ob-steps li { font-size: 1.125rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; color: #fff; opacity: 0; animation: obStepIn .55s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: var(--d); }
+.ob-steps li span { display: block; font-size: .8125rem; font-weight: 700; color: #FFC83D; margin-bottom: 2px; }
+@keyframes obStepIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ob-s-loop .ob-body > .ob-glitch { margin-top: 18px; animation-delay: 4.15s !important; }
+.ob-s-loop .ob-body > .ob-glitch::before, .ob-s-loop .ob-body > .ob-glitch::after { animation-delay: 4.15s !important; }
+.ob-s-loop .ob-body > .ob-after { animation-delay: 4.7s !important; }
+.ob-s-loop .ob-body > .ob-foot.ob-late { animation-delay: 5.1s !important; }
+@media (prefers-reduced-motion: reduce) { .ob-steps li { opacity: 1; animation: none; } }
+/* shorter phones: shrink the tracker demo so the four steps fit */
+@media (max-height: 760px) {
+  .ob-s-loop .ob-trk { zoom: .68; margin-bottom: 8px; }
+  .ob-s-loop .ob-kicker { margin-bottom: 6px; }
+  .ob-steps { gap: 7px; }
+  .ob-steps li { font-size: 1rem; line-height: 1.22; }
+  .ob-steps li span { font-size: .75rem; margin-bottom: 0; }
+  .ob-s-loop .ob-body > .ob-glitch { margin-top: 12px; font-size: 1.375rem; }
+}
+
+/* How FailUp works, steps only: sized off the screen height so they fill the room */
+.ob-s-loop .ob-steps { flex: 1 1 auto; align-content: center; gap: clamp(9px, 1.9vh, 20px); margin: clamp(4px, 1.2vh, 14px) 0 clamp(8px, 2vh, 20px); }
+.ob-s-loop .ob-steps li { font-size: clamp(1.0625rem, 2.75vh, 1.5rem); line-height: 1.18; letter-spacing: -.02em; }
+.ob-s-loop .ob-steps li span { font-size: clamp(.8125rem, 1.7vh, .9375rem); margin-bottom: 3px; }
+.ob-s-loop .ob-body > .ob-foot.ob-late { animation-delay: 4.3s !important; }
+@media (max-height: 700px) { .ob-s-loop .ob-trk { zoom: .62; } .ob-s-loop .ob-steps { gap: 8px; } }
+.ob-s-loop .ob-body > .ob-foot.ob-late { animation-delay: 3.95s !important; }
+/* three steps: a little bigger to use the room */
+.ob-s-loop .ob-steps { gap: clamp(12px, 2.6vh, 26px); }
+.ob-s-loop .ob-steps li { font-size: clamp(1.1875rem, 3vh, 1.625rem); }
+@media (max-height: 700px) { .ob-s-loop .ob-trk { zoom: .7; } .ob-s-loop .ob-steps { gap: 12px; } }
