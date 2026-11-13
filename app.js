@@ -581,7 +581,7 @@ function sessionItem(exId, equip, sets = 3, reps = 8) {
 }
 function prepSession(w) {
   state.session = {
-    id: uid('s'), workoutId: w.id, workoutName: w.name, color: w.color, icon: w.icon,
+    id: uid('s'), workoutId: w.id, workoutName: w.name, color: w.color, tex: w.tex || '', icon: w.icon,
     location: db.settings.location || db.locations[0] || 'Home', started: false, exIndex: 0, expanded: false,
     exercises: w.exercises.map(t => sessionItem(t.exId, t.equip, t.sets, t.reps)),
   };
@@ -594,7 +594,7 @@ function finishSession() {
   const done = s.exercises.filter(e => e.sets.length);
   if (!done.length) { state.session = null; home(); toast('Nothing was logged, so nothing was saved.'); return; }
   const rec = {
-    id: s.id, workoutId: s.workoutId, workoutName: s.workoutName, color: s.color, icon: s.icon, location: s.location,
+    id: s.id, workoutId: s.workoutId, workoutName: s.workoutName, color: s.color, tex: s.tex || '', icon: s.icon, location: s.location,
     startedAt: s.startedAt, finishedAt: new Date().toISOString(), edited: !!s.edited,
     exercises: done.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, equip: e.equip, equipName: eqLabel(e.equip), goal: { ...e.goal }, newGoal: e.newGoal ?? null, newGoalVol: e.newGoalVol || null, sets: e.sets.map(x => ({ ...x })) })),
   };
@@ -745,7 +745,7 @@ function setLocation(target, name) {
 function openWorkoutEditor(wid) {
   const w = db.workouts.find(x => x.id === wid);
   if (!w) return;
-  state.create = { mode: 'edit', editId: wid, name: w.name, color: w.color, icon: w.icon, expanded: null, exercises: w.exercises.map(e => ({ ...e })) };
+  state.create = { mode: 'edit', editId: wid, name: w.name, color: w.color, tex: w.tex || '', icon: w.icon, expanded: null, exercises: w.exercises.map(e => ({ ...e })) };
   go('create');
 }
 // Re-render the swap sheet or screen in place (keeps its scroll position).
@@ -1075,12 +1075,20 @@ function handle(a, d, el, ex) {
     case 'create-exercise-start': freshExWizard({ addTo: ex.mode === 'add', name: d.name || '', focusName: true }); go('exwiz'); break;
 
     /* ---------------- workout editor ---------------- */
-    case 'open-color': state.pickDraft = state.create.color; state.modal = 'color'; break;
+    case 'open-color': state.pickDraft = state.create.color + '|' + (state.create.tex || ''); state.modal = 'color'; break;
     case 'open-icon': state.pickDraft = state.create.icon; state.modal = 'icon'; break;
     case 'close-picker': state.modal = null; break;
-    case 'pick-color': state.pickDraft = d.hex; break;
-    case 'pick-icon': state.pickDraft = d.icon; break;
-    case 'save-picker': if (state.modal === 'color') state.create.color = state.pickDraft; else state.create.icon = state.pickDraft; state.modal = null; break;
+    case 'pick-color': {   // toggle in place so the scrolled list stays put
+      state.pickDraft = d.hex + '|' + (d.tex || '');
+      document.querySelectorAll('.pk-swatch.on').forEach(n => n.classList.remove('on')); if (el) el.classList.add('on');
+      return false;
+    }
+    case 'pick-icon': {   // toggle in place so the scrolled list stays put
+      state.pickDraft = d.icon;
+      document.querySelectorAll('.pk-icon.on').forEach(n => n.classList.remove('on')); if (el) el.classList.add('on');
+      return false;
+    }
+    case 'save-picker': if (state.modal === 'color') { const [h, t] = state.pickDraft.split('|'); state.create.color = h; state.create.tex = t || ''; } else state.create.icon = state.pickDraft; state.modal = null; break;
     case 'open-preftype': state.prefType = { owner: d.owner || listCtx().owner, index: +d.i }; state.modal = 'preftype'; break;
     case 'pick-preftype': { const c = listCtx(state.prefType.owner), it = c.items[state.prefType.index]; if (it) it.equip = d.name; state.modal = null; break; }
     case 'close-preftype': state.modal = null; break;
@@ -1123,11 +1131,11 @@ function handle(a, d, el, ex) {
     case 'save-workout': {
       const c = state.create, name = c.name.trim();
       if (!name) { c.err = 'Give your workout a name.'; break; }
-      const rec = { name, color: c.color, icon: c.icon, exercises: c.exercises.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, sets: e.sets, reps: e.reps, equip: e.equip })) };
+      const rec = { name, color: c.color, tex: c.tex || '', icon: c.icon, exercises: c.exercises.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, sets: e.sets, reps: e.reps, equip: e.equip })) };
       if (c.mode === 'edit') {
         const w = db.workouts.find(x => x.id === c.editId);
         if (w) Object.assign(w, rec);
-        if (s && s.workoutId === c.editId) { s.workoutName = name; s.color = c.color; s.icon = c.icon; }
+        if (s && s.workoutId === c.editId) { s.workoutName = name; s.color = c.color; s.tex = c.tex || ''; s.icon = c.icon; }
       } else db.workouts.push({ id: uid('w'), ...rec });
       back(); toast(c.mode === 'edit' ? 'Workout saved' : 'Workout created'); break;
     }
@@ -1236,6 +1244,10 @@ function handle(a, d, el, ex) {
       state.create = { mode: 'new', editId: null, name: '', color: WORKOUT_COLORS[db.workouts.length % WORKOUT_COLORS.length].hex, icon: 'kick', expanded: null, exercises: [] };
       go('create'); break;
     case 'intro-replay': startIntro(true); break;
+    case 'ob-replay': {   // tap the tracker demo to watch it log again
+      if (el) { const n = el.cloneNode(true); n.style.animation = 'none'; el.replaceWith(n); requestAnimationFrame(() => { n.style.animation = ''; n.querySelectorAll('*').forEach(c => c.getAnimations && c.getAnimations().forEach(x => { x.currentTime = 0; x.play(); })); }); }
+      return false;
+    }
     case 'ob-close': state.ob = null; home(); break;
     case 'rest-tap': state.restOpen = !state.restOpen; break;
     case 'rest-adj': {

@@ -1,3 +1,4 @@
+import { EXTRA_ICONS, ICON_GROUPS } from './icons-workout.js';
 // ============================================================================
 // FailUp — shared UI bits: icons (exported from Figma), formatting helpers.
 // ============================================================================
@@ -73,13 +74,22 @@ export const I = {
   navL: `<svg width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M8 1 2 8l6 7" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 };
 
+// Texture over a workout color tile: <div class="tint" style="--wc:.."${tex(w)}>
+export const tex = o => (o && o.tex ? ` data-tex="${o.tex}"` : '');
+
 // Workout glyphs (inherit color via currentColor).
 export const WORKOUT_ICONS = {
   // real Figma glyphs (sports_martial_arts + the 3-bar dumbbell)
   kick:     `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9.71435 24L9.14293 13.7143L5.51436 11.6286L5.11436 13.1143L7.42864 17.1429L5.45721 18.2857L2.62864 13.4286L4.00007 8.51429L10.5715 4.74286L7.42864 1.6L9.02864 0L14.2858 5.22857L10.1715 7.6L11.5429 8.8L20.9144 1.14286L22.2858 2.74286L12.5715 12.5714L12.0001 24H9.71435ZM4.00007 6.85714C3.3715 6.85714 2.8334 6.63333 2.38578 6.18571C1.93817 5.7381 1.71436 5.2 1.71436 4.57143C1.71436 3.94286 1.93817 3.40476 2.38578 2.95714C2.8334 2.50952 3.3715 2.28571 4.00007 2.28571C4.62864 2.28571 5.16674 2.50952 5.61436 2.95714C6.06197 3.40476 6.28578 3.94286 6.28578 4.57143C6.28578 5.2 6.06197 5.7381 5.61436 6.18571C5.16674 6.63333 4.62864 6.85714 4.00007 6.85714Z" fill="currentColor"/></svg>`,
   dumbbell: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="6.5" width="3.6" height="11" rx="1.8" fill="currentColor"/><rect x="17.5" y="6.5" width="3.6" height="11" rx="1.8" fill="currentColor"/></svg>`,
 };
-export const WORKOUT_ICON_KEYS = Object.keys(WORKOUT_ICONS);   // only icons exported from Figma
+Object.assign(WORKOUT_ICONS, EXTRA_ICONS);
+// icons from the first pass that were swapped out still render (hidden from the picker)
+Object.entries({ rope:'jump', run:'sprint', swim:'row', hike:'climb', sneaker:'sprint', stairs:'climb', mma:'kick', boxing:'fist', basketball:'kick', soccer:'kick', tennis:'kick', fire:'blaze', trophy:'lifter', timer:'lifter', heart:'lifter', bolt:'lightning', flex:'arms', gymnast:'ribbon', stretch:'reach', yoga:'warrior', footprint:'legs', scale:'plate' })
+  .forEach(([k, to]) => Object.defineProperty(WORKOUT_ICONS, k, { get: () => WORKOUT_ICONS[to], enumerable: false }));
+export const WORKOUT_ICON_KEYS = Object.keys(WORKOUT_ICONS);
+// Picker sections: the two original glyphs lead their groups
+export const WORKOUT_ICON_GROUPS = ICON_GROUPS.map(([t, keys]) => [t, t === 'Equipment' ? ['dumbbell', ...keys] : t === 'Moves & poses' ? ['kick', ...keys] : keys]);
 
 export const statusBar = (light) => `
   <div class="statusbar${light ? ' light' : ''}">

@@ -171,3 +171,13 @@ Turn it on from Today's Plan (the choice and length become your default). During
 ## First-launch intro
 New installs (no workouts logged) open a short purple intro: welcome, "What's already familiar?" (tap the terms you know), a teaching card for each term you didn't tap (progressive overload, training to failure, volume), how the FailUp loop works, then a no-subscriptions promise with a share button, then Start failing (a starter workout) or Build my own workout, with a lbs/kg toggle. Skip jumps to the promise screen. A "Fail safely" sheet slides up once, before the first workout. Replay it from Settings, or open the app at `#intro`.
 Sources cited on the cards: Plotkin et al., PeerJ 2022 (load vs. rep progression); Robinson et al., Sports Medicine 2024 (proximity to failure).
+
+## Workout icons
+The icon picker has 53 icons in seven groups: Body parts (8), Lifts (5), Moves & poses (11), Skulls (7), Beasts & battle (12), Equipment (6) and Cardio (4).
+The body part icons are drawn for FailUp as a muscle map, with the whole figure faded and the target muscle solid.
+The added icons live in `icons-workout.js` (inline SVG that uses currentColor), with standalone copies in `assets/workout-icons/`.
+Licenses are in `assets/workout-icons/LICENSES.txt`. The game-icons.net icons are CC BY 3.0, so Settings shows a credit line.
+The selected icon is outlined in the workout's color.
+
+## Workout colors
+32 solid colors and 13 themes (`WORKOUT_COLORS`, `TEXTURED_COLORS` in data.js): two tartans, red, blue and green fire, three sci-fi patterns and a tattered finish on five colors. A theme is stored as `tex` next to `color` and drawn only on the workout icon tile and exercise number tiles (`[data-tex]` in styles.css). Everything else uses the plain `color`.

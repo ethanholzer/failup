@@ -3,7 +3,7 @@
 // set sheets, Workout Complete / past workout logs, and the plan wizard.
 // ============================================================================
 import { state } from './data.js';
-import { I, WORKOUT_ICONS, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP, eqName } from './ui.js';
+import { I, WORKOUT_ICONS, tex, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP, eqName } from './ui.js';
 import {
   db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
@@ -69,9 +69,9 @@ const masterVolLabel = items => { const k = new Set(items.map(x => `${x.goal.set
 export const pendingTray = () => { const p = state.pending; const t = `<div class="cw-footer pend-tray${p.shown ? '' : ' enter'}"><button class="btn ghost" data-action="pending-cancel">Nevermind</button><button class="btn solid" data-action="pending-save">Save Changes</button></div>`; p.shown = true; return t; };
 export function listCtx(owner) {
   owner = owner || (state.screen === 'exercises' ? state.exercises.returnTo : state.screen);
-  if (owner === 'lineup') return { owner, items: state.session.exercises, ui: state.lineup };
-  if (owner === 'details') { const w = db.workouts.find(x => x.id === state.details.wid); return { owner, items: w ? w.exercises : [], ui: state.details, readOnly: true }; }
-  return { owner: 'create', items: state.create.exercises, ui: state.create };
+  if (owner === 'lineup') return { owner, items: state.session.exercises, ui: state.lineup, look: state.session };
+  if (owner === 'details') { const w = db.workouts.find(x => x.id === state.details.wid); return { owner, items: w ? w.exercises : [], ui: state.details, readOnly: true, look: w }; }
+  return { owner: 'create', items: state.create.exercises, ui: state.create, look: state.create };
 }
 export function keepCurrentExercise(ctx, fn) {
   if (ctx.owner !== 'lineup') return fn();
@@ -130,7 +130,7 @@ export function exerciseCards(ctx) {
     return `
       <div class="cw-ex-card${open ? ' open' : ''}${ro ? ' ro' : ''}" data-anim="${ctx.owner}-${it.exId}-${nth}">
         <button class="cw-ex-row" data-action="toggle-ex" data-i="${i}">
-          <span class="cw-badge tnum">${i + 1}</span>
+          <span class="cw-badge tnum"${tex(ctx.look)}>${i + 1}</span>
           <span class="cw-ex-meta"><span class="cw-ex-name">${esc(exInfo(it).name)}</span><span class="cw-ex-sub">${exSub(it)}${logged ? ` · ${plural(workingSets(it).length, 'set')} logged` : ''}</span></span>
           <span class="cw-ex-caret">${open ? I.caretUp : I.caretDn}</span>
         </button>
@@ -148,7 +148,7 @@ export function CreateWorkoutScreen() {
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">${c.mode === 'edit' ? 'Edit Workout' : 'Create A Workout'}</span></div>
     <div class="cw-body">
       <div class="cw-head">
-      <div class="lu-tile cw-tile tint" style="--wc:${c.color}">${WORKOUT_ICONS[c.icon]}</div>
+      <div class="lu-tile cw-tile tint" style="--wc:${c.color}"${tex(c)}>${WORKOUT_ICONS[c.icon]}</div>
       <div class="cw-label">Workout Name</div>
       <label class="cw-name">
         <input class="cw-name-text cw-name-input" data-cwname value="${esc(c.name)}" placeholder="Name this workout" autocomplete="off">
@@ -156,7 +156,7 @@ export function CreateWorkoutScreen() {
       </label>
       ${c.err ? `<div class="wiz-err">${esc(c.err)}</div>` : ''}
       <div class="cw-fields">
-        <div class="cw-field"><div class="cw-label">Workout Color</div><button class="cw-swatch" style="background:${c.color}" data-action="open-color"><span class="cw-chev">${I.chevDown}</span></button></div>
+        <div class="cw-field"><div class="cw-label">Workout Color</div><button class="cw-swatch" style="background:${c.color}"${tex(c)} data-action="open-color"><span class="cw-chev">${I.chevDown}</span></button></div>
         <div class="cw-field"><div class="cw-label">Workout Icon</div><button class="cw-swatch icon" data-action="open-icon" style="color:${c.color}">${WORKOUT_ICONS[c.icon]}<span class="cw-chev">${I.chevDown}</span></button></div>
       </div>
       </div>
@@ -220,9 +220,10 @@ export function LineupScreen() {
       <span class="nav-title">${pre ? 'Today’s Plan' : 'Today’s Lineup'}</span>
     </div>
     <div class="cw-body">
+      <div class="cw-head lu-whitehead">
       <div class="lu-head">
         <div class="lu-titlerow">
-          <div class="lu-tile tint" style="--wc:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
+          <div class="lu-tile tint" style="--wc:${s.color}"${tex(s)}>${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
           <div><div class="lu-title">${esc(s.workoutName)}</div><div class="lu-count">${n ? `Workout completed ${plural(n, 'time')}` : 'First time doing this workout'}</div></div>
         </div>
         <div class="lu-loc">
@@ -240,6 +241,7 @@ export function LineupScreen() {
         <div class="lu-loctext"><div class="cw-label">Rest timer</div><div class="lu-locname">${restOf(s).on ? `${restOf(s).secs}s between sets` : 'Off'}</div></div>
         <button class="lu-switch${restOf(s).on ? ' on' : ''}" data-action="rest-toggle" role="switch" aria-checked="${restOf(s).on}" aria-label="Rest timer"><span></span></button>
       </div>` : ''}
+      </div>
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
       ${exerciseCards(ctx)}
       <button class="cw-add" data-action="add-exercise">${I.plus20} Add exercise</button>
@@ -258,7 +260,7 @@ export function WorkoutDetailsScreen() {
     ${statusBar()}
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Workout Details</span><button class="nav-create" data-action="details-edit">Edit</button></div>
     <div class="cw-body">
-      <div class="lu-head"><div class="lu-titlerow"><div class="lu-tile tint" style="--wc:${w.color}">${WORKOUT_ICONS[w.icon]}</div><div><div class="lu-title">${esc(w.name)}</div><div class="lu-count">${n ? `Completed ${plural(n, 'time')}` : 'Not done yet'}</div></div></div></div>
+      <div class="lu-head"><div class="lu-titlerow"><div class="lu-tile tint" style="--wc:${w.color}"${tex(w)}>${WORKOUT_ICONS[w.icon]}</div><div><div class="lu-title">${esc(w.name)}</div><div class="lu-count">${n ? `Completed ${plural(n, 'time')}` : 'Not done yet'}</div></div></div></div>
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
       ${exerciseCards(ctx)}
     </div>
@@ -287,7 +289,7 @@ export function resumeCard() {
   return `
     <div class="wcard hm-card">
       <div class="wcard-top">
-        <div class="wcard-tile tint" style="--wc:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
+        <div class="wcard-tile tint" style="--wc:${s.color}"${tex(s)}>${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
         <div class="wcard-text">
           <div class="wcard-name">${esc(s.workoutName)}</div>
           <div class="wcard-sub">${s.started ? 'Paused' : 'Ready to start'}</div>
@@ -332,7 +334,7 @@ export function workoutCard(w, primary, opts = {}) {
   return `
     <div class="wcard" style="--wc:${w.color}">
       <div class="wcard-top">
-        <div class="wcard-tile tint" style="--wc:${w.color}">${WORKOUT_ICONS[w.icon]}</div>
+        <div class="wcard-tile tint" style="--wc:${w.color}"${tex(w)}>${WORKOUT_ICONS[w.icon]}</div>
         <div class="wcard-text">
           <div class="wcard-name">${esc(w.name)}</div>
           ${w.exercises.length ? `<div class="mtags">${muscleList(w).split(', ').map(m => `<span class="mtag">${esc(m)}</span>`).join('')}</div>` : '<div class="wcard-sub">No exercises yet</div>'}
@@ -393,7 +395,7 @@ function historyList() {
       <div class="wh-item">
         <div class="wh-date">${d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} · ${time}</div>
         <button class="wcard wh-card" data-action="view-session" data-id="${s.id}" style="--wc:${s.color}">
-          <span class="wcard-tile tint" style="--wc:${s.color}">${WORKOUT_ICONS[s.icon] || ''}</span>
+          <span class="wcard-tile tint" style="--wc:${s.color}"${tex(s)}>${WORKOUT_ICONS[s.icon] || ''}</span>
           <span class="wh-text"><span class="wh-name">${esc(s.workoutName)}</span><span class="wh-sub tnum">${plural(st.exercises, 'exercise')} · ${plural(st.sets, 'set')}${hits ? ` · <b>${plural(hits, 'goal')} reached</b>` : ''}</span></span>
           <span class="xd-chev">${I.smChevR}</span>
         </button>
@@ -488,7 +490,7 @@ export function WorkoutSessionScreen() {
     <div class="sess-widget">
       <div class="sess-excard" data-anim="sess-${s.exIndex}">
         <button class="sess-exrow" data-action="sess-toggle">
-          <span class="sess-exbadge tnum">${s.exIndex + 1}</span>
+          <span class="sess-exbadge tnum"${tex(s)}>${s.exIndex + 1}</span>
           <span class="sess-exmeta">
             <span class="sess-exname">${esc(info.name)}</span>
             <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span><span class="sess-eqtext">${esc(eqLabel(ex.equip))}${sv ? ` · ${esc(sv.locations && state.session && sv.locations.includes(state.session.location) ? state.session.location : sv.location)}` : ''}</span></span>
@@ -735,7 +737,7 @@ export function SessionLogScreen() {
     return `
       <div class="wc-card">
         <div class="cw-ex-row wc-exrow">
-          <span class="cw-badge tnum" style="--cw-current:${s.color}">${i + 1}</span>
+          <span class="cw-badge tnum" style="--cw-current:${s.color}"${tex(s)}>${i + 1}</span>
           <span class="cw-ex-meta"><span class="cw-ex-name">${esc(info.name)}</span><span class="cw-ex-sub"><span class="mtag">${esc(info.muscle)}</span>${esc(e.equipName || eqLabel(e.equip))}</span></span>
           ${e.exId && exById(e.exId) ? `<button class="sess-dpill wc-trk" data-action="log-tracker" data-ei="${i}" aria-label="Open Overload Tracker">${I.graph}</button>` : ''}
         </div>
@@ -764,7 +766,7 @@ export function SessionLogScreen() {
         <div class="wc-stat goal"><b class="tnum">${hits}</b><span>Goals Reached</span></div>
       </div>
       <div class="wc-titlerow">
-        <div class="wcard-tile wc-tile tint" style="--wc:${s.color}">${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
+        <div class="wcard-tile wc-tile tint" style="--wc:${s.color}"${tex(s)}>${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
         <div class="wl-titleblock">
           <div class="wl-title">${esc(s.workoutName)}${s.edited ? '<span class="eqd-chip wl-edited">Edited</span>' : ''}</div>
           <div class="wl-help">${D.dow(d)}, ${d.getFullYear()} · ${plural(st.exercises, 'exercise')}</div>

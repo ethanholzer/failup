@@ -4,8 +4,8 @@
 // ============================================================================
 import { state, PURPLE, UPPER_BODY, LOWER_BODY } from './data.js';
 import { MUSCLES, EQUIPMENT } from './exercises.js';
-import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, statusBar, fmt, eqName, esc, wt, wtTight, D, PH_EQUIP, PH_EXERCISE, EQ_ICONS } from './ui.js';
-import { WORKOUT_COLORS } from './data.js';
+import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, WORKOUT_ICON_GROUPS, tex, statusBar, fmt, eqName, esc, wt, wtTight, D, PH_EQUIP, PH_EXERCISE, EQ_ICONS } from './ui.js';
+import { WORKOUT_COLORS, TEXTURED_COLORS } from './data.js';
 import {
   db, EXERCISES, exById, GENERIC, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
   derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind, volumeDots, goalSegments, eqTypes, TYPE_ORDER, eqLocs, eqAt, eqLocText,
@@ -412,28 +412,31 @@ export function FilterSheet(kind) {
 function pickerSheet(kind, cells) {
   return `
   <div class="scrim" data-action="close-picker">
-    <div class="sheet pk-sheet" data-stop>
+    <div class="sheet pk-sheet" data-stop style="--pk-sel:${state.create ? state.create.color : '#111'}">
       <div class="sheet-grab"></div>
       <div class="pk-body">
         <div class="pk-titleblock"><div class="vs-title">${kind === 'color' ? 'Choose a color' : 'Choose an icon'}</div><div class="vs-sub">For this workout’s thumbnail</div></div>
-        <div class="pk-grid">${cells}</div>
+        <div class="pk-grid pk-scroll${kind === 'icon' ? ' pk-icongrid' : ' pk-colorgrid'}">${cells}</div>
         <div class="pk-actions"><button class="pk-btn" data-action="close-picker">Nevermind</button><button class="pk-btn dark" data-action="save-picker">Save</button></div>
       </div>
     </div>
   </div>`;
 }
 export function ColorPickerSheet() {
-  const sel = state.pickDraft;
-  return pickerSheet('color', WORKOUT_COLORS.map(c => `
-    <button class="pk-swatch ${c.hex === sel ? 'on' : ''}" style="background:${c.hex}" data-action="pick-color" data-hex="${c.hex}" aria-label="${c.name}">${c.hex === sel ? `<span class="pk-check">${I.checkW}</span>` : ''}</button>`).join(''));
+  const [selHex, selTex = ''] = String(state.pickDraft).split('|');
+  const sw = (c, label) => {
+    const on = c.hex === selHex && (c.tex || '') === selTex;
+    return `<button class="pk-swatch ${on ? 'on' : ''}" style="background:${c.hex}" data-action="pick-color" data-hex="${c.hex}" data-tex="${c.tex || ''}" aria-label="${label}"><span class="pk-check">${I.checkW}</span></button>`;
+  };
+  const cells = `<div class="pk-group">Solid <span>${WORKOUT_COLORS.length}</span></div>${WORKOUT_COLORS.map(c => sw(c, c.name)).join('')}`
+    + `<div class="pk-group">Themes <span>${TEXTURED_COLORS.length}</span></div>${TEXTURED_COLORS.map(c => sw(c, c.name)).join('')}`;
+  return pickerSheet('color', cells);
 }
 export function IconPickerSheet() {
   const sel = state.pickDraft;
-  const tiles = Array.from({ length: 16 }, (_, i) => {
-    const k = WORKOUT_ICON_KEYS[i];
-    return k ? `<button class="pk-icon ${k === sel ? 'on' : ''}" data-action="pick-icon" data-icon="${k}" aria-label="${k}">${WORKOUT_ICONS[k]}</button>` : '<span class="pk-icon empty"></span>';
-  }).join('');
-  return pickerSheet('icon', tiles);
+  const tile = k => `<button class="pk-icon ${k === sel ? 'on' : ''}" data-action="pick-icon" data-icon="${k}" aria-label="${k}">${WORKOUT_ICONS[k]}</button>`;
+  const cells = WORKOUT_ICON_GROUPS.map(([t, keys]) => `<div class="pk-group">${t} <span>${keys.length}</span></div>${keys.map(tile).join('')}`).join('');
+  return pickerSheet('icon', cells);
 }
 
 /* ===================== CREATE AN EXERCISE (5-step wizard) ================== */
@@ -873,7 +876,7 @@ export function LocationSheet() {
   const cur = lp.target === 'lineup' ? (state.session && state.session.location) : eqsv ? eqLocs(eqsv) : null;
   return `
   <div class="scrim" data-action="close-location">
-    <div class="sheet pk-sheet" data-stop>
+    <div class="sheet pk-sheet" data-stop style="--pk-sel:${state.create ? state.create.color : '#111'}">
       <div class="sheet-grab"></div>
       <div class="pk-body loc-body">
         <div class="pk-titleblock"><div class="vs-title">${eqsv ? 'Where is this located?' : 'Choose a location'}</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you lifting? FailUp grabs your saved gear there.' : 'Pick every place you have this same machine.'}</div></div>
@@ -889,7 +892,7 @@ export function EquipmentTypesSheet() {
   const cur = eqTypes(sv);
   return `
   <div class="scrim" data-action="close-eqtypes">
-    <div class="sheet pk-sheet" data-stop>
+    <div class="sheet pk-sheet" data-stop style="--pk-sel:${state.create ? state.create.color : '#111'}">
       <div class="sheet-grab"></div>
       <div class="pk-body loc-body">
         <div class="pk-titleblock"><div class="vs-title">What kind of equipment is it?</div><div class="vs-sub">Pick every kind it can be.</div></div>
@@ -1007,5 +1010,6 @@ export function SettingsScreen() {
       ${row('clear-data', I.trash24, 'Clear My Exercise Data', 'Deletes logged workouts and goals', true)}
       ${row('reset-app', I.trash24, 'Reset FailUp', 'Back to the 3 starter workouts', true)}
     </div>
+    <div class="st-credits">Skull, beast and battle icons by Lorc and Delapouite at game-icons.net, CC BY 3.0. Flame animation by Tom Fabre</div>
   </div>`;
 }

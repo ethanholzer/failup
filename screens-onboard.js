@@ -43,7 +43,7 @@ function poGraph() {
 function trackerDemo() {
   const rows = [['1', '135 lbs × 8 reps', 'RPE 8'], ['2', '135 lbs × 8 reps', 'RPE 9'], ['F', '135 lbs × 6 reps', 'F']];
   return `
-      <div class="ob-trk ob-float" aria-hidden="true">
+      <div class="ob-trk ob-float" data-action="ob-replay" role="button" aria-label="Replay">
         <div class="ob-trkhead"><span>Bench Press</span><span class="ob-trkvol">3 Sets × 8 Reps</span></div>
         ${rows.map(([n, t, tag], i) => `
         <div class="ob-trkrow${n === 'F' ? ' f' : ''}" style="--d:${(0.5 + i * 0.6).toFixed(1)}s"><span class="ob-trkn">${n}</span><span class="ob-trkt">${t}</span><span class="ob-trktag">${tag}</span></div>`).join('')}
@@ -57,15 +57,14 @@ function body(step, ob) {
       <div class="ob-flame" data-ob-flame></div>
       <div class="ob-mid ob-welcome ob-txt">
         <div class="ob-logo">Fail<span>Up</span></div>
-        <h1 class="ob-h1"><span class="ob-fbox">Failure</span> is<br>the goal.</h1>
-        <p class="ob-p">FailUp turns your hardest set into your next goal. Here’s how it works, in about a minute.</p>
+        <h1 class="ob-h1"><span class="ob-fbox">Failure</span> is<br>the goal</h1>
+        <p class="ob-p">FailUp turns your hardest set into your next goal, here’s how it works in about a minute</p>
       </div>
       <div class="ob-foot">
         <button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button>
-        <button class="ob-btn2" data-action="ob-skip">I know the drill</button>
       </div>`;
     case 'familiar': return `
-      <div class="ob-top ob-txt"><h2 class="ob-h2">What’s already familiar?</h2><p class="ob-p">Tap what you know. We’ll skip it.</p></div>
+      <div class="ob-top ob-txt"><h2 class="ob-h2">What’s already familiar?</h2><p class="ob-p">Tap what you know, we’ll skip it</p></div>
       <div class="ob-cards">
         ${TERMS.map((t, i) => { const on = ob.known.includes(t.key); return `
         <button class="ob-card${on ? ' on' : ''}" data-action="ob-known" data-k="${t.key}" role="checkbox" aria-checked="${on}" style="--d:${i * 70}ms">
@@ -78,31 +77,31 @@ function body(step, ob) {
       </div>`;
     case 'teach-po': return `
       <div class="ob-visual ob-graphwrap ob-float" aria-hidden="true">${poGraph()}</div>
-      <div class="ob-top ob-txt"><div class="ob-kicker">Progressive overload</div><h2 class="ob-h2">Ask a little more every time.</h2>
-        <p class="ob-p">Your muscles adapt to what you ask of them. Keep adding a bit more weight or a few more reps, and they keep growing.</p></div>
-      ${evidence('In an 8-week study of 38 trained lifters, adding weight and adding reps both built muscle. What mattered was making it harder.', 'Plotkin et al., PeerJ, 2022', 'https://peerj.com/articles/14142')}
+      <div class="ob-top ob-txt"><div class="ob-kicker">Progressive overload</div><h2 class="ob-h2">Ask a little more every time</h2>
+        <p class="ob-p">Your muscles adapt to what you ask of them, so keep adding a bit more weight or a few more reps, and they keep growing</p></div>
+      ${evidence('In an 8-week study of 38 trained lifters, adding weight and adding reps both built muscle, what mattered was making it harder', 'Plotkin et al., PeerJ, 2022', 'https://peerj.com/articles/14142')}
       <div class="ob-foot"><button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button></div>`;
     case 'teach-fail': return `
       <div class="ob-visual ob-sets ob-small" aria-hidden="true">
         ${[['1', '8 reps'], ['2', '8 reps'], ['F', '6 reps']].map(([n, r], i) => `<div class="ob-set${n === 'F' ? ' f' : ''}" style="--d:${i * 380}ms"><span class="ob-setn">${n}</span><span>135 lbs × ${r}</span>${n === 'F' ? '<span class="ob-ftag">Failure</span>' : `<span class="ob-ok">${CHECK}</span>`}</div>`).join('')}
       </div>
-      <div class="ob-top ob-txt"><div class="ob-kicker">Training to failure</div><h2 class="ob-h2">The rep you can’t finish.</h2>
-        <p class="ob-p">Failure is the rep you try and can’t complete with good form. It’s proof the set was hard enough to count.</p></div>
-      ${evidence('Across 55 studies, sets taken closer to failure built more muscle.', 'Robinson et al., Sports Medicine, 2024', 'https://doi.org/10.1007/s40279-024-02069-2')}
+      <div class="ob-top ob-txt"><div class="ob-kicker">Training to failure</div><h2 class="ob-h2">The rep you can’t finish</h2>
+        <p class="ob-p">Failure is the rep you try and can’t complete with good form, it’s proof the set was hard enough to count</p></div>
+      ${evidence('Across 55 studies, sets taken closer to failure built more muscle', 'Robinson et al., Sports Medicine, 2024', 'https://doi.org/10.1007/s40279-024-02069-2')}
       <div class="ob-foot"><button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button></div>`;
     case 'teach-vol': return `
       <div class="ob-visual ob-dots ob-small ob-float" aria-hidden="true">
         ${[0, 1, 2].map(r => `<div class="ob-dotrow"><span class="ob-dotlbl">Set ${r + 1}</span>${Array.from({ length: 8 }, (_, c) => `<i style="--d:${r * 420 + c * 45}ms"></i>`).join('')}</div>`).join('')}
         <div class="ob-volsum">3 sets × 8 reps</div>
       </div>
-      <div class="ob-top ob-txt"><div class="ob-kicker">Volume</div><h2 class="ob-h2">How many times you do the exercise.</h2>
-        <p class="ob-p">Volume is your sets × reps. FailUp keeps your volume steady and raises the weight once you’ve earned it.</p></div>
+      <div class="ob-top ob-txt"><div class="ob-kicker">Volume</div><h2 class="ob-h2">How many times you do the exercise</h2>
+        <p class="ob-p">Volume is your sets × reps, FailUp keeps it steady and raises the weight once you’ve earned it</p></div>
       <div class="ob-foot"><button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button></div>`;
     case 'loop': return `
       ${trackerDemo()}
-      <div class="ob-top ob-txt"><div class="ob-kicker">How FailUp works</div><h2 class="ob-h2">Fail until you don’t, then up the weight.</h2></div>
-      <div class="ob-big ob-glitch" data-text="That’s failing upward.">That’s failing upward.</div>
-      <p class="ob-p ob-after">It’s also progressive overload.</p>
+      <div class="ob-top ob-txt"><div class="ob-kicker">How FailUp works</div><h2 class="ob-h2">Fail until you don’t, then up the weight</h2></div>
+      <div class="ob-big ob-glitch" data-text="That’s failing upward">That’s failing upward</div>
+      <p class="ob-p ob-after">It’s also progressive overload</p>
       <div class="ob-foot ob-late"><button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button></div>`;
     case 'nosub': return `
       <div class="ob-visual ob-nosub ob-float" aria-hidden="true">
@@ -113,9 +112,9 @@ function body(step, ob) {
           <div class="ob-rtotal"><span>Subscriptions, ever</span><b>None</b></div>
         </div>
       </div>
-      <div class="ob-top ob-txt"><div class="ob-kicker">Users over profit</div><h2 class="ob-h2">Buy once, no subscription.</h2>
-        <p class="ob-p">FailUp will never ask you for a monthly fee. Every feature is yours.</p>
-        <p class="ob-p ob-p2">FailUp doesn’t have a marketing budget, so if you enjoy it, please spread the word!</p></div>
+      <div class="ob-top ob-txt"><div class="ob-kicker">Users over profit</div><h2 class="ob-h2">Buy once, no subscription</h2>
+        <p class="ob-p">FailUp will never ask you for a monthly fee, every feature is yours</p>
+        <p class="ob-p ob-p2">FailUp doesn’t have a marketing budget, so if you enjoy it, please spread the word</p></div>
       <div class="ob-foot">
         <button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button>
         <button class="ob-btn2" data-action="ob-share">Share FailUp with a friend</button>
@@ -123,12 +122,11 @@ function body(step, ob) {
     case 'ready': return `
       <div class="ob-flame big" data-ob-flame></div>
       <div class="ob-mid ob-txt">
-        <h1 class="ob-h1">You’re ready<br>to <span class="ob-fbox">Fail</span>.</h1>
-        <p class="ob-p">Your first goal is one hard set away.</p>
+        <h1 class="ob-h1">You’re ready<br>to <span class="ob-fbox">Fail</span></h1>
+        <p class="ob-p">Your first goal is one hard set away</p>
       </div>
       <div class="ob-foot">
         <button class="ob-btn" data-action="ob-starter">Start failing ${ARROW}</button>
-        <button class="ob-btn2" data-action="ob-build">Build my own workout</button>
       </div>`;
   }
   return '';

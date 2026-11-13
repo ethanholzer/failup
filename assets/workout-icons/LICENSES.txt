@@ -1,0 +1,19 @@
+Workout icons (assets/workout-icons, icons-workout.js)
+
+FailUp originals (drawn for this app): chest, shoulders, arms, back, abs, glutes, legs, fullbody
+
+Material Symbols by Google, Apache License 2.0 (github.com/google/material-design-icons): rack, sprint, bike, row
+Material Design Icons by Pictogrammers, Apache License 2.0 (github.com/Templarian/MaterialDesign): lifter, warrior, meditate, kettlebell, bench, plate, skull, crossbones, swords
+MingCute, Apache License 2.0 (github.com/Richard9394/MingCute): squat, jump, highknees, balance, treadmill
+IconPark by ByteDance, Apache License 2.0 (github.com/bytedance/IconPark): snatch, jack, reach, ribbon
+Health Icons, MIT License (healthicons.org): deadlift
+Phosphor Icons, MIT License (phosphoricons.com): barbell, fist, lightning
+Boxicons, MIT License (boxicons.com): explosion
+Pinhead, CC0 1.0 public domain (pinhead.ink): pullup, deepsquat, climb
+
+Game-icons.net by Lorc, Delapouite and contributors, CC BY 3.0 (game-icons.net): flameskull, hornskull, crownskull,
+  demonskull, crackskull, wolf, dragon, bull, tiger, spartan, viking, warhammer, blaze
+  CC BY 3.0 allows commercial use but requires credit. The credit is shown at the bottom of Settings.
+
+Everything else is free for commercial use in a paid app with no credit required in the UI.
+Keep this file with the source.

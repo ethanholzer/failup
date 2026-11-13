@@ -19,6 +19,50 @@ export const WORKOUT_COLORS = [
   { name: 'Fuchsia',   hex: '#E23FB4' },
   { name: 'Hot Pink',  hex: '#FF4F8B' },
   { name: 'Blush',     hex: '#FF8FAB' },
+  // 20 more solids
+  { name: 'Crimson',   hex: '#D7263D' },
+  { name: 'Ember',     hex: '#FF5A36' },
+  { name: 'Coral',     hex: '#FF7F66' },
+  { name: 'Rust',      hex: '#B5502B' },
+  { name: 'Copper',    hex: '#C8783A' },
+  { name: 'Gold',      hex: '#E8B931' },
+  { name: 'Mustard',   hex: '#C99A17' },
+  { name: 'Olive',     hex: '#7A8B2E' },
+  { name: 'Sage',      hex: '#8DAA88' },
+  { name: 'Forest',    hex: '#1E6B3C' },
+  { name: 'Emerald',   hex: '#10A35A' },
+  { name: 'Seafoam',   hex: '#5FCFB3' },
+  { name: 'Lagoon',    hex: '#0F9AA8' },
+  { name: 'Sky',       hex: '#5BB8FF' },
+  { name: 'Cobalt',    hex: '#1F4FD8' },
+  { name: 'Navy',      hex: '#16233F' },
+  { name: 'Slate',     hex: '#5B6573' },
+  { name: 'Charcoal',  hex: '#2B2F36' },
+  { name: 'Burgundy',  hex: '#7D1D3F' },
+  { name: 'Magenta',   hex: '#C2187A' },
+];
+// Themed tiles: drawn only on the workout icon tile and exercise number tiles (styles.css [data-tex=...]).
+// hex is the plain color every other part of the app uses for the workout.
+export const TEXTURES = {
+  'tartan-stewart': 'Royal Stewart tartan', 'tartan-watch': 'Black Watch tartan',
+  'fire-red': 'Red fire', 'fire-blue': 'Blue fire', 'fire-green': 'Green fire',
+  'scifi-circuit': 'Circuit', 'scifi-hex': 'Shield grid', 'scifi-grid': 'Neon horizon',
+  tattered: 'Tattered',
+};
+export const TEXTURED_COLORS = [
+  { hex: '#C8102E', tex: 'tartan-stewart', name: 'Royal Stewart tartan' },
+  { hex: '#1E5A3A', tex: 'tartan-watch', name: 'Black Watch tartan' },
+  { hex: '#E8401C', tex: 'fire-red', name: 'Red fire' },
+  { hex: '#2B6BFF', tex: 'fire-blue', name: 'Blue fire' },
+  { hex: '#17B34A', tex: 'fire-green', name: 'Green fire' },
+  { hex: '#0F9AA8', tex: 'scifi-circuit', name: 'Circuit' },
+  { hex: '#12C2E0', tex: 'scifi-hex', name: 'Shield grid' },
+  { hex: '#E23FB4', tex: 'scifi-grid', name: 'Neon horizon' },
+  { hex: '#FF7A1A', tex: 'tattered', name: 'Tattered tangerine' },
+  { hex: '#D7263D', tex: 'tattered', name: 'Tattered crimson' },
+  { hex: '#1F4FD8', tex: 'tattered', name: 'Tattered cobalt' },
+  { hex: '#7A8B2E', tex: 'tattered', name: 'Tattered olive' },
+  { hex: '#2B2F36', tex: 'tattered', name: 'Tattered charcoal' },
 ];
 // Old palette → new, so saved workouts and history move over.
 export const COLOR_MIGRATION = {
