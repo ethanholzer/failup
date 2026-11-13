@@ -147,6 +147,7 @@ export function CreateWorkoutScreen() {
     ${statusBar()}
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">${c.mode === 'edit' ? 'Edit Workout' : 'Create A Workout'}</span></div>
     <div class="cw-body">
+      <div class="cw-head">
       <div class="lu-tile cw-tile tint" style="--wc:${c.color}">${WORKOUT_ICONS[c.icon]}</div>
       <div class="cw-label">Workout Name</div>
       <label class="cw-name">
@@ -157,6 +158,7 @@ export function CreateWorkoutScreen() {
       <div class="cw-fields">
         <div class="cw-field"><div class="cw-label">Workout Color</div><button class="cw-swatch" style="background:${c.color}" data-action="open-color"><span class="cw-chev">${I.chevDown}</span></button></div>
         <div class="cw-field"><div class="cw-label">Workout Icon</div><button class="cw-swatch icon" data-action="open-icon" style="color:${c.color}">${WORKOUT_ICONS[c.icon]}<span class="cw-chev">${I.chevDown}</span></button></div>
+      </div>
       </div>
       <div class="cw-listlabel">Exercise List (${c.exercises.length})</div>
       ${exerciseCards(listCtx('create'))}

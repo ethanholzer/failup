@@ -2713,3 +2713,65 @@ html, body, button, a, input, label, .app, .overlay { touch-action: manipulation
 /* "You're ready to Fail." */
 .ob-fbox { display: inline-block; padding: 0 .12em; margin-right: .02em; border-radius: .14em; background: #8f7ff5; line-height: 1; padding-top: .06em; padding-bottom: .04em; }
 .ob-fbox { padding: .06em .07em .02em; margin: 0 -.02em 0 0; border-radius: .12em; letter-spacing: 0; }
+.ob-fbox { padding: .04em .1em .02em; margin: 0 .02em 0 -.06em; border-radius: .14em; }
+
+/* ---- intro v3 ---- */
+/* graphics a touch smaller and centered */
+.ob-visual { align-self: center; width: 100%; max-width: 320px; margin-left: auto; margin-right: auto; }
+.ob-small { max-width: 300px; }
+.ob-sets .ob-set { height: 52px; font-size: 1rem; }
+.ob-sets .ob-setn { width: 32px; height: 32px; }
+
+/* progressive overload graph */
+.ob-graphwrap { padding: 14px 12px 10px; border-radius: 22px; background: rgba(20,10,80,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.ob-graph { display: block; width: 100%; height: auto; overflow: visible; }
+.ob-ggrid { stroke: rgba(255,255,255,.12); stroke-width: 1; stroke-dasharray: 2 5; }
+.ob-gpast { stroke: rgba(255,255,255,.35); stroke-width: 2; stroke-linecap: round; opacity: 0; animation: obFade .6s ease forwards; animation-delay: var(--d); }
+.ob-gcur { stroke: #FFC83D; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 300; stroke-dashoffset: 300; animation: obDraw 1s ease forwards; animation-delay: 3.1s; }
+.ob-glbl { fill: #FFC83D; font: 700 11px Archivo, sans-serif; opacity: 0; animation: obFade .5s ease forwards; animation-delay: 3.6s; }
+.ob-gline { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: obDraw 2.8s cubic-bezier(.45,0,.35,1) forwards; animation-delay: .45s; }
+.ob-gdot { fill: #fff; stroke: #5a4bd8; stroke-width: 2.5; transform-box: fill-box; transform-origin: center; opacity: 0; animation: obDotLand .4s cubic-bezier(.3,1.6,.5,1) forwards; animation-delay: var(--d); }
+@keyframes obDraw { to { stroke-dashoffset: 0; } }
+@keyframes obDotLand { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+
+/* the research card */
+a.ob-stat { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit; padding: 14px 16px 12px; border-left: 3px solid #FFC83D; border-radius: 6px 16px 16px 6px; }
+.ob-evlabel { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: .02em; color: #FFC83D; }
+.ob-evtext { font-size: 0.9375rem; line-height: 1.35rem; color: #fff; }
+.ob-evcite { font-size: 0.8125rem; color: rgba(255,255,255,.7); font-style: italic; text-decoration: underline; text-underline-offset: 2px; }
+
+/* volume: a graphic, not content */
+.ob-dots { padding: 16px 18px 14px; border-radius: 22px; background: rgba(20,10,80,.22); width: auto; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+.ob-dots .ob-dotrow { gap: 7px; }
+.ob-dots .ob-dotrow i { width: 16px; height: 16px; }
+.ob-dots .ob-dotlbl { width: 40px; font-size: 0.75rem; }
+.ob-dots .ob-volsum { font-size: 0.875rem; font-weight: 700; color: rgba(255,255,255,.75); margin-top: 4px; letter-spacing: 0; }
+
+/* how FailUp works: the set tracker logging a workout */
+.ob-trk { align-self: center; width: 100%; max-width: 320px; padding: 14px 14px 12px; border-radius: 22px; background: #fff; color: #111; box-shadow: 0 16px 40px rgba(20,10,80,.35); margin: 4px auto 22px; }
+.ob-trkhead { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 1rem; padding: 0 2px 8px; }
+.ob-trkvol { font-size: 0.8125rem; font-weight: 500; color: #5f636b; }
+.ob-trkrow { display: flex; align-items: center; gap: 12px; height: 46px; border-top: 1px solid #f0f0f3; padding: 0 2px; opacity: 0; animation: obFloatSm .6s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: var(--d); }
+.ob-trkn { width: 30px; height: 30px; border-radius: 7px; background: #111; color: #fff; font-weight: 800; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; }
+.ob-trkrow.f .ob-trkn { background: #6c5ce7; }
+.ob-trkt { flex: 1; font-size: 0.9375rem; font-weight: 500; }
+.ob-trktag { min-width: 26px; height: 24px; padding: 0 8px; border-radius: 6px; background: #eeebfd; color: #5a4fc4; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.ob-trkrow.f .ob-trktag { background: #6c5ce7; color: #fff; padding: 0; width: 26px; }
+.ob-trkrow.f .ob-trkn, .ob-trkrow.f .ob-trktag { animation: obPopF .45s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(var(--d) + .25s); }
+@keyframes obPopF { from { transform: scale(.4); } to { transform: scale(1); } }
+@keyframes obFloatSm { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.ob-trkgoal { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 10px 12px; border-radius: 14px; background: #eeebfd; color: #3d2fb0; font-size: 0.9375rem; font-weight: 600; opacity: 0; animation: obFloatSm .6s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: 2.45s; }
+.ob-trkgoal b { margin-left: auto; color: #6c5ce7; font-weight: 800; }
+.ob-trkgoal svg { width: 26px; height: 26px; flex: none; }
+.ob-trkgoal circle { fill: #6c5ce7; stroke: #6c5ce7; stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: obDotLand .4s cubic-bezier(.3,1.6,.5,1) both; animation-delay: 2.6s; }
+.ob-trkgoal path { fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: obDraw .45s ease forwards; animation-delay: 2.9s; }
+.ob-screen .ob-body > .ob-glitch { animation-delay: 3.4s !important; }
+.ob-screen .ob-body > .ob-foot.ob-late { animation-delay: 4s !important; }
+.ob-s-loop .ob-top { margin-top: 0; }
+
+/* create a workout: name + look on white, exercises below on the app canvas */
+.cw-screen > .statusbar, .cw-screen > .nav { background: #fff; }
+.cw-head { background: #fff; margin: -16px -16px 18px; padding: 8px 16px 22px; border-radius: 0 0 24px 24px; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
+@media (prefers-reduced-motion: reduce) { .ob-gline, .ob-gcur, .ob-trkgoal path { stroke-dashoffset: 0; } .ob-gdot, .ob-gpast, .ob-glbl, .ob-trkrow, .ob-trkgoal { opacity: 1; } }
+.ob-screen .ob-body > .ob-after { margin-top: 8px; animation: obFade .8s ease both !important; animation-delay: 4.1s !important; }
+.ob-screen .ob-body > .ob-foot.ob-late { animation-delay: 4.5s !important; }

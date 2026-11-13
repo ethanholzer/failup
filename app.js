@@ -1215,7 +1215,13 @@ function handle(a, d, el, ex) {
     case 'ob-back': obGo(-1); break;
     case 'ob-skip': state.ob.dir = 'fwd'; state.ob.step = 'nosub'; break;
     case 'ob-share': shareApp(); return false;
-    case 'ob-known': { const k = state.ob.known, i = k.indexOf(d.k); if (i >= 0) k.splice(i, 1); else k.push(d.k); break; }
+    case 'ob-known': {   // flip just that card (no re-render, so the page doesn't replay its entrance)
+      const k = state.ob.known, i = k.indexOf(d.k); if (i >= 0) k.splice(i, 1); else k.push(d.k);
+      const on = k.includes(d.k);
+      if (el) { el.classList.toggle('on', on); el.setAttribute('aria-checked', on); const t = el.querySelector('.ob-tick'); if (t) t.innerHTML = on ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''; }
+      const btn = app.querySelector('[data-ob-continue]');
+      return false;
+    }
     case 'ob-new': state.ob.known = []; obGo(1); break;
     case 'ob-units': state.ob.units = d.u; break;
     case 'ob-loc': state.ob.location = state.ob.location === d.name ? '' : d.name; break;
