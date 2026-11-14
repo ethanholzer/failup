@@ -5,7 +5,7 @@
 import { state } from './data.js';
 import { I, WORKOUT_ICONS, tex, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP, eqName } from './ui.js';
 import {
-  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC,
+  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC, isMachineType,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
 } from './store.js';
 import { eqImg } from './screens-library.js';
@@ -301,6 +301,43 @@ export function resumeCard() {
     </div>`;
 }
 const restTile = '<div class="wcard-tile hm-resttile">☾</div>';
+// On a rest day: the most recent plan workout since the last rest day that never got done (and wasn't made up since).
+export function missedWorkout(plan = db.plan, today = dayKey()) {
+  if (!plan) return null;
+  const n = daysBetween(plan.start, today);
+  for (let k = n - 1; k >= 0; k--) {
+    const date = addDays(plan.start, k), day = plan.days[k % plan.splitDays];
+    if (!day || day.type !== 'workout') break;               // back to the previous rest day: stop
+    const w = db.workouts.find(x => x.id === day.workoutId);
+    if (!w) continue;
+    const done = db.sessions.some(ss => ss.workoutId === w.id && dayKey(new Date(ss.finishedAt)) >= date);
+    if (done || (plan.dismissed || []).includes(date)) continue;
+    return { w, date, dayNum: k + 1 };
+  }
+  return null;
+}
+function missedCard(plan) {
+  const m = missedWorkout(plan); if (!m) return '';
+  const w = m.w;
+  return `
+    <div class="hm-missed">
+      <div class="hm-missedlbl">You missed this one</div>
+      <div class="wcard hm-card" style="--wc:${w.color}">
+        <div class="wcard-top">
+          <div class="wcard-tile tint" style="--wc:${w.color}"${tex(w)}>${WORKOUT_ICONS[w.icon]}</div>
+          <div class="wcard-text">
+            <div class="wcard-name">${esc(w.name)}</div>
+            <div class="wcard-sub">${D.dow(parseDay(m.date))} · Day ${m.dayNum}</div>
+            <div class="wcard-sub">${w.exercises.length ? `~${workoutMinutes(w)} minutes, ` : ''}${plural(w.exercises.length, 'exercise')}</div>
+          </div>
+        </div>
+        <div class="wcard-actions">
+          <button class="wpill" data-action="missed-dismiss" data-date="${m.date}">Dismiss</button>
+          <button class="wpill dark" data-action="start-workout" data-id="${w.id}" ${w.exercises.length ? '' : 'disabled'}>Start</button>
+        </div>
+      </div>
+    </div>`;
+}
 export function todayCard(pt, plan) {
   const card = (tile, name, subs, actions = '') => `
     <div class="wcard hm-card">
@@ -311,7 +348,7 @@ export function todayCard(pt, plan) {
   if (pt.status === 'ended') return card(restTile, 'Plan complete', ['Nice work. Start a new one when you’re ready.'],
     `<div class="wcard-actions"><button class="wpill dark" data-action="home-go" data-to="planwiz">Create a Plan</button></div>`);
   const day = pt.day, w = day && day.type === 'workout' ? db.workouts.find(x => x.id === day.workoutId) : null;
-  if (!w) return card(restTile, 'Rest day', [`Day ${pt.index + 1} of ${plan.splitDays}${day && day.type === 'workout' ? ' · that workout was deleted' : ''}`]);
+  if (!w) return card(restTile, 'Rest day', [`Day ${pt.index + 1} of ${plan.splitDays}${day && day.type === 'workout' ? ' · that workout was deleted' : ''}`]) + missedCard(plan);
   return workoutCard(w, { label: 'Start', action: 'start-workout', needsExercises: true }, { done: doneToday(w.id) });
 }
 // Home quotes (shown when nothing is paused and no plan is running).
@@ -456,7 +493,7 @@ export function WorkoutSessionScreen() {
       <div class="sess-drow">
         <div class="sess-dleft">
           <div class="dimg generic ph kind${img ? ' photo' : ''}">${img || PH_EQUIP(eqKind(ex.equip))}</div>
-          <div><div class="dlabel">Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div>${sv ? `<div class="dlabel" style="margin-top:2px">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
+          <div><div class="dlabel">Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div>${!sv && isMachineType(ex.equip) ? '<div class="dlabel sess-savehint">Machines vary, tap swap to save the one you’re on</div>' : ''}${sv ? `<div class="dlabel" style="margin-top:2px">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
         </div>
         <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
       </div>

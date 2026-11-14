@@ -7,10 +7,11 @@ import { MUSCLES, EQUIPMENT } from './exercises.js';
 import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, WORKOUT_ICON_GROUPS, tex, statusBar, fmt, eqName, esc, wt, wtTight, D, PH_EQUIP, PH_EXERCISE, EQ_ICONS } from './ui.js';
 import { WORKOUT_COLORS, TEXTURED_COLORS } from './data.js';
 import {
-  db, EXERCISES, exById, GENERIC, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
+  db, EXERCISES, exById, GENERIC, MACHINE_TYPES, isMachineType, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
   derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind, volumeDots, goalSegments, eqTypes, TYPE_ORDER, eqLocs, eqAt, eqLocText,
 } from './store.js';
 import { rpeOf, setRow, listCtx } from './screens-workout.js';
+import { searchExercises } from './search.js';
 
 export const EQ_TYPES = ['Bar', 'Dumbbell', 'Bodyweight', 'Cable Machine', 'Smith Machine', 'Specialized Machine'];
 // label for an entry in an exercise's equipment list (library key or saved ref)
@@ -64,7 +65,7 @@ function xTicks(x0, x1, today) {
   return out.filter(k => k.t <= x1);
 }
 // mini: the home goal card's thumbnail, same data and geometry, no labels
-export function overloadChart({ dots, goals, x0, x1, today }, unit, mini = false) {
+export function overloadChart({ dots, goals, x0, x1, today, others = [] }, unit, mini = false) {
   const W = mini ? 236 : 377, H = mini ? 76 : 232;
   const padL = mini ? 8 : 16, padR = mini ? 8 : 40, padT = mini ? 10 : 24, padB = mini ? 8 : 28;
   const uid = mini ? 'm' + Math.random().toString(36).slice(2, 7) : '';
@@ -72,7 +73,8 @@ export function overloadChart({ dots, goals, x0, x1, today }, unit, mini = false
   const T = a => new Date(a).getTime();
   const inView = dots.filter(d => T(d.at) >= x0);
   const segs = goals.filter(g => (g.to == null || T(g.to) >= x0) && T(g.from) <= x1);
-  const vals = inView.map(d => d.weight).concat(segs.map(g => g.weight));
+  const otherIn = others.map(o => o.dots.filter(d => T(d.at) >= x0));
+  const vals = inView.map(d => d.weight).concat(segs.map(g => g.weight), ...otherIn.map(a => a.map(d => d.weight)));
   if (!vals.length) return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet"${mini ? ' class="hg-spark"' : ''}>
     <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Archivo" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
@@ -111,6 +113,15 @@ export function overloadChart({ dots, goals, x0, x1, today }, unit, mini = false
   const firstIn = dots.findIndex(d => T(d.at) >= x0);
   const path = firstIn < 0 ? [] : dots.slice(Math.max(0, firstIn - 1));
   const line = path.map((d, i) => `${i ? 'L' : 'M'}${f(x(T(d.at)))} ${f(y(d.weight))}`).join(' ');
+  // other saved machines of this kind: a quiet grey line and hollow dots underneath
+  const OTHER = '#a3a7ae';
+  const otherEls = others.map(o => {
+    const fi = o.dots.findIndex(d => T(d.at) >= x0); if (fi < 0) return '';
+    const pts = o.dots.slice(Math.max(0, fi - 1));
+    const ln = pts.map((d, i) => `${i ? 'L' : 'M'}${f(x(T(d.at)))} ${f(y(d.weight))}`).join(' ');
+    return (pts.length > 1 ? `<path d="${ln}" fill="none" stroke="${OTHER}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 5"/>` : '')
+      + o.dots.filter(d => T(d.at) >= x0).map(d => `<circle cx="${f(x(T(d.at)))}" cy="${f(y(d.weight))}" r="${mini ? 3 : 4}" fill="#fff" stroke="${OTHER}" stroke-width="2"/>`).join('');
+  }).join('');
   const dotEls = inView.map(d => `<circle cx="${f(x(T(d.at)))}" cy="${f(y(d.weight))}" r="${mini ? 4 : 5}" fill="${PURPLE}" stroke="#fff" stroke-width="2"/>`).join('');
   return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Progressive overload chart"${mini ? ' class="hg-spark"' : ''}>
@@ -120,7 +131,7 @@ export function overloadChart({ dots, goals, x0, x1, today }, unit, mini = false
     </defs>
     ${mini ? '' : grid + yLabels + xLabels}
     <g clip-path="url(#plotclip${uid})">
-      ${past}${current}
+      ${otherEls}${past}${current}
       ${path.length > 1 ? `<path d="${line}" fill="none" stroke="${PURPLE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
       ${dotEls}
     </g>
@@ -135,7 +146,36 @@ export function trackerData() {
   const goals = goalSegments(t.exId, t.equip, v.sets, v.reps);
   const firsts = [...dots.map(d => new Date(d.at).getTime()), ...goals.map(g => new Date(g.from).getTime())];
   const b = rangeBounds(t.range, Date.now(), firsts.length ? Math.min(...firsts) : null);
-  return { dots, goals, ...b, goal: goalFor(t.exId, t.equip, v.sets, v.reps), unit: eqUnits(t.equip) };
+  const unit = eqUnits(t.equip);
+  return { dots, goals, ...b, goal: goalFor(t.exId, t.equip, v.sets, v.reps), unit, others: trackerOthers(unit) };
+}
+// on a generic kind (Smith Machine, ...), the saved machines of that kind ride along on the graph
+function trackerOthers(unit) {
+  const t = state.tracker, v = t.volume;
+  if (eqById(t.equip) || !GENERIC.includes(t.equip)) return [];
+  return db.equipment.filter(sv => eqTypes(sv).includes(t.equip) && eqUnits('eq:' + sv.id) === unit)
+    .map(sv => ({ name: sv.name, dots: volumeDots(t.exId, 'eq:' + sv.id, v.sets, v.reps) }))
+    .filter(o => o.dots.length);
+}
+// below the graph: where else you have a goal for this exercise at this rep range
+function trackerGoalList(unit) {
+  const t = state.tracker, v = t.volume, sv = eqById(t.equip);
+  const kinds = sv ? eqTypes(sv).filter(k => GENERIC.includes(k)) : GENERIC.includes(t.equip) ? [t.equip] : [];
+  const row = (ref, img, name, sub, goal) => `
+        <button class="xd-eqrow tk-gl-row${goal == null ? ' none' : ''}" ${goal != null ? `data-action="tracker-equip" data-ref="${esc(ref)}"` : 'disabled'}>
+          ${img}
+          <span class="xd-eqtext"><span class="xd-eqname">${esc(name)}</span><span class="xd-eqsub">${sub}</span></span>
+          ${goal != null ? `<span class="tk-gl-chev">${I.smChevR}</span>` : ''}
+        </button>`;
+  const rows = [];
+  if (sv) kinds.forEach(k => { const g = goalFor(t.exId, k, v.sets, v.reps); rows.push(row(k, eqImg(null, 'xd-eqimg', k), k, g != null ? 'Generic equipment' : `Generic, no goal for ${v.sets} × ${v.reps} yet`, g)); });
+  const sibs = db.equipment.filter(x => x !== sv && eqTypes(x).some(k => kinds.includes(k)))
+    .map(x => ({ x, g: goalFor(t.exId, 'eq:' + x.id, v.sets, v.reps) })).filter(o => o.g != null)
+    .sort((a, b) => a.x.name.localeCompare(b.x.name));
+  sibs.forEach(({ x, g }) => rows.push(row('eq:' + x.id, eqImg(x), x.name, esc(eqLocText(x)), g)));
+  if (!rows.length) return kinds.length && !sv && db.equipment.some(x => eqTypes(x).some(k => kinds.includes(k)))
+    ? `<div class="tk-gl"><div class="tk-gl-head"><span>Saved equipment</span><span class="tk-gl-vol">${v.sets} × ${v.reps}</span></div><div class="tk-gl-empty">None of your saved ${esc(kinds[0].toLowerCase())}s have a goal for ${v.sets} × ${v.reps} yet</div></div>` : '';
+  return `<div class="tk-gl"><div class="tk-gl-head"><span>${sv ? 'Other equipment' : 'Saved equipment'}</span><span class="tk-gl-vol">${v.sets} × ${v.reps}</span></div><div class="tk-gl-list">${rows.join('')}</div></div>`;
 }
 export function TrackerScreen() {
   const t = state.tracker, v = t.volume;
@@ -213,14 +253,11 @@ export function TrackerScreen() {
         <div class="lg"><span class="swatch-line"></span> Current Goal</div>
         <div class="lg"><span class="swatch-line past"></span> Past Goals</div>
         <div class="lg"><span class="swatch-dot"></span> <span>Completed<br><span class="sub">(${v.sets} Sets, ${v.reps} Reps)</span></span></div>
+        ${data.others.length ? `<div class="lg"><span class="swatch-dot other"></span> <span>Saved machines<br><span class="sub">(${v.sets} Sets, ${v.reps} Reps)</span></span></div>` : ''}
       </div>
+      ${trackerGoalList(unit)}
     </div>
     <div class="tk-body">
-      <div class="card tk-explain">
-        <h3>Progressive Overload</h3>
-        <p>Each dot is a workout where you did all ${v.sets} sets of ${v.reps} at one weight. The solid line is your current goal, starting the day you set it. Keep the dots climbing.</p>
-        ${goal == null ? `<p class="tk-note">No goal yet for ${v.sets} sets of ${v.reps} reps on this setup. Tap the pencil, or finish a workout and FailUp suggests one.</p>` : ''}
-      </div>
       ${history}
     </div>
     <div class="xd-actions tk-actions">
@@ -275,12 +312,12 @@ export function VolumeModal() {
 export function matchExercises() {
   const s = state.exercises;
   const q = s.search.trim().toLowerCase();
-  return EXERCISES.filter(ex => {
+  const pool = EXERCISES.filter(ex => {
     if (s.muscles.length && !s.muscles.includes(ex.muscle)) return false;
     if (s.equipment.length && !ex.equipment.some(e => s.equipment.includes(e))) return false;
-    if (q && !ex.name.toLowerCase().includes(q)) return false;
     return true;
   });
+  return q ? searchExercises(pool, q, setsLogged) : pool.sort((a, b) => a.name.localeCompare(b.name));
 }
 // Exercise thumbnail: your photo, else the library photo; the dumbbell sits underneath in case it can't load.
 export function exTile(ex, ref) {
@@ -530,9 +567,9 @@ export function EquipmentWizard() {
   } else if (w.step === 3) {
     body = `
       <div class="wiz-title">What kind of equipment is it?</div>
-      <div class="wiz-help">Pick every kind it can be. FailUp uses this to grab your saved gear when a workout calls for it.</div>
+      <div class="wiz-help">Pick every kind it can be. Machines vary a lot from gym to gym, so these are the ones worth saving.</div>
       <div class="pk-list">
-        ${TYPE_ORDER.map(t => pickCell({ action: 'eqwiz-type', data: { name: t }, on: (w.types || []).includes(t), multi: true, kind: true, icon: PH_EQUIP(t), title: t })).join('')}
+        ${MACHINE_TYPES.map(t => pickCell({ action: 'eqwiz-type', data: { name: t }, on: (w.types || []).includes(t), multi: true, kind: true, icon: PH_EQUIP(t), title: t })).join('')}
       </div>${wizErr(w)}`;
   } else if (w.step === 4) {
     body = `
@@ -790,6 +827,32 @@ export function EquipmentSwapScreen(currentRef) {
 }
 
 /* Preferred equipment type for an exercise in a workout (Create / Edit Workout). */
+// Right after adding an exercise to a workout: which equipment will you use for it?
+export function addEquipOptions(exId) {
+  const x = exById(exId); if (!x) return [];
+  const kinds = [...new Set((x.equipment || []).filter(k => !k.startsWith('eq:')).map(k => genericOf(eqName(k))).filter(k => GENERIC.includes(k)))];
+  return TYPE_ORDER.filter(k => kinds.includes(k));
+}
+export function AddEquipSheet() {
+  const a = state.addEquip, c = listCtx('create'), it = a && c.items[a.index];
+  if (!it) return '';
+  const opts = addEquipOptions(it.exId);
+  const tick = on => on ? `<span class="swp-tick">${I.checkW}</span>` : '';
+  return `
+  <div class="scrim" data-action="close-addequip">
+    <div class="sheet swp-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="swp-sheethead">
+        <div class="vs-title">Which equipment will you use?</div>
+        <div class="vs-sub">For ${esc(it.name)}. This makes things convenient during the workout, and you can change it easily at any time.</div>
+      </div>
+      <div class="swp-sheetbody">
+        ${opts.map(t => `<button class="xd-eqrow swp-row${t === a.sel ? ' on' : ''}" data-action="addequip-pick" data-name="${esc(t)}">${eqImg(null, 'xd-eqimg', t)}<span class="xd-eqtext"><span class="xd-eqname">${esc(t)}</span></span>${tick(t === a.sel)}</button>`).join('')}
+      </div>
+      ${a.sel ? `<div class="ug-actions swp-sheetfoot pend-tray${a.trayShown ? '' : ' enter'}"><button class="ug-btn dark" data-action="addequip-save">Save</button></div>` : ''}
+    </div>
+  </div>`;
+}
 export function PrefTypeSheet() {
   const p = state.prefType, c = p && listCtx(p.owner), it = c && c.items[p.index];
   if (!it) return '';
@@ -896,7 +959,7 @@ export function EquipmentTypesSheet() {
       <div class="sheet-grab"></div>
       <div class="pk-body loc-body">
         <div class="pk-titleblock"><div class="vs-title">What kind of equipment is it?</div><div class="vs-sub">Pick every kind it can be.</div></div>
-        <div class="pk-list">${TYPE_ORDER.map(t => pickCell({ action: 'toggle-eqtype', data: { name: t }, on: cur.includes(t), multi: true, kind: true, icon: PH_EQUIP(t), title: t })).join('')}</div>
+        <div class="pk-list">${[...MACHINE_TYPES, ...cur.filter(t => !MACHINE_TYPES.includes(t))].map(t => pickCell({ action: 'toggle-eqtype', data: { name: t }, on: cur.includes(t), multi: true, kind: true, icon: PH_EQUIP(t), title: t })).join('')}</div>
         <div class="ug-actions loc-done"><button class="ug-btn dark" data-action="close-eqtypes">Done</button></div>
       </div>
     </div>

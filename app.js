@@ -8,15 +8,15 @@
 import { state, WORKOUT_COLORS, PURPLE } from './data.js';
 import { I, fmt, esc, wt, wtTight, eqName, D, WORKOUT_ICONS } from './ui.js';
 import {
-  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, eqLocs, eqAt, increment,
-  goalFor, goalKey, setGoal, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf,
+  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, MACHINE_TYPES, isMachineType, eqLocs, eqAt, increment,
+  goalFor, goalKey, setGoal, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf, eqKind,
   exportData, importData, clearExerciseData, resetAll, isBodyweight,
  volumeDots,
 } from './store.js';
 import {
   TrackerScreen, VolumeModal, ExercisesScreen, FilterSheet, exListInner, ColorPickerSheet, IconPickerSheet,
   ExerciseWizard, EquipmentWizard, ExerciseDetailScreen, ExerciseHistoryScreen, EquipmentListScreen, EquipmentDetailScreen,
-  EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, LocationSheet, EquipmentTypesSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
+  EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, AddEquipSheet, addEquipOptions, LocationSheet, EquipmentTypesSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
 import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts, ShareAskSheet, SafetySheet } from './screens-home.js';
@@ -66,7 +66,7 @@ const SCREENS = {
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
   color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet,
-  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, safety: SafetySheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
+  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, addequip: AddEquipSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, safety: SafetySheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
 };
 const NEEDS_SESSION = ['session', 'lineup'];
 function screenHTML() {
@@ -90,6 +90,11 @@ function render() {
     if (c) { oldRect = c.getBoundingClientRect(); oldCard = c.cloneNode(true); }
   }
   if (state.pending && (!state.session || !['lineup', 'session', 'exercises', 'swap', 'eqwiz', 'newloc', 'exdetail'].includes(state.screen))) state.pending = null;   // leaving keeps your changes
+  // arriving on a Smith, cable or specialized exercise opens its details, so you see the machine and can save it
+  if (state.screen === 'session' && state.session) {
+    const ss = state.session, cx = ss.exercises[ss.exIndex], k = ss.id + ':' + ss.exIndex;
+    if (cx && ss.autoOpened !== k) { ss.autoOpened = k; if (isMachineType(eqKind(cx.equip)) && !workingSets(cx).length) ss.expanded = true; }
+  }
   app.innerHTML = screenHTML();
   if (oldCard) slideExerciseCard(oldCard, oldRect, state.session.exIndex > pipFrom ? 1 : -1);
   if (flip) animateExpandables(flip);
@@ -116,7 +121,7 @@ function render() {
   planCountdownTick();
   flameUpdate();
   wizBarGrow();
-  if (state.screen === 'onboard') mountObFlame();
+  if (state.screen === 'onboard') { mountObFlame(); mountObShare(); }
   if (state.screen === 'exwiz' && state.exwiz && state.exwiz.focusName) {   // from "Create “…”": name filled in, keyboard up
     state.exwiz.focusName = false;
     const inp = app.querySelector('[data-exwizname]');
@@ -151,7 +156,7 @@ addEventListener('resize', () => fitExNames());
 // Share FailUp: the App Store link once there is one, otherwise the website.
 async function shareApp() {
   const url = LINKS.appStore || LINKS.site;
-  const data = { title: 'FailUp', text: 'I track my lifts with FailUp. Free, no subscription. Try it:', url };
+  const data = { title: 'FailUp', text: 'I track my lifts with FailUp. Buy it once, no subscription. Try it:', url };
   try { if (navigator.share) { await navigator.share(data); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { toast(url); }
 }
@@ -236,6 +241,14 @@ function mountObFlame() {
   const go = d => window.lottie.loadAnimation({ container: box, renderer: 'svg', loop: true, autoplay: !reduceMotion(), animationData: d, rendererSettings: { preserveAspectRatio: 'xMidYMax slice' } });
   if (flameData) go(flameData); else fetch('./assets/flame.json').then(r => r.json()).then(d => { flameData = d; if (box.isConnected) go(d); }).catch(() => {});
   void obFlame;
+}
+// The spread-the-word slide: one person sharing out to friends (assets/share.json, drawn for FailUp)
+let shareData = null;
+function mountObShare() {
+  const box = app.querySelector('[data-ob-share]');
+  if (!box || !window.lottie) return;
+  const go = d => window.lottie.loadAnimation({ container: box, renderer: 'svg', loop: true, autoplay: !reduceMotion(), animationData: d });
+  if (shareData) go(shareData); else fetch('./assets/share.json').then(r => r.json()).then(d => { shareData = d; if (box.isConnected) go(d); }).catch(() => {});
 }
 // Creation flows: the progress bar slides from the last step's width to this one's
 let wizPct = null;
@@ -812,6 +825,8 @@ function addToCtx(id) {
   c.ui.swapIndex = null;
   resetPicker();
   back();
+  // building a workout: ask which equipment right away (the library's usual one is already set, so closing keeps it)
+  if (c.owner === 'create' && addEquipOptions(x.id).length > 1) { state.addEquip = { index: c.ui.expanded, sel: null }; state.modal = 'addequip'; }
 }
 function defaultVolume(exId, ref) {
   for (let i = db.sessions.length - 1; i >= 0; i--) {
@@ -838,7 +853,8 @@ function freshExWizard(extra = {}) { state.exwiz = { step: 1, name: '', primary:
 function swapTypeGuess(returnTo) {
   if (returnTo !== 'swap') return null;
   const r = swapRef(), sv = eqById(r);
-  return r ? genericOf(sv ? eqType(sv) : r) : null;
+  const t = r ? genericOf(sv ? eqType(sv) : r) : null;
+  return t && isMachineType(t) ? t : null;
 }
 function freshEqWizard(returnTo) { state.eqwiz = { step: 1, location: (state.session && state.session.location) || db.settings.location || db.locations[0] || '', name: '', type: swapTypeGuess(returnTo), types: swapTypeGuess(returnTo) ? [swapTypeGuess(returnTo)] : [], units: db.settings.units, photo: null, returnTo }; }
 
@@ -954,7 +970,7 @@ async function shareSession(s) {
   const file = new File([blob], `failup-${s.workoutName.replace(/\W+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
   if (window.__shareTest) { window.__shareTest(c.toDataURL('image/png')); return; }
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: `${s.workoutName} · FailUp` }); } catch {}
+    try { await navigator.share({ files: [file], title: `${s.workoutName} · FailUp`, text: `Tracked with FailUp ${LINKS.appStore || LINKS.site}` }); } catch {}
   } else downloadBlob(blob, file.name);
 }
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -995,6 +1011,7 @@ function handle(a, d, el, ex) {
     /* ---------------- tracker ---------------- */
     case 'open-tracker': openTracker(state.exDetail, d.equip); break;
     case 'eq-open-tracker': openTracker(d.id, 'eq:' + state.eqDetail); break;
+    case 'tracker-equip': state.tracker.equip = d.ref; state.tracker.range = state.tracker.range || 'All'; app.scrollTop = 0; break;   // jump to that equipment's goal
     case 'set-range': state.tracker.range = d.range; break;
     case 'tracker-pick-exercise': ex.mode = 'tracker'; ex.search = ''; go('exercises'); break;
     case 'open-volume': {
@@ -1082,6 +1099,9 @@ function handle(a, d, el, ex) {
     case 'open-preftype': state.prefType = { owner: d.owner || listCtx().owner, index: +d.i }; state.modal = 'preftype'; break;
     case 'pick-preftype': { const c = listCtx(state.prefType.owner), it = c.items[state.prefType.index]; if (it) it.equip = d.name; state.modal = null; break; }
     case 'close-preftype': state.modal = null; break;
+    case 'addequip-pick': state.addEquip.trayShown = !!state.addEquip.sel; state.addEquip.sel = d.name; break;
+    case 'addequip-save': { const it = listCtx('create').items[state.addEquip.index]; if (it && state.addEquip.sel) it.equip = state.addEquip.sel; state.addEquip = null; state.modal = null; break; }
+    case 'close-addequip': state.addEquip = null; state.modal = null; break;
     case 'toggle-ex': { const c = listCtx(), i = +d.i; c.ui.expanded = c.ui.expanded === i ? null : i; break; }
     case 'cw-step': {
       const c = listCtx(), it = c.items[+d.i], v = vol(it);
@@ -1164,6 +1184,7 @@ function handle(a, d, el, ex) {
     case 'menu-pick': { const it = state.menu.items[+d.i]; state.modal = null; it.run(); break; }
 
     /* ---------------- starting / running a workout ---------------- */
+    case 'missed-dismiss': if (db.plan) { db.plan.dismissed = [...(db.plan.dismissed || []), d.date]; } break;
     case 'start-workout': {
       const w = db.workouts.find(x => x.id === d.id);
       if (!w) break;

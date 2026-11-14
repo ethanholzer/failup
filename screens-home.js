@@ -5,7 +5,7 @@ import { state, LINKS } from './data.js';
 import { I, statusBar, fmt, esc, wtTight, D } from './ui.js';
 import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay, volumeDots, goalSegments } from './store.js';
 import { overloadChart, rangeBounds } from './screens-library.js';
-import { resumeCard, todayCard, doneToday, planStats } from './screens-workout.js';
+import { resumeCard, todayCard, doneToday, planStats, missedWorkout } from './screens-workout.js';
 
 const ICON = {
   contacts: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M8 16.5c.8-1.8 2.2-2.6 4-2.6s3.2.8 4 2.6"/><path d="M2.5 7h2M2.5 12h2M2.5 17h2"/></svg>',
@@ -118,6 +118,7 @@ function planPart(underPaused) {
   const pt = plan ? planToday() : null, day = pt && pt.status === 'active' ? pt.day : null;
   const todayW = day && day.type === 'workout' ? db.workouts.find(x => x.id === day.workoutId) : null;
   const startToday = !!(todayW && !doneToday(todayW.id));
+  const missed = !todayW && pt && pt.status === 'active' && !!missedWorkout(plan);   // its Start is the main button too
   if (plan) return `
       <div class="hm2-card hm2-plan">
         <div class="hm2-planhead">
@@ -132,7 +133,7 @@ function planPart(underPaused) {
         <div class="hm2-today">Today · ${D.dow(new Date())}</div>
         ${todayCard(pt, plan)}`}
       </div>
-      ${startToday || underPaused ? '' : quick}`;
+      ${startToday || missed || underPaused ? '' : quick}`;
   return `
       <div class="hm2-card hm2-start">
         <div class="hm2-starttitle">Push yourself today.</div>
@@ -178,12 +179,6 @@ export function HomeScreen() {
           <span class="hm2-howtext"><span class="hm2-howsub">Learn about our super simple training strategy.</span></span>
           <span class="hm2-howarrow">${ICON.arrow}</span>
         </button>
-        <div class="hm2-maker">
-          <img class="hm2-makerphoto" src="./assets/maker.jpg" alt="Ethan and his golden retriever">
-          <div class="hm2-makertitle">Hey, I made this.</div>
-          <div class="hm2-makertext">Built by one guy, for his own training. Free forever, because subscriptions suck.</div>
-          <a class="hm2-makerbtn" href="${LINKS.maker}" target="_blank" rel="noopener">Why I made it &amp; how to help</a>
-        </div>
       </div>
     </section>
 

@@ -107,17 +107,10 @@ function body(step, ob) {
       </ol>
       <div class="ob-foot ob-late"><button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button></div>`;
     case 'nosub': return `
-      <div class="ob-visual ob-nosub ob-float" aria-hidden="true">
-        <div class="ob-receipt">
-          <div class="ob-rrow"><span>Monthly fee</span><b>$0</b></div>
-          <div class="ob-rrow"><span>Yearly fee</span><b>$0</b></div>
-          <div class="ob-rrow"><span>Features behind a paywall</span><b>0</b></div>
-          <div class="ob-rtotal"><span>Subscriptions, ever</span><b>None</b></div>
-        </div>
-      </div>
+      <div class="ob-visual ob-share" data-ob-share aria-hidden="true"></div>
       <div class="ob-top ob-txt"><div class="ob-kicker">Spread the word</div><h2 class="ob-h2">FailUp relies on its users to spread the word</h2>
         <p class="ob-p">If you enjoy the app, please share it with a friend</p>
-        <p class="ob-p ob-p2">Remember, buy it once, no subscription needed!</p></div>
+        <p class="ob-p ob-p2">If you’re a cool friend, you’ll buy the app for them</p></div>
       <div class="ob-foot">
         <button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button>
         <button class="ob-btn2" data-action="ob-share">Share FailUp with a friend</button>

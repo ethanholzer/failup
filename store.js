@@ -28,6 +28,52 @@ for (const e of LIBRARY) {
 }
 const EX_FIELDS = ['name', 'muscle', 'abbr', 'equipment', 'secondary', 'photo', 'mechanic', 'force', 'level'];
 
+// Basic names. A library movement's id comes from its ORIGINAL name, so renaming here only changes
+// what's shown: logged sets, goals and workouts all point at the id and stay put.
+const LIB_RENAMES = {
+  'Pullups|Back': 'Pull-Up', 'Pushups|Chest': 'Push-Up', 'Hammer Curls|Biceps': 'Hammer Curl',
+  'Triceps Pushdown|Triceps': 'Tricep Pushdown', 'Skullcrusher|Triceps': 'Skull Crusher', 'Leg Extensions|Quads': 'Leg Extension',
+  'Lying Leg Curls|Hamstrings': 'Lying Leg Curl', 'Butterfly|Chest': 'Pec Deck', 'Thigh Abductor|Glutes': 'Hip Abduction',
+  'Bent Over Row|Back': 'Barbell Row', 'Ab Rollout|Abs': 'Ab Wheel Rollout', 'Step Ups|Quads': 'Step-Up',
+  // words the import dropped
+  'External Rotation With|Shoulders': 'External Rotation With Cable', 'Front Two- Raise|Shoulders': 'Front Two-Dumbbell Raise',
+  'Bent Over Two- Row|Back': 'Bent Over Two-Dumbbell Row', 'Bent Over Two- Row With Palms In|Back': 'Bent Over Two-Dumbbell Row With Palms In',
+  'Calf- Shoulder Shrug|Back': 'Calf-Machine Shoulder Shrug', 'Deadlift With|Back': 'Deadlift With Bands', 'Rack Pull With|Back': 'Rack Pull With Bands',
+  'Close-Grip Curl With|Biceps': 'Close-Grip EZ-Bar Curl With Band', 'Close-Grip Push-Up Off Of A|Triceps': 'Close-Grip Push-Up Off Of A Dumbbell',
+  'Box Squat With|Quads': 'Box Squat With Bands', 'Squat With|Quads': 'Squat With Bands', 'Sumo Deadlift With|Hamstrings': 'Sumo Deadlift With Bands',
+  'Calf Raise On A|Calves': 'Calf Raise On A Dumbbell',
+};
+// New basic listings, with fixed ids. Photos and steps borrowed from the closest library movement where one fits.
+// [name, muscle, equipment, borrow "Name|Muscle" or null]
+const BASIC = [
+  ['Lat Pulldown', 'Back', ['Cable Machine', 'Specialized Machine'], 'Wide-Grip Lat Pulldown|Back'],
+  ['Seated Cable Row', 'Back', ['Cable Machine'], 'Seated Rows|Back'],
+  ['Dumbbell Row', 'Back', ['Dumbbell'], 'One-Arm Row|Back'],
+  ['Cable Crossover', 'Chest', ['Cable Machine'], 'Crossover|Chest'],
+  ['Overhead Press', 'Shoulders', ['Bar', 'Dumbbell', 'Smith Machine'], 'Standing Military Press|Shoulders', 'Shoulder Press|Shoulders'],
+  ['Lateral Raise', 'Shoulders', ['Dumbbell', 'Cable Machine'], 'Side Lateral Raise|Shoulders'],
+  ['Cable Curl', 'Biceps', ['Cable Machine'], 'Standing Biceps Curl|Biceps'],
+  ['Goblet Squat', 'Quads', ['Dumbbell'], null],
+  ['Bulgarian Split Squat', 'Quads', ['Dumbbell', 'Bar', 'Smith Machine'], 'Split Squat With Dumbbells|Quads'],
+  ['Leg Curl', 'Hamstrings', ['Specialized Machine'], 'Seated Leg Curl|Hamstrings'],
+  ['Cable Crunch', 'Abs', ['Cable Machine'], 'Rope Crunch|Abs'],
+  ['Back Extension', 'Back', ['Bodyweight', 'Specialized Machine'], 'Hyperextensions With No Hyperextension Bench|Back'],
+  ['Assisted Pull-Up', 'Back', ['Specialized Machine'], null],
+  ['Pullover', 'Chest', ['Dumbbell', 'Cable Machine'], 'Straight-Arm Pullover|Chest'],
+  ['Farmer’s Carry', 'Forearms', ['Dumbbell'], null],
+  ['Kettlebell Swing', 'Hamstrings', ['Dumbbell'], 'Vertical Swing|Hamstrings'],
+];
+const ABBR = { Chest: 'CH', Shoulders: 'SH', Back: 'BK', Biceps: 'BI', Triceps: 'TR', Forearms: 'FO', Abs: 'AB', Quads: 'QU', Hamstrings: 'HA', Glutes: 'GL', Calves: 'CA' };
+{
+  const find = k => { if (!k) return null; const [n, m] = k.split('|'); return LIBRARY.find(e => e.name === n && e.muscle === m) || null; };
+  for (const [name, muscle, equipment, borrow, borrow2] of BASIC) {
+    const b = find(borrow), b2 = find(borrow2), imgs = {};
+    for (const k of equipment) { const src = [b, b2].find(x => x && x.imgs && x.imgs[k]); if (src) imgs[k] = src.imgs[k]; }
+    const id = `base:${slug(name)}`;
+    BASE.set(id, { name, muscle, abbr: ABBR[muscle], equipment, secondary: b ? b.secondary || [] : [], mechanic: b && b.mechanic, force: b && b.force, level: b && b.level, imgs, steps: b ? b.steps : [], id, basic: true });
+  }
+}
+
 // Exercises from the Figma workouts that aren't in the library yet.
 const SEED_CUSTOM = [
   { id: 'seed:tricep-pulldown', name: 'Tricep Pulldown', muscle: 'Triceps', abbr: 'TR', equipment: ['Cable Machine'], secondary: [], custom: true },
@@ -110,7 +156,8 @@ function buildExercises() {
   for (const c of db.exCustom) EXERCISES.push({ ...seedMedia(c.id), ...c });
   for (const [id, base] of BASE) {
     if (del.has(id)) continue;
-    const x = { ...base, ...(db.exOverrides[id] || {}) };
+    const rn = LIB_RENAMES[`${base.name}|${base.muscle}`];
+    const x = { ...base, ...(rn ? { name: rn } : {}), ...(db.exOverrides[id] || {}) };   // your own edits win
     x.equipment = [...(x.equipment || [])];   // own copy, so edits show up as changes from the library
     EXERCISES.push(x);
   }
@@ -242,6 +289,9 @@ export const eqTypes = sv => (sv.types && sv.types.length ? sv.types : [eqType(s
 export const eqUse = id => db.sessions.reduce((n, s) => n + s.exercises.reduce((m, e) => m + e.sets.filter(x => (x.equip || e.equip) === 'eq:' + id).length, 0), 0);
 // order for picking an equipment kind: machines first, they're the usual case
 export const TYPE_ORDER = ['Specialized Machine', 'Cable Machine', 'Smith Machine', 'Barbell', 'Dumbbell', 'Bodyweight'];
+// the only kinds worth saving as your own machine: bars, dumbbells and bodyweight are the same everywhere
+export const MACHINE_TYPES = ['Specialized Machine', 'Cable Machine', 'Smith Machine'];
+export const isMachineType = t => MACHINE_TYPES.includes(genericOf(t));
 
 /* ------------------------------ goals replay ----------------------------- */
 export const goalKey = (exId, ref, sets, reps) => `${exId}|${ref}|${sets}x${reps}`;

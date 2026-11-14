@@ -184,3 +184,20 @@ The selected icon is outlined in the workout's color.
 
 ## Workout colors
 32 solid colors and 13 themes (`WORKOUT_COLORS`, `TEXTURED_COLORS` in data.js): two tartans, red, blue and green fire, three sci-fi patterns and a tattered finish on five colors. A theme is stored as `tex` next to `color` and drawn only on the workout icon tile and exercise number tiles (`[data-tex]` in styles.css). Everything else uses the plain `color`.
+
+## Saved machines
+Only Smith machines, cable machines and specialized machines can be saved as your own equipment (`MACHINE_TYPES` in store.js); bars, dumbbells and bodyweight are the same everywhere. Arriving on an exercise done on one of those kinds during a workout opens its details, so you see which machine it's on and can save or switch it.
+On the Overload Tracker for a generic kind, your saved machines of that kind show as a grey dotted line with hollow dots. Below the graph, a list shows the saved machines with an active goal at this rep range; on a saved machine it shows the generic kind (with or without a goal) and the other machines with goals. Tapping one with a goal opens its graph.
+Adding an exercise while building a workout asks which equipment you'll use (the library's usual one is already set, so closing the sheet keeps it). Exercises with only one kind skip the question.
+
+## Share
+Sharing FailUp (onboarding, the share sheet after a workout, the workout image) uses `LINKS` in data.js: the App Store link once it's set, otherwise https://ethanholzer.github.io/failup/. The spread-the-word slide plays `assets/share.json`, a Lottie drawn for FailUp (one person shares to three friends, and each of them shares to three more), so there's no license to track.
+
+## Exercise search
+`search.js` uses MiniSearch (MIT, `vendor/minisearch.js`) for typos, partial words and ranking, with gym rules on top: pull up = pull-up = pullup (same for push up, pulldown, chin-up, step-up and more), plurals (curls, flyes), shorthand (db, bb, kb, rdl, ohp, tri, bi, lats, hams), and an order that puts the exact name first, then names that start with what you typed, short basic names before long variations, and exercises you've logged.
+
+## Basic exercise names
+`store.js` adds 16 basic listings (Lat Pulldown, Seated Cable Row, Dumbbell Row, Cable Crossover, Overhead Press, Lateral Raise, Cable Curl, Goblet Squat, Bulgarian Split Squat, Leg Curl, Cable Crunch, Back Extension, Assisted Pull-Up, Pullover, Farmer's Carry, Kettlebell Swing) with fixed `base:` ids, and renames some library movements to their basic names (`LIB_RENAMES`). A library movement's id comes from its original name, so a rename only changes what's shown; logged sets, goals and workouts keep pointing at the same id. Your own exercise edits still win over these names.
+
+## Missed plan workouts
+On a plan rest day, the plan card shows "You missed this one" with the latest plan workout since the previous rest day that wasn't done (doing that workout any day since counts as made up). Start begins it; Dismiss hides that day (`plan.dismissed`), and an earlier miss from the same stretch shows next if there is one.
