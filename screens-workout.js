@@ -632,7 +632,7 @@ export function ActiveSetSheet() {
   const pct = Math.round(a.feel * 100);
   const thumbLeft = feelLeft(a.feel);   // the thumb rests in the middle of its shade (F: all the way right)
   const se = state.session && state.session.exercises[state.session.exIndex];
-  const swOf = se ? se.goal.sets : 0, swEx = se ? `${exInfo(se).name} · ${eqLabel(se.equip)}` : '';
+  const swOf = se ? se.goal.sets : 0, swEx = se ? exInfo(se).name : '';
   return `
   <div class="scrim" data-action="sess-cancelset">
     <div class="sheet" data-stop>

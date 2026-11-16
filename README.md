@@ -234,3 +234,9 @@ Sets and Reps use the side-by-side steppers from Edit Workout, and below them th
 - Sharing Workout Complete sends the image plus "Tracked with FailUp" and the app link (also passed as `url`).
 - Notes: when a workout finishes, each exercise's note is saved with that exercise in the session (`note`) and shown under its sets on Workout Complete. The share image never draws notes.
 - Under "Exercise List" (Today's Plan and Edit Workout) a row of muscle tags shows how many exercises hit each group, in list order (`muscleSummary`).
+
+## Goal timing in a workout
+An exercise's session goal follows saved goals only until its first working set (`goalLock` in `syncGoal`). After that it's fixed for this workout, so reaching it keeps the purple sets, flames and progress segment even if a new goal is accepted or edited; that new goal shows as "Next time" and applies from the next workout. Changing the goal before any working set updates the current workout. Changing volume or equipment re-reads the goal.
+
+## Effort slider and swap
+The slider thumb moves with `transform` straight under the finger (no easing, no re-render on release). At Failure only the halo animates. The set logger header shows the exercise name only. Swap equipment marks equipment that has goals for this exercise with a purple dot and "X Goals" in its subtitle (sheet and full list).

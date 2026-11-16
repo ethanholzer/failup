@@ -552,7 +552,19 @@ function mountLottie() {
 
 /* ------------------------------ session logic ------------------------------ */
 const cur = () => state.session.exercises[state.session.exIndex];
-function syncGoal(e) { e.goal.weight = goalFor(e.exId, e.equip, e.goal.sets, e.goal.reps); }
+// The session's goal for an exercise follows saved goals until its first working set is logged.
+// After that it stays put for this workout (a goal set mid-exercise is for next time), unless the
+// exercise's volume or equipment changes.
+function syncGoal(e) {
+  const key = `${e.equip}|${e.goal.sets}x${e.goal.reps}`;
+  if (e.sets.some(st => st.type === 'working') && e.goalLock === key) {
+    const saved = goalFor(e.exId, e.equip, e.goal.sets, e.goal.reps);   // a goal changed mid-exercise shows as "Next time"
+    if (saved != null && saved !== e.goal.weight) { e.newGoal = saved; e.newGoalVol = { sets: e.goal.sets, reps: e.goal.reps }; }
+    return;
+  }
+  e.goal.weight = goalFor(e.exId, e.equip, e.goal.sets, e.goal.reps);
+  e.goalLock = key;
+}
 function syncAllGoals() { if (state.session) state.session.exercises.forEach(syncGoal); }
 // Generic fallback for an exercise when its saved equipment goes away.
 function genericFor(e, sv) {
@@ -1323,6 +1335,7 @@ function handle(a, d, el, ex) {
       }
       const it = cur();
       if (a.edit) { it.sets[a.edit.si] = rec; break; }
+      if (rec.type === 'working' && !it.sets.some(st => st.type === 'working')) it.goalLock = `${it.equip}|${it.goal.sets}x${it.goal.reps}`;   // this workout's goal is now fixed
       it.sets.push(rec);
       // Figma "Weight Adjustment Edgecase": reduced weight, goal volume, RPE 7+
       const r = rpeOf(a.feel), rpe = r === 'F' ? 10 : +r.slice(4);
@@ -1716,7 +1729,7 @@ function feelFromPointer(bar, x) {
 let ringAt = 0;
 function paintFeel(bar, f) {
   const th = bar.querySelector('.ff-thumb');
-  th.style.left = f.left;
+  th.style.left = '0px'; th.style.transform = `translate3d(${f.left},0,0)`;   // straight under the finger, no easing
   th.querySelector('.ff-num').textContent = rpeNum(f.feel);
   bar.querySelector('.ff-text').textContent = rpeOf(f.feel) === 'F' ? 'FAILURE' : '';
   const ring = bar.querySelector('.ff-ring'), on = rpeOf(f.feel) === 'F';
@@ -1737,7 +1750,7 @@ device.addEventListener('pointermove', (e) => {
   const f = feelFromPointer(feelDrag, e.clientX); state.setDraft.feel = f.feel;
   paintFeel(feelDrag, f);
 });
-const endFeel = () => { if (!feelDrag) return; feelDrag = null; const wait = Math.max(0, 480 - (Date.now() - ringAt)); setTimeout(() => { if (!feelDrag && state.setDraft) render(); }, wait); };   // let the F ring finish drawing
+const endFeel = () => { if (!feelDrag) return; feelDrag = null; };   // the thumb stays where it was let go; the next render places it in its shade
 device.addEventListener('pointerup', endFeel);
 device.addEventListener('pointercancel', endFeel);
 

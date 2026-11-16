@@ -795,15 +795,16 @@ export function EquipmentDetailScreen() {
 /* ---- Equipment Swap ---- */
 // All Equipment: every saved machine, then every generic type. Tap a row to use it now;
 // the checkbox picks what shows up in this exercise's quick swap sheet.
-export function EquipmentSwapScreen(currentRef) {
+export function EquipmentSwapScreen(currentRef, exId) {
   const sel = state.swap.sel || currentRef;
   const saved = [...db.equipment].sort((a, b) => a.location.localeCompare(b.location) || a.name.localeCompare(b.name));
   const row = (ref, img, name, sub) => {
+    const nG = exId ? goalsOf(g => g.exId === exId && g.ref === ref && g.weight != null).length : 0;   // active goals on this equipment
     const on = ref === sel;
     return `
       <button class="xd-eqrow swp-row ae-cell${on ? ' on' : ''}" data-action="swap-pick" data-ref="${esc(ref)}">
         ${img}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(name)}</span>${sub ? `<span class="xd-eqsub">${esc(sub)}</span>` : ''}</span>
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(name)}${nG ? '<span class="swp-dot" aria-hidden="true"></span>' : ''}</span>${sub || nG ? `<span class="xd-eqsub">${[nG ? `${nG} Goal${nG === 1 ? '' : 's'}` : '', sub ? esc(sub) : ''].filter(Boolean).join(' · ')}</span>` : ''}</span>
         ${on ? `<span class="swp-tick">${I.checkW}</span>` : ''}
       </button>`;
   };
@@ -885,19 +886,23 @@ export function EquipmentSwapSheet(currentRef, exId, location) {
       : lib.includes('eq:' + sv.id) || eqTypes(sv).some(t => types.has(t)) || sv === curSv)
     .sort((a, b) => (b === curSv) - (a === curSv) || a.name.localeCompare(b.name));
   const tick = on => on ? `<span class="swp-tick">${I.checkW}</span>` : '';
+  // active goals this exercise has on each piece of equipment
+  const nGoals = ref => exId ? goalsOf(g => g.exId === exId && g.ref === ref && g.weight != null).length : 0;
+  const goalTag = n => n ? `${n} Goal${n === 1 ? '' : 's'}` : '';
+  const dot = n => n ? '<span class="swp-dot" aria-hidden="true"></span>' : '';
   const savedRows = saved.map(sv => {
-    const ref = 'eq:' + sv.id, on = ref === sel;
+    const ref = 'eq:' + sv.id, on = ref === sel, nG = nGoals(ref);
     return `<button class="xd-eqrow swp-row${on ? ' on' : ''}" data-action="swap-pick" data-ref="${ref}">
         ${eqImg(sv)}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">${esc(eqTypes(sv).join(', '))}${location && eqAt(sv, location) ? '' : ` · At ${esc(eqLocText(sv))}`}</span></span>
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}${dot(nG)}</span><span class="xd-eqsub">${[goalTag(nG), esc(eqTypes(sv).join(', ')), location && eqAt(sv, location) ? '' : `At ${esc(eqLocText(sv))}`].filter(Boolean).join(' · ')}</span></span>
         ${tick(on)}
       </button>`;
   }).join('');
   const genRows = GENERIC.map(n => {
-    const on = n === sel;
+    const on = n === sel, nG = nGoals(n);
     return `<button class="xd-eqrow swp-row${on ? ' on' : ''}" data-action="swap-pick" data-ref="${esc(n)}">
         ${eqImg(null, 'xd-eqimg', n)}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(n)}</span></span>
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(n)}${dot(nG)}</span>${nG ? `<span class="xd-eqsub">${goalTag(nG)}</span>` : ''}</span>
         ${tick(on)}
       </button>`;
   }).join('');

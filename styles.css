@@ -3128,3 +3128,10 @@ button.rp:active { transform: scale(.97); }
 /* count as a plain black number before the muscle name */
 .ms-row .ms-chip { padding: 3px 10px !important; gap: 5px; }
 .ms-row .ms-n { background: none !important; color: #111 !important; min-width: 0; height: auto; padding: 0; border-radius: 0; font-size: 0.8125rem; font-weight: 800; display: inline; }
+/* effort slider: no easing on the thumb; the failure glow only animates the halo (opacity + scale, GPU only) */
+.sw-feel .ff-thumb { transition: none !important; will-change: transform; animation: none !important; }
+.sw-feel .ff-thumb.fail { box-shadow: 0 0 0 2px rgba(255,255,255,.8), 0 0 16px 4px rgba(124,108,255,.65) !important; }
+.sw-feel .ff-thumb::before { will-change: opacity, transform; }
+.sw-feel .ff-thumb.fail::before { animation: ffHaloIn .5s ease-out forwards, ffHalo 3.2s ease-in-out .5s infinite !important; }
+/* swap equipment: a purple dot on equipment that has goals for this exercise */
+.swp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; margin-left: 7px; vertical-align: middle; position: relative; top: -1px; }
