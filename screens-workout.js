@@ -12,6 +12,13 @@ import { eqImg } from './screens-library.js';
 
 /* ------------------------------ shared logic ------------------------------ */
 export const exInfo = it => { const x = exById(it.exId); return x ? { name: x.name, muscle: x.muscle } : { name: it.name || 'Exercise', muscle: it.muscle || '' }; };
+// muscle groups in a list, with how many exercises hit each, in list order
+export function muscleSummary(items) {
+  const m = new Map();
+  for (const it of items) { const g = exInfo(it).muscle; if (g) m.set(g, (m.get(g) || 0) + 1); }
+  if (!m.size) return '';
+  return `<div class="ms-row">${[...m].map(([g, n]) => `<span class="mtag ms-chip"><span class="ms-n tnum">${n}</span>${esc(g)}</span>`).join('')}</div>`;
+}
 // the number on the slider thumb: 1–9, then F
 // Effort slider geometry: 10 equal shades; the value is the shade under the thumb's center.
 // F is only the far right end. Thumb is 56px with a 4px inset.
@@ -179,6 +186,7 @@ export function CreateWorkoutScreen() {
       </div>
       </div>
       <div class="cw-listlabel">Exercise List (${c.exercises.length})</div>
+      ${muscleSummary(c.exercises)}
       ${exerciseCards(listCtx('create'))}
       <button class="cw-add" data-action="add-exercise">${I.plus20} Add exercise</button>
     </div>
@@ -216,9 +224,8 @@ const PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"
 const PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></svg>';
 // Rest timer row, only on the set logger: stopwatch, minus, time, plus, play/pause
 const NOTE_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5h10.5L19 8v11.5H5z"/><path d="M8.5 10h7M8.5 13.5h7M8.5 17h4"/></svg>';
-// each exercise in a workout keeps its own note
-export const noteKey = (s, ex) => `${s.workoutId || 'quick'}|${ex.exId}`;
-export const noteOf = (s, ex) => ((db.notes || {})[noteKey(s, ex)] || '');
+// notes live on the exercise in this session only; they're shown on Workout Complete and the next workout starts blank
+export const noteOf = (s, ex) => (ex && ex.note) || '';
 // the rest timer: a pill in the corner. Closed it's the countdown; open it adds -, + and play/pause
 export function restPill(s) {
   const r = restOf(s), run = state.restRun, live = run && run.paused == null;
@@ -249,7 +256,7 @@ export function NotesSheet() {
     <div class="sheet nt-sheet" data-stop>
       <div class="sheet-grab"></div>
       <div class="mn-head"><div class="vs-title">Notes</div><div class="vs-sub">${esc(exInfo(ex).name)}${s.workoutName ? ` · ${esc(s.workoutName)}` : ''}</div></div>
-      <textarea class="nt-text" data-note rows="7" placeholder="Seat height, grip, cues, anything you want to remember next time">${esc(noteOf(s, ex))}</textarea>
+      <textarea class="nt-text" data-note rows="7" placeholder="How it felt, seat height, grip, anything about this workout">${esc(noteOf(s, ex))}</textarea>
       <div class="sheet-actions"><button class="btn solid" data-action="close-notes">Done</button></div>
     </div>
   </div>`;
@@ -299,6 +306,7 @@ export function LineupScreen() {
       </div>
       </div>
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
+      ${muscleSummary(ctx.items)}
       ${exerciseCards(ctx)}
       <button class="cw-add" data-action="add-exercise">${I.plus20} Add exercise</button>
     </div>
@@ -318,6 +326,7 @@ export function WorkoutDetailsScreen() {
     <div class="cw-body">
       <div class="lu-head"><div class="lu-titlerow"><div class="lu-tile tint" style="--wc:${w.color}"${tex(w)}>${WORKOUT_ICONS[w.icon]}</div><div><div class="lu-title">${esc(w.name)}</div><div class="lu-count">${n ? `Completed ${plural(n, 'time')}` : 'Not done yet'}</div></div></div></div>
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
+      ${muscleSummary(ctx.items)}
       ${exerciseCards(ctx)}
     </div>
   </div>`;

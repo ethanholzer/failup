@@ -23,7 +23,7 @@ import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLab
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
-  listCtx, keepCurrentExercise, NotesSheet, noteKey, vol, exInfo, workingSets, pendingSuggestion, restOf, restLeft, mmss, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
+  listCtx, keepCurrentExercise, NotesSheet, vol, exInfo, workingSets, pendingSuggestion, restOf, restLeft, mmss, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY, LINKS } from './data.js';
 
@@ -604,8 +604,8 @@ function prepSession(w) {
   state.lineup = { expanded: null, swapIndex: null };
   go('lineup');
 }
-// the exercise's note as it stood when the workout finished (shown on Workout Complete, never in the share image)
-const noteFor = (s, e) => ((db.notes || {})[noteKey(s, e)] || '').trim();
+// the exercise's note from this workout (shown on Workout Complete, never in the share image)
+const noteFor = (s, e) => (e.note || '').trim();
 function finishSession() {
   const s = state.session;
   const done = s.exercises.filter(e => e.sets.length);
@@ -1773,11 +1773,9 @@ device.addEventListener('input', (e) => {
     return;
   }
   if (t.matches('[data-goalaskfield]')) { const v = parseFloat(t.value.replace(',', '.')); if (!isNaN(v) && (v >= 0 || isBodyweight(state.session.exercises[state.goalAsk.ei].equip))) state.goalAsk.weight = v; return; }
-  if (t.matches('[data-note]')) {   // saved as you type; an empty note is removed
+  if (t.matches('[data-note]')) {   // kept on this session's exercise as you type
     const ss = state.session, ex = ss && ss.exercises[ss.exIndex]; if (!ex) return;
-    db.notes = db.notes || {}; const k = noteKey(ss, ex);
-    if (t.value.trim()) db.notes[k] = t.value; else delete db.notes[k];
-    save(); return;
+    ex.note = t.value; return;
   }
   if (t.matches('[data-goalfield]')) { const v = parseFloat(t.value.replace(',', '.')); if (!isNaN(v) && v >= 0) state.goalEdit.weight = v; }
 });

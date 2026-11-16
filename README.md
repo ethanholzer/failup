@@ -209,7 +209,7 @@ There are no preset locations. Until you have one, Today's Plan shows "Where is 
 When an exercise has no goal at its current volume but has one at another volume on the same equipment, the Overload Goal panel (Edit Workout and the live exercise dropdown) suggests a converted weight with Accept and Dismiss, and the label reads "Overload Goal (Suggested)". With no goal and no suggestion, an icon-only edit button opens the goal sheet. `volumeSuggestion` in store.js picks the closest goal (same set count first, then the nearest rep count) and converts it with the average of the Epley and Brzycki one-rep-max formulas, rounded down to the equipment's weight step. Accept saves it as a normal goal edit; Dismiss stores the volume key in `db.volSuggDismissed` so it stays quiet. Logged sessions are never changed.
 
 ## Notes and the rest timer pill
-A row on the cream above the session footer holds a Notes button (left) and the rest timer (right, only when the timer is on). Closed, the timer shows the stopwatch and the countdown; tapping it opens −, + and play/pause (`state.restOpen`). Notes open a sheet for the current exercise; each exercise in a workout has its own note in `db.notes`, keyed `workoutId|exId`, saved as you type. The Notes button gets a purple outline when that exercise's note has text.
+A row on the cream above the session footer holds a Notes button (left) and the rest timer (right, only when the timer is on). Closed, the timer shows the stopwatch and the countdown; tapping it opens −, + and play/pause (`state.restOpen`). Notes open a sheet for the current exercise. Each note lives on that exercise in the current session only (`ex.note`), so every new workout starts blank. The Notes button gets a purple outline when that exercise's note has text.
 The countdown plays a short "boop" (523 Hz) at 3, 2 and 1 seconds left and a higher, longer "beep" (1047 Hz) at zero, with a light vibration on phones that support it. Sound is unlocked by the tap that starts the timer.
 Settings → Rest Timer Sound (`db.settings.restSound`, on unless set to false) mutes the boops and the beep; vibration stays.
 
@@ -232,4 +232,5 @@ Sets and Reps use the side-by-side steppers from Edit Workout, and below them th
 - The end of the intro ("Start failing") lands on Home.
 - Saved equipment: the kind card shows the generic thumbnail for its first kind, the location card shows a pin; both use the normal card shadow.
 - Sharing Workout Complete sends the image plus "Tracked with FailUp" and the app link (also passed as `url`).
-- Notes: when a workout finishes, each exercise's note is copied onto that exercise in the saved session (`note`) and shown under its sets on Workout Complete. The share image never draws notes.
+- Notes: when a workout finishes, each exercise's note is saved with that exercise in the session (`note`) and shown under its sets on Workout Complete. The share image never draws notes.
+- Under "Exercise List" (Today's Plan and Edit Workout) a row of muscle tags shows how many exercises hit each group, in list order (`muscleSummary`).

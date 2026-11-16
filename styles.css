@@ -3120,3 +3120,11 @@ button.rp:active { transform: scale(.97); }
 .wc-share.wc-half svg { width: 20px; height: 20px; }
 .wc-actions:has(.wc-half) { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; }
 .wc-half { box-sizing: border-box; padding: 0 12px !important; border: 0; }
+/* muscle groups under the Exercise List label */
+.ms-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: -2px 0 14px; }
+.ms-row .ms-chip { display: inline-flex !important; align-items: center; gap: 6px; margin: 0 !important; padding: 3px 4px 3px 10px; font-size: 0.8125rem; line-height: 1.25rem; border-radius: 8px; }
+.ms-row .ms-n { min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 6px; display: grid; place-items: center; font-size: 0.75rem; font-weight: 800;
+  background: var(--cw-current, var(--wc, #6c5ce7)); color: #fff; }
+/* count as a plain black number before the muscle name */
+.ms-row .ms-chip { padding: 3px 10px !important; gap: 5px; }
+.ms-row .ms-n { background: none !important; color: #111 !important; min-width: 0; height: auto; padding: 0; border-radius: 0; font-size: 0.8125rem; font-weight: 800; display: inline; }
