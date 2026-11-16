@@ -166,7 +166,7 @@ Barbell, Cable Machine, Smith Machine and Specialized Machine (a pendulum squat)
 During an exercise with a goal, a purple flame rises from the bottom of the screen. Each working set at the goal weight or heavier, with every rep or a failure, makes it taller and more opaque; finishing the whole volume on track flares it once. A set that falls short puts it out for that exercise. `assets/flame.json` is "Fire - Feu - Fuego" by Tom Fabre on LottieFiles (Lottie Simple License), recolored from orange and yellow to FailUp purples.
 
 ## Rest timer
-Turn it on from Today's Plan (the choice and length become your default). The timer is one quiet row (stopwatch, −, time, +, play/pause, circle buttons) that's always there during a workout: under the Set button in the bottom tray, and at the top of the set logger when it's open. Logging a working set starts the countdown and slides up the next set's logger with it running; at zero it chimes, buzzes where the phone allows, and opens the logger if it was closed. It stops once the exercise's set volume is logged. − and + jump to the nearest multiple of 15 seconds in that direction, then step by 15 (going below zero skips the rest). When no countdown is running they change your default length (15s to 10 min), and play starts a countdown by hand. The countdown is based on the time the set was logged, so it stays right if the phone sleeps.
+Turn it on from Today's Plan (the choice and length become your default). During a workout the timer is one quiet row (stopwatch, −, time, +, play/pause) that sits in the bottom tray above the Warmup Set and Set buttons; it's not on the set logger. Logging a working set starts the countdown; at zero it chimes, buzzes where the phone allows, and opens the next set's logger. It stops once the exercise's set volume is logged. − and + jump to the nearest multiple of 15 seconds in that direction, then step by 15 (going below zero skips the rest). When no countdown is running they change your default length (15s to 10 min), and play starts a countdown by hand. The countdown is based on the time the set was logged, so it stays right if the phone sleeps.
 
 ## Ending a workout
 The pause sheet has End Workout, which saves what you've logged and opens Workout Complete. On Home, a paused workout shows End and Resume; a workout that hasn't started yet still shows Discard.
@@ -201,3 +201,20 @@ Sharing FailUp (onboarding, the share sheet after a workout, the workout image) 
 
 ## Missed plan workouts
 On a plan rest day, the plan card shows "You missed this one" with the latest plan workout since the previous rest day that wasn't done (doing that workout any day since counts as made up). Start begins it; Dismiss hides that day (`plan.dismissed`), and an earlier miss from the same stretch shows next if there is one.
+
+## Locations
+There are no preset locations. Until you have one, Today's Plan shows "Where is this workout?" as a text field: type a name and it's saved as a location and used for that workout. After that, the swap button opens your saved locations plus "Add a new location".
+
+## Goals at a new volume
+When an exercise has no goal at its current volume but has one at another volume on the same equipment, the Overload Goal panel (Edit Workout and the live exercise dropdown) suggests a converted weight with Accept and Dismiss, and the label reads "Overload Goal (Suggested)". With no goal and no suggestion, an icon-only edit button opens the goal sheet. `volumeSuggestion` in store.js picks the closest goal (same set count first, then the nearest rep count) and converts it with the average of the Epley and Brzycki one-rep-max formulas, rounded down to the equipment's weight step. Accept saves it as a normal goal edit; Dismiss stores the volume key in `db.volSuggDismissed` so it stays quiet. Logged sessions are never changed.
+
+## Notes and the rest timer pill
+A row on the cream above the session footer holds a Notes button (left) and the rest timer (right, only when the timer is on). Closed, the timer shows the stopwatch and the countdown; tapping it opens −, + and play/pause (`state.restOpen`). Notes open a sheet for the current exercise; each exercise in a workout has its own note in `db.notes`, keyed `workoutId|exId`, saved as you type. The Notes button gets a purple outline when that exercise's note has text.
+The countdown plays a short "boop" (523 Hz) at 3, 2 and 1 seconds left and a higher, longer "beep" (1047 Hz) at zero, with a light vibration on phones that support it. Sound is unlocked by the tap that starts the timer.
+Settings → Rest Timer Sound (`db.settings.restSound`, on unless set to false) mutes the boops and the beep; vibration stays.
+
+## Sharing
+Share FailUp sends "FailUp is a quality workout tracker. It’s only $8.99, no subscription. You should get it too!" with the link. index.html carries Open Graph and Twitter tags pointing at `assets/og.jpg` (2400 × 1260) by absolute URL, so Messages and other apps show the preview card. If the app moves to another address, update the og:url and og:image URLs.
+
+## Failure on the effort slider
+At Failure the white thumb blooms, then breathes a slow purple glow (`ffBloom`, `ffBreathe`, `ffHalo` in styles.css). The old ring is hidden. Reduced motion gets a still glow.

@@ -9,7 +9,7 @@ import { state, WORKOUT_COLORS, PURPLE } from './data.js';
 import { I, fmt, esc, wt, wtTight, eqName, D, WORKOUT_ICONS } from './ui.js';
 import {
   db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, MACHINE_TYPES, isMachineType, eqLocs, eqAt, increment,
-  goalFor, goalKey, setGoal, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf, eqKind,
+  goalFor, goalKey, setGoal, volumeSuggestion, dismissVolumeSuggestion, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf, eqKind,
   exportData, importData, clearExerciseData, resetAll, isBodyweight,
  volumeDots,
 } from './store.js';
@@ -23,7 +23,7 @@ import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLab
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
   WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
-  listCtx, keepCurrentExercise, vol, exInfo, workingSets, pendingSuggestion, restOf, restLeft, mmss, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
+  listCtx, keepCurrentExercise, NotesSheet, noteKey, vol, exInfo, workingSets, pendingSuggestion, restOf, restLeft, mmss, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY, LINKS } from './data.js';
 
@@ -65,7 +65,7 @@ const SCREENS = {
 };
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
-  color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet,
+  color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet, notes: NotesSheet,
   swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, addequip: AddEquipSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, safety: SafetySheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
 };
 const NEEDS_SESSION = ['session', 'lineup'];
@@ -97,6 +97,12 @@ function render() {
   }
   app.innerHTML = screenHTML();
   if (oldCard) slideExerciseCard(oldCard, oldRect, state.session.exIndex > pipFrom ? 1 : -1);
+  // Up / Down: keep the card you moved where it was on screen, so the list moves around it
+  if (flip && state.followMove != null) {
+    const card = app.querySelectorAll('.cw-ex-card')[state.followMove], was = card && flip.get(card.dataset.anim);
+    if (was) app.scrollTop += card.getBoundingClientRect().top - was.top;
+  }
+  state.followMove = null;
   if (flip) animateExpandables(flip);
   if (pipFrom != null && state.session && state.session.exIndex !== pipFrom) { slideCurrentPip(pipFrom, state.session.exIndex); animatePip(pipFrom); rollNumber(pipFrom + 1, state.session.exIndex > pipFrom ? 1 : -1); }
   lastExIndex = state.session ? state.session.exIndex : null;
@@ -156,7 +162,7 @@ addEventListener('resize', () => fitExNames());
 // Share FailUp: the App Store link once there is one, otherwise the website.
 async function shareApp() {
   const url = LINKS.appStore || LINKS.site;
-  const data = { title: 'FailUp', text: 'I track my lifts with FailUp. Buy it once, no subscription. Try it:', url };
+  const data = { title: 'FailUp', text: 'FailUp is a quality workout tracker. It’s only $8.99, no subscription. You should get it too!', url };
   try { if (navigator.share) { await navigator.share(data); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { toast(url); }
 }
@@ -200,6 +206,8 @@ function restUpdate() {
   if (run.paused != null) return;
   const left = run.end - Date.now(), txt = mmss(Math.max(0, Math.ceil(left / 1000)));
   document.querySelectorAll('[data-rest-num]').forEach(n => { if (n.textContent !== txt) n.textContent = txt; });   // the tray and the logger
+  const sec = Math.ceil(left / 1000);
+  if (left > 0 && sec <= 3 && run.boop !== sec) { run.boop = sec; restBoop(); }
   if (left > 0) return;
   restStop();
   restChime();
@@ -207,18 +215,23 @@ function restUpdate() {
   if (state.screen === 'session' && s && !state.modal) { s.expanded = false; state.setDraft = setDraft('working'); state.modal = 'setwidget'; }
   render();
 }
-function restChime() {
-  try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch {}
+// the countdown: "Boop" at 3, 2 and 1, then a higher, longer "Beep!" at zero
+function restTone(freq, dur, vol = 0.22, type = 'sine') {
+  if (db.settings.restSound === false) return;   // Settings → Rest Timer Sound
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const t = audioCtx.currentTime;
-    [[880, 0], [1175, 0.16]].forEach(([f, d]) => {
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audioCtx.destination);
-      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.35);
-      o.start(t + d); o.stop(t + d + 0.4);
-    });
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.setValueAtTime(vol, t + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
   } catch {}
+}
+function restBoop() { restTone(523, 0.14, 0.2, 'triangle'); try { navigator.vibrate && navigator.vibrate(40); } catch {} }
+function restChime() {
+  restTone(1047, 0.55, 0.24, 'triangle');
+  try { navigator.vibrate && navigator.vibrate([160]); } catch {}
 }
 // ---- first-launch intro ----
 function startIntro(replay = false) { state.ob = { step: 'welcome', known: [], units: db.settings.units || 'lbs', location: db.settings.location || '', dir: '', replay }; state.stack = []; state.screen = 'onboard'; state.modal = null; }
@@ -585,7 +598,7 @@ function sessionItem(exId, equip, sets = 3, reps = 8) {
 function prepSession(w) {
   state.session = {
     id: uid('s'), workoutId: w.id, workoutName: w.name, color: w.color, tex: w.tex || '', icon: w.icon,
-    location: db.settings.location || db.locations[0] || 'Home', started: false, exIndex: 0, expanded: false,
+    location: db.settings.location || db.locations[0] || '', started: false, exIndex: 0, expanded: false,
     exercises: w.exercises.map(t => sessionItem(t.exId, t.equip, t.sets, t.reps)),
   };
   applyLocationDefaults(state.session);
@@ -1114,6 +1127,7 @@ function handle(a, d, el, ex) {
       const c = listCtx(), i = +d.i, j = i + +d.dir, arr = c.items;
       if (j >= 0 && j < arr.length) beginChange(c.owner);
       if (j >= 0 && j < arr.length) keepCurrentExercise(c, () => { [arr[i], arr[j]] = [arr[j], arr[i]]; c.ui.expanded = j; });
+      if (j >= 0 && j < arr.length) state.followMove = j;
       break;
     }
     case 'sess-swap-ex': {
@@ -1263,6 +1277,10 @@ function handle(a, d, el, ex) {
       return false;
     }
     case 'ob-close': state.ob = null; home(); break;
+    case 'set-restsound': db.settings.restSound = db.settings.restSound === false; break;
+    case 'open-notes': state.modal = 'notes'; break;
+    case 'close-notes': state.modal = null; break;
+    case 'rest-open': state.restOpen = !state.restOpen; break;
     case 'rest-play': {   // start, pause or resume
       const run = state.restRun;
       if (!run) restStart(restOf(s).secs);
@@ -1313,7 +1331,6 @@ function handle(a, d, el, ex) {
         state.goalUpdate = { from: it.goal.weight, to: a.weight };
         state.modal = 'updategoal';
       }
-      if (resting && !state.modal) { s.expanded = false; state.setDraft = setDraft('working'); state.modal = 'setwidget'; }
       break;
     }
     case 'sw-delete': {
@@ -1360,6 +1377,15 @@ function handle(a, d, el, ex) {
       const it = cur();
       setGoal(it.exId, it.equip, it.goal.sets, it.goal.reps, state.goalUpdate.to);
       syncAllGoals(); state.modal = null; state.goalUpdate = null; break;
+    }
+    case 'vs-accept': case 'vs-dismiss': {   // a goal converted from another volume
+      let it;
+      if (d.owner === 'session') { const e = cur(); it = { exId: e.exId, equip: e.equip, sets: e.goal.sets, reps: e.goal.reps }; }
+      else { const src = listCtx(d.owner).items[+d.i], v = vol(src); it = { exId: src.exId, equip: src.equip, sets: v.sets, reps: v.reps }; }
+      const x = volumeSuggestion(it.exId, it.equip, it.sets, it.reps); if (!x) break;
+      if (a === 'vs-accept') { setGoal(it.exId, it.equip, it.sets, it.reps, x.weight); syncAllGoals(); toast('Overload goal saved'); }
+      else dismissVolumeSuggestion(x.key);
+      break;
     }
     case 'open-goal': {
       let it, owner = d.owner;
@@ -1694,6 +1720,7 @@ function paintFeel(bar, f) {
   bar.querySelector('.ff-text').textContent = rpeOf(f.feel) === 'F' ? 'FAILURE' : '';
   const ring = bar.querySelector('.ff-ring'), on = rpeOf(f.feel) === 'F';
   if (ring && ring.classList.contains('on') !== on) { ring.classList.toggle('on', on); ringAt = Date.now(); }
+  th.classList.toggle('fail', on);   // the white thumb breathes a purple glow at failure
 }
 device.addEventListener('pointerdown', (e) => {
   const bar = e.target.closest('[data-feelbar]');
@@ -1745,11 +1772,18 @@ device.addEventListener('input', (e) => {
     return;
   }
   if (t.matches('[data-goalaskfield]')) { const v = parseFloat(t.value.replace(',', '.')); if (!isNaN(v) && (v >= 0 || isBodyweight(state.session.exercises[state.goalAsk.ei].equip))) state.goalAsk.weight = v; return; }
+  if (t.matches('[data-note]')) {   // saved as you type; an empty note is removed
+    const ss = state.session, ex = ss && ss.exercises[ss.exIndex]; if (!ex) return;
+    db.notes = db.notes || {}; const k = noteKey(ss, ex);
+    if (t.value.trim()) db.notes[k] = t.value; else delete db.notes[k];
+    save(); return;
+  }
   if (t.matches('[data-goalfield]')) { const v = parseFloat(t.value.replace(',', '.')); if (!isNaN(v) && v >= 0) state.goalEdit.weight = v; }
 });
 // Enter in a text field moves forward
 device.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || !e.target.matches('input')) return;
+  if (e.target.matches('[data-firstloc]')) { e.preventDefault(); e.target.blur(); return; }   // saved on change
   const next = document.querySelector('[data-action="exwiz-next"],[data-action="eqwiz-next"],[data-action="plan-next"],[data-action="save-location"]');
   if (e.target.matches('.sw-in,[data-goalfield],[data-goalaskfield]')) { e.target.blur(); render(); return; }
   if (next) { e.preventDefault(); next.click(); }
@@ -1758,6 +1792,12 @@ device.addEventListener('focusin', (e) => { if (e.target.matches('.sw-in')) e.ta
 
 // Photos from the native picker, and backup files.
 device.addEventListener('change', (e) => {
+  // the first time you name where you train: save it as a location and use it for this workout
+  if (e.target.matches('[data-firstloc]')) {
+    const name = e.target.value.trim(); if (!name || !state.session) return;
+    if (!db.locations.includes(name)) db.locations.push(name);
+    setLocation('lineup', name); render(); toast(`Saved ${name}`); return;
+  }
   const imp = e.target.closest('input[data-import]');
   if (imp && imp.files && imp.files[0]) {
     imp.files[0].text().then(text => {

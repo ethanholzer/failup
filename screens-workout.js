@@ -5,7 +5,7 @@
 import { state } from './data.js';
 import { I, WORKOUT_ICONS, tex, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP, eqName } from './ui.js';
 import {
-  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC, isMachineType,
+  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, volumeSuggestion, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC, isMachineType,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
 } from './store.js';
 import { eqImg } from './screens-library.js';
@@ -85,6 +85,21 @@ function exSub(it) {
   const v = vol(it), g = itemGoal(it), u = eqUnits(it.equip);
   return `<span class="mtag">${esc(exInfo(it).muscle)}</span>${v.sets} Sets x ${v.reps} Reps${g != null ? ` · <span class="lbs">${wtTight(g, u)}</span>` : ''}`;
 }
+// The Overload Goal panel: weight on top, volume underneath in grey; a converted
+// suggestion from another volume gets Accept and Dismiss in place of Edit.
+export function goalPanel(g, vs, v, u, attrs, o = {}) {
+  const sug = g == null && vs;
+  const main = g != null ? `<div class="gp-val tnum">${wtTight(g, u)}</div>`
+    : sug ? `<div class="gp-val tnum">${wtTight(vs.weight, u)}</div>`
+    : o.pending ? `<div class="gp-val tnum">${wtTight(o.pending.weight, u)}</div>`
+    : '<div class="gp-val none">No Goal Yet</div>';
+  const sub = `<div class="gp-sub tnum">${v.sets} Sets · ${v.reps} Reps</div>`;
+  const btns = sug
+    ? `<div class="gp-btns"><button class="gp-btn ok" data-action="vs-accept" ${attrs}>Accept</button><button class="gp-btn" data-action="vs-dismiss" ${attrs}>Dismiss</button></div>`
+    : g == null && !o.pending ? `<button class="sess-dpill gp-ico" data-action="open-goal" ${attrs} aria-label="Set overload goal">${I.editPen}</button>`
+    : o.btn != null ? o.btn : `<button class="cw-edit" data-action="open-goal" ${attrs}>${I.editPen} Edit</button>`;
+  return `<div class="${o.cls || 'cw-goal'} gp${sug ? ' sugg' : ''}"><div class="${o.textCls || 'cw-goal-text'}">${main}${sub}${o.extra || ''}</div>${btns}</div>`;
+}
 export function exerciseCards(ctx) {
   if (!ctx.items.length) return `<div class="cw-empty">${ctx.readOnly ? 'No exercises in this workout yet.' : 'No exercises yet. Add your first one below.'}</div>`;
   const seen = {};
@@ -92,6 +107,7 @@ export function exerciseCards(ctx) {
     const nth = seen[it.exId] = (seen[it.exId] || 0) + 1;   // stable key, so reordering can animate
     const open = ctx.ui.expanded === i, v = vol(it), ro = ctx.readOnly;
     const g = itemGoal(it), u = eqUnits(it.equip), sv = eqById(it.equip);
+    const vs = !ro && g == null ? volumeSuggestion(it.exId, it.equip, v.sets, v.reps) : null;
     const stepper = (label, field) => ro ? `
           <div class="cw-stepper ro"><div class="cw-st-label">${label}</div><div class="cw-st-row ro"><div class="cw-st-val tnum">${v[field]}</div></div></div>` : `
           <div class="cw-stepper">
@@ -107,24 +123,26 @@ export function exerciseCards(ctx) {
       <div class="cw-ex-detail">
         <div class="cw-detail-main">
           ${ctx.owner === 'create' ? `
+          <div class="cw-blk"><div class="cw-st-label">Preferred Equipment Type</div>
           <button class="cw-pref lu-eqrow" data-action="open-preftype" data-owner="create" data-i="${i}">
             ${prefThumb(it.equip)}
-            <span class="cw-pref-text"><span class="cw-label">Preferred Equipment Type</span><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span><span class="cw-pref-note">For convenience. Easy to swap mid-workout.</span></span>
+            <span class="cw-pref-text"><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span></span>
             <span class="cw-pref-btn">${I.swap24}</span>
-          </button>` : ''}
+          </button></div>` : ''}
           ${ctx.owner === 'lineup' && !ro ? lineupEquipRow(it, i) : ''}
           ${ro ? `<div class="cw-pref lu-eqrow ro">${prefThumb(it.equip)}<span class="cw-pref-text"><span class="cw-label">Preferred Equipment Type</span><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span></span></div>` : ''}
           ${ro ? `<div class="cw-volrow"><div class="cw-label">Volume</div><div class="cw-volval tnum">${v.sets} Sets · ${v.reps} Reps</div></div>` : `<div class="cw-steppers">${stepper('Sets', 'sets')}${stepper('Reps', 'reps')}</div>`}
-          <div class="cw-goal">
+          ${ro ? '' : `<div class="cw-blk"><div class="cw-st-label">Overload Goal${vs ? ' (Suggested)' : ''}</div>`}
+          ${ro ? `<div class="cw-goal">
             <div class="cw-goal-text"><div class="cw-label">Overload Goal</div><div class="cw-goal-val tnum">${v.sets} Sets · ${v.reps} Reps · <span class="lbs">${g != null ? wtTight(g, u) : 'No Goal Yet'}</span></div></div>
-            ${ro ? '' : `<button class="cw-edit" data-action="open-goal" data-owner="${ctx.owner}" data-i="${i}">${I.editPen} Edit</button>`}
-          </div>
+          </div>` : goalPanel(g, vs, v, u, `data-owner="${ctx.owner}" data-i="${i}"`)}
+          ${ro ? '' : '</div>'}
         </div>
         ${ro ? '' : `<div class="cw-actions">
-          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="-1">${I.chevUp20} Up</button>
-          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="1">${I.chevDn20} Down</button>
-          <button class="cw-act" data-action="ex-swap" data-i="${i}">${I.swap} Swap</button>
-          <button class="cw-act del" data-action="ex-delete" data-i="${i}">${I.trashRed} Delete</button>
+          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="-1">${I.chevUp20}<span>Up</span></button>
+          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="1">${I.chevDn20}<span>Down</span></button>
+          <button class="cw-act" data-action="ex-swap" data-i="${i}">${I.swap}<span>Swap</span></button>
+          <button class="cw-act del" data-action="ex-delete" data-i="${i}">${I.trashRed}<span>Delete</span></button>
         </div>`}
       </div>`;
     return `
@@ -179,13 +197,14 @@ function lineupEquipRow(it, i) {
   const sv = eqById(it.equip);
   const kind = it.pref || genericOf(sv ? eqType(sv) : it.equip);
   const name = sv ? sv.name : eqName(it.equip);
-  const sub = sv ? kind : (GENERIC.includes(kind) && state.session ? `Nothing saved at ${esc(state.session.location)}` : '');
+  const sub = sv ? kind : (GENERIC.includes(kind) && state.session && state.session.location ? `Nothing saved at ${esc(state.session.location)}` : '');
   return `
+          <div class="cw-blk"><div class="cw-st-label">Default Equipment</div>
           <button class="cw-pref lu-eqrow" data-action="open-swap" data-owner="lineup" data-i="${i}">
             ${eqImg(sv, 'xd-eqimg', kind)}
-            <span class="cw-pref-text"><span class="cw-label">Default Equipment</span><span class="cw-pref-val">${esc(name)}</span>${sub ? `<span class="cw-pref-note">${sub}</span>` : ''}</span>
+            <span class="cw-pref-text"><span class="cw-pref-val">${esc(name)}</span>${sub ? `<span class="cw-pref-note">${sub}</span>` : ''}</span>
             <span class="cw-pref-btn">${I.swap24}</span>
-          </button>`;
+          </button></div>`;
 }
 // Rest timer: on/off and length live on the session (defaults from settings)
 export const restOf = s => s.rest || (db.settings.rest || { on: false, secs: 60 });
@@ -195,19 +214,44 @@ const STOPWATCH = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" s
 const PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.2-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z" fill="currentColor"/></svg>';
 const PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></svg>';
 // Rest timer row, only on the set logger: stopwatch, minus, time, plus, play/pause
-export function restRow(s) {
+const NOTE_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5h10.5L19 8v11.5H5z"/><path d="M8.5 10h7M8.5 13.5h7M8.5 17h4"/></svg>';
+// each exercise in a workout keeps its own note
+export const noteKey = (s, ex) => `${s.workoutId || 'quick'}|${ex.exId}`;
+export const noteOf = (s, ex) => ((db.notes || {})[noteKey(s, ex)] || '');
+// the rest timer: a pill in the corner. Closed it's the countdown; open it adds -, + and play/pause
+export function restPill(s) {
   const r = restOf(s), run = state.restRun, live = run && run.paused == null;
   const secs = run ? Math.ceil(restLeft() / 1000) : r.secs;
+  const cls = `rp${run ? ' on' : ''}${live ? ' live' : ''}`;
+  const time = `<span class="rp-time tnum" data-rest-num aria-live="off">${mmss(secs)}</span>`;
+  if (!state.restOpen) return `<button class="${cls}" data-action="rest-open" aria-label="Rest timer, ${mmss(secs)}"><span class="rp-ic">${STOPWATCH}</span>${time}</button>`;
   return `
-      <div class="rt-row${run ? ' on' : ''}${live ? ' live' : ''}" data-rest>
-        <span class="rt-ic">${STOPWATCH}</span>
-        <span class="rt-mid">
-          <button class="rt-adj" data-action="rest-adj" data-d="-1" aria-label="Less rest"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 12h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
-          <span class="rt-time tnum" data-rest-num aria-live="off">${mmss(secs)}</span>
-          <button class="rt-adj" data-action="rest-adj" data-d="1" aria-label="More rest"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 12h12M12 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
-        </span>
+      <div class="${cls} open" data-rest>
+        <button class="rp-ic rp-close" data-action="rest-open" aria-label="Close rest timer">${STOPWATCH}</button>
+        <button class="rt-adj" data-action="rest-adj" data-d="-1" aria-label="Less rest"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 12h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+        ${time}
+        <button class="rt-adj" data-action="rest-adj" data-d="1" aria-label="More rest"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 12h12M12 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
         <button class="rt-play" data-action="rest-play" aria-label="${live ? 'Pause rest timer' : 'Start rest timer'}">${live ? PAUSE : PLAY}</button>
       </div>`;
+}
+export function sessTools(s, ex) {
+  return `
+    <div class="sess-tools">
+      <button class="st-note${noteOf(s, ex).trim() ? ' has' : ''}" data-action="open-notes" aria-label="Notes for this exercise">${NOTE_IC}<span>Notes</span></button>
+      ${restOf(s).on ? restPill(s) : ''}
+    </div>`;
+}
+export function NotesSheet() {
+  const s = state.session, ex = s && s.exercises[s.exIndex]; if (!ex) return '';
+  return `
+  <div class="scrim" data-action="close-notes">
+    <div class="sheet nt-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="mn-head"><div class="vs-title">Notes</div><div class="vs-sub">${esc(exInfo(ex).name)}${s.workoutName ? ` · ${esc(s.workoutName)}` : ''}</div></div>
+      <textarea class="nt-text" data-note rows="7" placeholder="Seat height, grip, cues, anything you want to remember next time">${esc(noteOf(s, ex))}</textarea>
+      <div class="sheet-actions"><button class="btn solid" data-action="close-notes">Done</button></div>
+    </div>
+  </div>`;
 }
 export function LineupScreen() {
   const s = state.session, ctx = listCtx('lineup');
@@ -227,10 +271,15 @@ export function LineupScreen() {
           <div class="lu-tile tint" style="--wc:${s.color}"${tex(s)}>${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
           <div><div class="lu-title">${esc(s.workoutName)}</div><div class="lu-count">${n ? `Workout completed ${plural(n, 'time')}` : 'First time doing this workout'}</div></div>
         </div>
+        ${s.location ? `
         <div class="lu-loc">
           <div class="lu-loctext"><div class="cw-label">Where is this workout?</div><div class="lu-locname">${esc(s.location)}</div></div>
           <button class="lu-locpill" data-action="open-location" data-target="lineup" aria-label="Change location">${I.swap24}</button>
-        </div>
+        </div>` : `
+        <label class="lu-loc lu-locfield">
+          <span class="lu-loctext"><span class="cw-label">Where is this workout?</span>
+          <input class="lu-locinput" data-firstloc placeholder="Name this gym, like Home or Downtown" autocomplete="off" enterkeyhint="done"></span>
+        </label>`}
       </div>
       ${pre && ctx.items.length ? `
       <div class="lu-loc lu-vol">
@@ -485,27 +534,32 @@ export function WorkoutSessionScreen() {
   const img = imgSrc ? `${PH_EQUIP(eqKind(ex.equip))}<img src="${imgSrc}" alt="" onerror="this.remove()">` : '';
   // goal row button: View a waiting suggestion, the tracker when there's a goal, nothing otherwise
   const sugg = ex.newGoal == null ? pendingSuggestion(ex) : null;
+  const vsx = ex.goal.weight == null && !sugg ? volumeSuggestion(ex.exId, ex.equip, ex.goal.sets, ex.goal.reps) : null;
   const goalBtn = sugg ? `<button class="sess-dpill sess-view" data-action="goal-view">View</button>`
     : ex.goal.weight != null ? `<button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>` : '';
   const detail = !s.expanded ? '' : `
     <div class="sess-exdetail">
       <div class="sess-swaprow"><button class="wpill sess-swapex" data-action="sess-swap-ex">${I.swap} Swap exercise</button></div>
-      <div class="sess-drow">
-        <div class="sess-dleft">
+      <div class="sess-blk">
+        <div class="sess-blabel">Equipment</div>
+        <div class="sess-panel">
           <div class="dimg generic ph kind${img ? ' photo' : ''}">${img || PH_EQUIP(eqKind(ex.equip))}</div>
-          <div><div class="dlabel">Equipment</div><div class="dval">${esc(eqLabel(ex.equip))}</div>${!sv && isMachineType(ex.equip) ? '<div class="dlabel sess-savehint">Machines vary, tap swap to save the one you’re on</div>' : ''}${sv ? `<div class="dlabel" style="margin-top:2px">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
+          <div class="sess-ptext"><div class="dval">${esc(eqLabel(ex.equip))}</div>${!sv && isMachineType(ex.equip) ? '<div class="dlabel sess-savehint">Machines vary, tap swap to save the one you’re on</div>' : ''}${sv ? `<div class="dlabel">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
+          <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
         </div>
-        <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
       </div>
-      <div class="sess-drow">
-        <div><div class="dlabel">Volume</div><div class="dval tnum">${ex.goal.sets} Sets · ${ex.goal.reps} Reps</div></div>
-        <button class="sess-dpill" data-action="open-volume" data-owner="session" aria-label="Volume settings">${I.filter}</button>
+      <div class="sess-blk">
+        <div class="sess-blabel">Volume</div>
+        <div class="sess-panel">
+          <div class="sess-ptext"><div class="dval tnum">${ex.goal.sets} Sets · ${ex.goal.reps} Reps</div></div>
+          <button class="sess-dpill" data-action="open-volume" data-owner="session" aria-label="Volume settings">${I.filter}</button>
+        </div>
       </div>
-      <div class="sess-drow">
-        <div><div class="dlabel">${sugg && ex.goal.weight == null ? 'Overload Goal Suggestion' : 'Overload Goal'}</div><div class="dval goal">${ex.goal.weight != null ? `${wtTight(ex.goal.weight, u)} at volume or to failure` : sugg ? `${sugg.sets} Sets · ${sugg.reps} Reps · ${wtTight(sugg.weight, u)}` : 'No Goal Yet'}</div>
-        ${sugg && ex.goal.weight != null ? `<div class="dlabel" style="margin-top:2px">Suggested: ${wtTight(sugg.weight, u)}</div>` : ''}
-        ${ex.newGoal != null ? `<div class="dlabel" style="margin-top:2px">Next time: ${wtTight(ex.newGoal, u)}</div>` : ''}</div>
-        ${goalBtn}
+      <div class="sess-blk">
+        <div class="sess-blabel">Overload Goal${ex.goal.weight == null && (vsx || sugg) ? ' (Suggested)' : ''}</div>
+        ${goalPanel(ex.goal.weight, vsx, ex.goal, u, 'data-owner="session"', {
+          cls: 'sess-panel', textCls: 'sess-ptext', pending: sugg, btn: goalBtn,
+          extra: `${sugg && ex.goal.weight != null ? `<div class="gp-sub">Suggested: ${wtTight(sugg.weight, u)}</div>` : ''}${ex.newGoal != null ? `<div class="gp-sub">Next time: ${wtTight(ex.newGoal, u)}</div>` : ''}` })}
       </div>
     </div>`;
   const working = workingSets(ex);
@@ -551,7 +605,7 @@ export function WorkoutSessionScreen() {
       ${ghosts}
       ${complete ? `<button class="set-extra" data-action="sess-log" data-type="working">${I.plus20} Extra Set</button>` : ''}
     </div>
-    ${state.pending ? pendingTray() : `<div class="sess-footer${restOf(s).on ? ' has-rest' : ''}"><div class="sess-footrow">${footer}</div>${restOf(s).on ? restRow(s) : ''}</div>`}
+    ${state.pending ? pendingTray() : `${sessTools(s, ex)}<div class="sess-footer"><div class="sess-footrow">${footer}</div></div>`}
   </div>`;
 }
 
@@ -568,12 +622,13 @@ export function ActiveSetSheet() {
   <div class="scrim" data-action="sess-cancelset">
     <div class="sheet" data-stop>
       <div class="sheet-grab"></div>
-      ${state.session && !a.edit && restOf(state.session).on ? restRow(state.session) : ''}
-      <div class="sw-head">
-        <div class="sw-title">${a.edit ? 'Edit ' : ''}${a.type === 'warmup' ? `Warmup${a.setNum ? ' ' + a.setNum : ''}` : `Set ${a.setNum}`}${a.type !== 'warmup' && swOf ? `<span class="sw-of">${a.setNum > swOf ? 'Extra set' : `of ${swOf}`}</span>` : ''}</div>
-        ${swEx ? `<div class="sw-exname">${esc(swEx)}</div>` : ''}
+      <div class="sw-head sw-headrow">
+        <div class="sw-headleft">
+          <div class="sw-title">${a.edit ? 'Edit ' : ''}${a.type === 'warmup' ? `Warmup${a.setNum ? ' ' + a.setNum : ''}` : `Set ${a.setNum}`}${a.type !== 'warmup' && swOf ? `<span class="sw-of">${a.setNum > swOf ? 'Extra set' : `of ${swOf}`}</span>` : ''}</div>
+          ${swEx ? `<div class="sw-exname">${esc(swEx)}</div>` : ''}
+        </div>
+        ${a.hint ? (a.hint.goal ? `<div class="sw-goalside"><span>Overload goal</span><b class="tnum">${esc(a.hint.title)}</b></div>` : '<div class="sw-goalside none"><span>No overload goal yet</span></div>') : ''}
       </div>
-      ${a.hint ? `<div class="sw-goalchip${a.hint.goal ? ' goal' : ''}">${a.hint.goal ? `Overload goal <b class="tnum">${esc(a.hint.title)}</b>` : 'No overload goal yet'}</div>` : ''}
       <div class="sw-group">
         <div class="sw-glabel">${a.bw ? `Weight <span class="sw-bw">${a.weight > 0 ? 'added' : a.weight < 0 ? 'assisted' : 'bodyweight only'}</span>` : 'Weight'}</div>
         <div class="sw-grow">
@@ -599,7 +654,7 @@ export function ActiveSetSheet() {
           ${['#c8c4e7', '#beb9e7', '#b4ade7', '#aaa2e7', '#9f96e7', '#958be7', '#8b7fe7', '#8174e7', '#7768e7', '#426e8f'].map(c => `<span class="ff-seg" style="background:${c}"></span>`).join('')}
           <div class="ff-text">${a.touched && rpeOf(a.feel) === 'F' ? 'FAILURE' : ''}</div>
           <div class="ff-end"><span class="ff-f">F</span></div>
-          <div class="ff-thumb" style="left:${thumbLeft}"><svg class="ff-ring${rpeOf(a.feel) === 'F' && a.touched ? ' on' : ''}" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" pathLength="100"/></svg><span class="ff-num">${rpeNum(a.feel)}</span></div>
+          <div class="ff-thumb${rpeOf(a.feel) === 'F' && a.touched ? ' fail' : ''}" style="left:${thumbLeft}"><svg class="ff-ring${rpeOf(a.feel) === 'F' && a.touched ? ' on' : ''}" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" pathLength="100"/></svg><span class="ff-num">${rpeNum(a.feel)}</span></div>
         </div>
         </div>
       </div>

@@ -1061,6 +1061,10 @@ export function SettingsScreen() {
         <div class="xd-hgroup"><div class="xd-h">Weight Units</div><div class="xd-sub">Used for generic equipment. Saved equipment keeps its own units.</div></div>
         <div class="eqd-unitrow">${unit('lbs', 'Pounds (lbs)')}${unit('kg', 'Kilograms (kg)')}</div>
       </div>
+      <div class="xd-card st-sound">
+        <div class="xd-hgroup"><div class="xd-h">Rest Timer Sound</div><div class="xd-sub">Boops at 3, 2 and 1, then a beep when rest is over</div></div>
+        <button class="lu-switch${db.settings.restSound !== false ? ' on' : ''}" data-action="set-restsound" role="switch" aria-checked="${db.settings.restSound !== false}" aria-label="Rest timer sound"><span></span></button>
+      </div>
       <div class="xd-card st-card">
         <div class="xd-hgroup"><div class="xd-h">Your Data</div><div class="xd-sub">Everything is saved in this browser. Back it up now and then, and restore it on a new phone.</div></div>
         <div class="st-stats">${db.sessions.length} workout${db.sessions.length === 1 ? '' : 's'} logged · ${db.workouts.length} saved workout${db.workouts.length === 1 ? '' : 's'} · ${db.equipment.length} saved equipment</div>

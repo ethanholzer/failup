@@ -134,12 +134,12 @@ function freshDb() {
     v: SCHEMA,
     workouts: seedWorkouts(),
     equipment: [],                 // saved equipment { id, name, location, units, photo }
-    locations: ['Home', 'Wash Park', "Dad's Gym"],
+    locations: [],                 // added by you the first time you pick where you train
     sessions: [],                  // finished workouts, oldest first
     goalEdits: [],                 // manual goal changes { key, weight, at }
     active: null,                  // the workout in progress (or paused)
     plan: null,                    // { name, splitDays, days, start, end }
-    settings: { units: 'lbs', location: 'Home' },
+    settings: { units: 'lbs', location: '' },
     exCustom: SEED_CUSTOM.map(e => ({ ...e })),
     exOverrides: {},
     exDeleted: [],
@@ -178,7 +178,7 @@ function migrateColors() {
 function replaceDb(next) {
   for (const k of Object.keys(db)) delete db[k];
   Object.assign(db, next);
-  db.settings = { units: 'lbs', location: 'Home', ...(db.settings || {}) };
+  db.settings = { units: 'lbs', location: '', ...(db.settings || {}) };
   if (!Array.isArray(db.suggestions)) db.suggestions = [];   // goal suggestions waiting on a yes/no
   migrateColors();
   buildExercises();
@@ -343,6 +343,29 @@ export function setGoal(exId, ref, sets, reps, weight) {
   db.goalEdits.push({ key, weight, at: new Date().toISOString() });
   invalidate();
 }
+// A goal at another volume on the same equipment, converted to this volume.
+// Reps convert with the average of the Epley and Brzycki one-rep-max formulas, rounded down
+// to the equipment's weight step. Same set count first, then the closest rep count.
+export const repFactor = r => { r = Math.max(1, Math.min(30, r)); return ((1 + r / 30) + 36 / (37 - r)) / 2; };
+export function volumeSuggestion(exId, ref, sets, reps) {
+  if (!exId || !ref || goalFor(exId, ref, sets, reps) != null) return null;
+  const key = goalKey(exId, ref, sets, reps);
+  if ((db.volSuggDismissed || []).includes(key)) return null;
+  const pre = `${exId}|${ref}|`, cands = [];
+  for (const [k, w] of Object.entries(derived().goals)) {
+    if (w == null || !k.startsWith(pre)) continue;
+    const [S, R] = k.slice(pre.length).split('x').map(Number);
+    if (S && R) cands.push({ sets: S, reps: R, weight: w });
+  }
+  if (!cands.length) return null;
+  cands.sort((a, b) => (a.sets !== sets) - (b.sets !== sets) || Math.abs(a.reps - reps) - Math.abs(b.reps - reps) || Math.abs(a.sets - sets) - Math.abs(b.sets - sets));
+  const src = cands[0]; if (!(src.weight > 0)) return null;
+  const inc = increment(eqUnits(ref));
+  const raw = src.weight * repFactor(src.reps) / repFactor(reps);
+  const weight = Math.max(inc, Math.floor(raw / inc + 1e-9) * inc);
+  return { key, sets, reps, weight, from: src };
+}
+export function dismissVolumeSuggestion(key) { db.volSuggDismissed = [...new Set([...(db.volSuggDismissed || []), key])]; }
 // every goal for an exercise: [{ ref, sets, reps, weight }]
 export function goalsOf(filter) {
   const out = [];
