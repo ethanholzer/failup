@@ -212,7 +212,6 @@ function restUpdate() {
   restStop();
   restChime();
   const s = state.session;
-  if (state.screen === 'session' && s && !state.modal) { s.expanded = false; state.setDraft = setDraft('working'); state.modal = 'setwidget'; }
   render();
 }
 // the countdown: "Boop" at 3, 2 and 1, then a higher, longer "Beep!" at zero
@@ -605,6 +604,8 @@ function prepSession(w) {
   state.lineup = { expanded: null, swapIndex: null };
   go('lineup');
 }
+// the exercise's note as it stood when the workout finished (shown on Workout Complete, never in the share image)
+const noteFor = (s, e) => ((db.notes || {})[noteKey(s, e)] || '').trim();
 function finishSession() {
   const s = state.session;
   const done = s.exercises.filter(e => e.sets.length);
@@ -612,7 +613,7 @@ function finishSession() {
   const rec = {
     id: s.id, workoutId: s.workoutId, workoutName: s.workoutName, color: s.color, tex: s.tex || '', icon: s.icon, location: s.location,
     startedAt: s.startedAt, finishedAt: new Date().toISOString(), edited: !!s.edited,
-    exercises: done.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, equip: e.equip, equipName: eqLabel(e.equip), goal: { ...e.goal }, newGoal: e.newGoal ?? null, newGoalVol: e.newGoalVol || null, sets: e.sets.map(x => ({ ...x })) })),
+    exercises: done.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, equip: e.equip, equipName: eqLabel(e.equip), goal: { ...e.goal }, newGoal: e.newGoal ?? null, newGoalVol: e.newGoalVol || null, sets: e.sets.map(x => ({ ...x })), ...(noteFor(s, e) ? { note: noteFor(s, e) } : {}) })),
   };
   db.sessions.push(rec);
   // anything you said "Not now" to, or never got asked about (fewer sets, ended early), waits as a suggestion
@@ -983,7 +984,7 @@ async function shareSession(s) {
   const file = new File([blob], `failup-${s.workoutName.replace(/\W+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
   if (window.__shareTest) { window.__shareTest(c.toDataURL('image/png')); return; }
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: `${s.workoutName} · FailUp`, text: `Tracked with FailUp ${LINKS.appStore || LINKS.site}` }); } catch {}
+    try { await navigator.share({ files: [file], title: `${s.workoutName} · FailUp`, text: `Tracked with FailUp\n${LINKS.appStore || LINKS.site}`, url: LINKS.appStore || LINKS.site }); } catch {}
   } else downloadBlob(blob, file.name);
 }
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -1011,6 +1012,8 @@ device.addEventListener('pointerdown', (e) => {
   el.addEventListener('animationend', () => el.classList.remove('flash', 'flash-dark'), { once: true });
 }, { passive: true });
 device.addEventListener('click', (e) => {
+  // a tap anywhere outside the open rest timer closes it
+  if (state.restOpen && !e.target.closest('.rp')) { state.restOpen = false; if (!e.target.closest('[data-action]')) { render(); return; } }
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
   if (el.classList.contains('scrim') && e.target.closest('[data-stop]')) return;
@@ -1031,7 +1034,7 @@ function handle(a, d, el, ex) {
       const inSession = d.owner === 'session', it = inSession ? cur() : null;
       const exId = inSession ? it.exId : state.tracker.exId, ref = inSession ? it.equip : state.tracker.equip;
       const v = inSession ? it.goal : state.tracker.volume;
-      state.volumeDraft = { context: inSession ? 'session' : 'tracker', sets: v.sets, reps: v.reps, unit: eqUnits(ref),
+      state.volumeDraft = { context: inSession ? 'session' : 'tracker', exId, ref, sets: v.sets, reps: v.reps, unit: eqUnits(ref),
         goalFor: (st, r) => goalFor(exId, ref, st, r), points: (st, r) => volumeDots(exId, ref, st, r).length };
       state.modal = 'volume'; break;
     }
@@ -1267,7 +1270,7 @@ function handle(a, d, el, ex) {
       if (!db.locations.includes(name)) db.locations.push(name);
       state.ob.location = name; break;
     }
-    case 'ob-starter': obFinish(); home(); go('quickselect'); break;
+    case 'ob-starter': obFinish(); home(); break;   // the end of the intro lands on Home
     case 'ob-build': obFinish(); home();
       state.create = { mode: 'new', editId: null, name: '', color: WORKOUT_COLORS[db.workouts.length % WORKOUT_COLORS.length].hex, icon: 'kick', expanded: null, exercises: [] };
       go('create'); break;
@@ -1321,9 +1324,6 @@ function handle(a, d, el, ex) {
       const it = cur();
       if (a.edit) { it.sets[a.edit.si] = rec; break; }
       it.sets.push(rec);
-      // rest timer: after a working set, until the set volume is done
-      const resting = a.type === 'working' && restOf(s).on && workingSets(it).length < it.goal.sets;
-      if (resting) restStart(restOf(s).secs);
       // Figma "Weight Adjustment Edgecase": reduced weight, goal volume, RPE 7+
       const r = rpeOf(a.feel), rpe = r === 'F' ? 10 : +r.slice(4);
       if (a.type === 'working' && it.goal.weight != null && a.weight < it.goal.weight && a.reps >= it.goal.reps && rpe >= 7 && !it.goalPrompted) {
@@ -1381,6 +1381,7 @@ function handle(a, d, el, ex) {
     case 'vs-accept': case 'vs-dismiss': {   // a goal converted from another volume
       let it;
       if (d.owner === 'session') { const e = cur(); it = { exId: e.exId, equip: e.equip, sets: e.goal.sets, reps: e.goal.reps }; }
+      else if (d.owner === 'volume') { const v = state.volumeDraft; it = { exId: v.exId, equip: v.ref, sets: v.sets, reps: v.reps }; }
       else { const src = listCtx(d.owner).items[+d.i], v = vol(src); it = { exId: src.exId, equip: src.equip, sets: v.sets, reps: v.reps }; }
       const x = volumeSuggestion(it.exId, it.equip, it.sets, it.reps); if (!x) break;
       if (a === 'vs-accept') { setGoal(it.exId, it.equip, it.sets, it.reps, x.weight); syncAllGoals(); toast('Overload goal saved'); }

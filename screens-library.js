@@ -8,9 +8,9 @@ import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, WORKOUT_ICON_GROUPS, tex, statusBa
 import { WORKOUT_COLORS, TEXTURED_COLORS } from './data.js';
 import {
   db, EXERCISES, exById, GENERIC, MACHINE_TYPES, isMachineType, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
-  derived, goalKey, goalFor, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind, volumeDots, goalSegments, eqTypes, TYPE_ORDER, eqLocs, eqAt, eqLocText,
+  derived, goalKey, goalFor, volumeSuggestion, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind, volumeDots, goalSegments, eqTypes, TYPE_ORDER, eqLocs, eqAt, eqLocText,
 } from './store.js';
-import { rpeOf, setRow, listCtx } from './screens-workout.js';
+import { rpeOf, setRow, listCtx, goalPanel } from './screens-workout.js';
 import { searchExercises } from './search.js';
 
 export const EQ_TYPES = ['Bar', 'Dumbbell', 'Bodyweight', 'Cable Machine', 'Smith Machine', 'Specialized Machine'];
@@ -272,14 +272,14 @@ export function VolumeModal() {
   const inSession = v.context === 'session', master = v.context === 'master';
   const goal = master ? null : v.goalFor(v.sets, v.reps), pts = master ? 0 : v.points(v.sets, v.reps);
   const stepper = (label, field, val) => `
-      <div class="vs-group">
-        <div class="vs-label">${label}</div>
-        <div class="vs-row">
-          <button class="sw-adj" data-action="vol-step" data-field="${field}" data-dir="-1" aria-label="Fewer ${label}">${I.minus20}</button>
-          <div class="vs-val tnum">${val}</div>
-          <button class="sw-adj" data-action="vol-step" data-field="${field}" data-dir="1" aria-label="More ${label}">${I.plus20}</button>
-        </div>
-      </div>`;
+          <div class="cw-stepper">
+            <div class="cw-st-label">${label}</div>
+            <div class="cw-st-row">
+              <button class="cw-st-btn" data-action="vol-step" data-field="${field}" data-dir="-1" aria-label="Fewer ${label}">${I.minus20}</button>
+              <div class="cw-st-val tnum">${val}</div>
+              <button class="cw-st-btn" data-action="vol-step" data-field="${field}" data-dir="1" aria-label="More ${label}">${I.plus20}</button>
+            </div>
+          </div>`;
   return `
   <div class="scrim" data-action="close-volume">
     <div class="sheet vs-sheet" data-stop>
@@ -290,14 +290,14 @@ export function VolumeModal() {
             <div class="vs-title">${master ? 'Volume for every exercise' : inSession ? 'Volume Settings' : 'Volume Filter'}</div>
             <div class="vs-sub">${master ? `Sets all ${v.count} exercises at once. You can still tweak any one after.` : inSession ? 'How much do you want to lift today?' : 'Select the volume you want to see data for'}</div>
           </div>
-          ${master ? '' : `<div class="vs-info">
-            <div>
-              <div class="vs-main tnum">${v.sets} Sets · ${v.reps} Reps · <span class="lbs">${goal != null ? wtTight(goal, v.unit) : 'No Goal Yet'}</span></div>
-              <div class="vs-meta">${goal != null ? `${pts} datapoint${pts === 1 ? '' : 's'} logged` : 'Log this exercise to get your first overload goal'}</div>
-            </div>
-            <span class="vs-graph">${I.graph}</span>
-          </div>`}
-          <div class="vs-steppers">${stepper('Sets', 'sets', v.sets)}${stepper('Reps', 'reps', v.reps)}</div>
+          <div class="vs-steppers cw-steppers">${stepper('Sets', 'sets', v.sets)}${stepper('Reps', 'reps', v.reps)}</div>
+          ${master ? '' : (() => {
+            const vs = goal == null && v.exId ? volumeSuggestion(v.exId, v.ref, v.sets, v.reps) : null;
+            return `<div class="vs-goalblk">
+            <div class="vs-glabel">Overload Goal${vs ? ' (Suggested)' : ''}</div>
+            ${goalPanel(goal, vs, v, v.unit, 'data-owner="volume"', { cls: 'vs-gpanel', btn: '', noEdit: true,
+              extra: goal != null ? `<div class="gp-sub">${pts} datapoint${pts === 1 ? '' : 's'} logged</div>` : vs ? '' : '<div class="gp-sub">Log this volume to get your first goal</div>' })}
+          </div>`; })()}
         </div>
         <div class="ug-actions">
           <button class="ug-btn" data-action="close-volume">Nevermind</button>
@@ -771,8 +771,8 @@ export function EquipmentDetailScreen() {
         <div class="xd-name eqd-name">${eqLocs(sv).length > 1 ? esc(sv.name) : `${esc(sv.location)} ${esc(sv.name)}`}</div>
         <div class="xd-kv"><span>Listing Type</span><span>User Added</span></div>
       </div>
-      <div class="eqd-loc eqd-loccard"><span class="eqd-loctext"><span class="cw-label">What kind of equipment is it?</span><span class="eqd-locval">${esc(eqTypes(sv).join(', '))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-eqtypes" aria-label="Edit equipment kinds">${I.pencil}</button></div>
-      <div class="eqd-loc eqd-loccard"><span class="eqd-loctext"><span class="cw-label">Where is this located?</span><span class="eqd-locval">${esc(eqLocText(sv))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-location" data-target="equipment" aria-label="Edit locations">${I.pencil}</button></div>
+      <div class="eqd-loc eqd-loccard">${eqImg(null, 'eqd-thumb', genericOf(eqTypes(sv)[0] || eqType(sv)))}<span class="eqd-loctext"><span class="cw-label">What kind of equipment is it?</span><span class="eqd-locval">${esc(eqTypes(sv).join(', '))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-eqtypes" aria-label="Edit equipment kinds">${I.pencil}</button></div>
+      <div class="eqd-loc eqd-loccard"><span class="eqd-thumb eqd-pin">${PIN}</span><span class="eqd-loctext"><span class="cw-label">Where is this located?</span><span class="eqd-locval">${esc(eqLocText(sv))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-location" data-target="equipment" aria-label="Edit locations">${I.pencil}</button></div>
       <div class="xd-card eqd-units">
         <div class="xd-hgroup"><div class="xd-h">Equipment Details</div><div class="xd-sub">Units and how big your goal jumps are.</div></div>
         <div class="cw-label eqd-unitslbl">Weight Units</div>

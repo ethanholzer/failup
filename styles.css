@@ -3051,3 +3051,72 @@ button.rp:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) { .sw-feel .ff-thumb.fail, .sw-feel .ff-thumb.fail::before { animation: none; opacity: 1; transform: none; box-shadow: 0 0 0 2px rgba(255,255,255,.7), 0 0 18px 6px rgba(124,108,255,.65); } }
 /* the halo paints inside the thumb's stacking context; a white disc on top of it keeps the thumb white */
 .sw-feel .ff-thumb::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #fff; z-index: -1; pointer-events: none; }
+/* Today's Plan: flat white header, settings as tiles in the workout's color */
+.lu-screen .lu-whitehead { border-radius: 0 !important; padding-bottom: 20px; }
+.lu-set { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.lu-chip { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+  color: var(--cw-current, #111); background: color-mix(in srgb, var(--cw-current, #111) 13%, #fff); }
+.lu-chip svg { width: 22px; height: 22px; }
+.lu-tile-loc { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 12px 12px 12px; border-radius: 18px; background: var(--bg); border: 0; font: inherit; color: inherit; }
+.lu-tt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lu-tlabel { font-size: 0.8125rem; white-space: nowrap; font-weight: 500; color: var(--sec); }
+.lu-tval { font-size: 1.0625rem; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lu-tbtn { width: 44px; height: 44px; border-radius: 12px; background: #fff; display: grid; place-items: center; flex: none; }
+.lu-tile-loc .lu-locinput { font-size: 1.0625rem; font-weight: 600; }
+.lu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.lu-cell { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; padding: 12px 14px 14px 12px; border-radius: 18px; background: var(--bg); border: 0; font: inherit; color: inherit; min-height: 132px; transition: transform .12s, background .2s; }
+.lu-cell:active, .lu-tile-loc:active { transform: scale(.97); }
+.lu-celltop { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-bottom: auto; padding-bottom: 12px; }
+.lu-big { font-size: 1.875rem; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; color: #111; }
+.lu-big i { font-style: normal; font-weight: 600; color: var(--sec); margin: 0 4px; font-size: .8em; }
+.lu-cell:not(.on) .lu-big[aria-hidden], .lu-cell[role=switch]:not(.on) .lu-big { color: #9a9aa2; }
+.lu-cell .lu-switch { pointer-events: none; }
+.lu-restrow .lu-switch { pointer-events: none; margin-right: 4px; }
+/* Today's Plan v2: plain rows, volume and rest side by side */
+.lu-row { display: flex; align-items: center; gap: 8px; padding: 12px 10px 12px 14px; border-radius: 18px; background: var(--bg); min-width: 0; }
+.lu-row .lu-tt { flex: 1; min-width: 0; }
+.lu-row .lu-tval { font-size: 1rem; }
+.lu-grid .lu-row { padding-right: 8px; }
+.lu-grid .lu-row .lu-tval { font-size: 0.9375rem; }
+.lu-grid .lu-tbtn { width: 40px; height: 40px; }
+.lu-grid .lu-switch { flex: none; }
+.lu-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.lu-locrow { gap: 12px; padding-left: 12px; }
+.lu-grid { grid-template-columns: minmax(0, 1fr) auto; }
+.lu-grid > .lu-row:only-child { grid-column: 1 / -1; }
+.lu-grid > .lu-restcell { gap: 14px; padding-right: 10px; }
+.lu-grid { grid-template-columns: auto minmax(0, 1fr); }
+.lu-set .lu-tbtn { width: 40px; height: 40px; }
+.lu-set .lu-row { padding-right: 10px; }
+/* notes + timer float over the flames, no fill behind them */
+.sess-tools { background: transparent !important; }
+/* volume sheet: the Overload Goal cell */
+.vs-goalblk { margin-top: 18px; }
+.vs-glabel { font-size: 0.9375rem; font-weight: 500; color: var(--sec); margin-bottom: 8px; }
+.vs-gpanel { background: var(--bg); border-radius: 16px; padding: 12px 12px 12px 14px; min-height: 64px; box-sizing: border-box; }
+.vs-gpanel .cw-goal-text { flex: 1; min-width: 0; }
+.vs-goalblk { margin-top: 4px; }
+.vs-sheet .vs-steppers.cw-steppers { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+.vs-sheet .cw-stepper .cw-st-label { font-size: 0.9375rem; font-weight: 500; color: var(--sec); margin-bottom: 8px; text-align: left; }
+.vs-sheet .vs-top { gap: 24px; }
+.vs-sheet .vs-steppers.cw-steppers { margin-top: 0; padding: 0; }
+.vs-sheet .cw-stepper { width: 100%; min-width: 0; }
+.vs-sheet .cw-stepper .cw-st-row { display: flex; width: 100%; justify-content: space-between; align-items: center; padding: 4px; box-sizing: border-box; }
+.vs-sheet .vs-goalblk { margin-top: 0; }
+/* saved equipment: thumbnails on the kind and location cards, the same soft shadow as the cards below */
+.eqd-loc.eqd-loccard { box-shadow: var(--card-shadow) !important; padding: 12px 12px 12px 12px !important; gap: 12px; }
+.eqd-loccard .eqd-loctext { flex: 1; min-width: 0; }
+.eqd-thumb { width: 52px; height: 52px; border-radius: 12px; flex: none; display: grid; place-items: center; overflow: hidden; }
+.eqd-thumb svg { max-width: 30px; max-height: 30px; }
+.eqd-pin { background: #eeebfd; color: #6c5ce7; }
+.eqd-pin svg { width: 26px; height: 26px; }
+/* Workout Complete: the exercise's note under its sets */
+.wc-note { display: flex; gap: 10px; align-items: flex-start; margin: 10px 12px 2px; padding: 12px 14px; border-radius: 14px; background: var(--bg); }
+.wc-note-ic { color: var(--sec); flex: none; display: grid; place-items: center; margin-top: 1px; }
+.wc-note-ic svg { width: 18px; height: 18px; }
+.wc-note-text { font-size: 0.9375rem; line-height: 1.4; color: #3a3a3a; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Workout Complete: Add Exercises and Share, equal halves */
+.wc-half { flex: 1 1 0 !important; width: auto !important; min-width: 0; margin: 0 !important; height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; font-weight: 600; color: #111; }
+.wc-share.wc-half svg { width: 20px; height: 20px; }
+.wc-actions:has(.wc-half) { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wc-half { box-sizing: border-box; padding: 0 12px !important; border: 0; }

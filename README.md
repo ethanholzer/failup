@@ -218,3 +218,18 @@ Share FailUp sends "FailUp is a quality workout tracker. It’s only $8.99, no s
 
 ## Failure on the effort slider
 At Failure the white thumb blooms, then breathes a slow purple glow (`ffBloom`, `ffBreathe`, `ffHalo` in styles.css). The old ring is hidden. Reduced motion gets a still glow.
+
+## Today's Plan header
+Flat white header (no rounded corners). "Where is this workout?" is a full-width row with a pin icon tinted in the workout color and the swap button. Under it, "All Volume" (with the volume button) and "Rest Timer" (On/Off with a toggle) sit side by side, rest timer first and compact, volume wider (grid `auto 1fr`); the location and volume buttons are both 40px. During a workout (Today's Lineup) only the rest timer row shows, full width.
+
+## Rest timer is standalone
+The rest timer never starts on its own and never opens the set logger: start it with play, and when it hits zero it only boops, beeps and resets. A tap anywhere outside the open timer closes it. The Notes and timer row has no fill, so the live-workout flames show behind it.
+
+## Volume sheet
+Sets and Reps use the side-by-side steppers from Edit Workout, and below them the Overload Goal cell from the exercise dropdown (including suggested goals with Accept and Dismiss). Accepting there saves the goal for that volume right away; the volume itself still needs Save.
+
+## Small flows
+- The end of the intro ("Start failing") lands on Home.
+- Saved equipment: the kind card shows the generic thumbnail for its first kind, the location card shows a pin; both use the normal card shadow.
+- Sharing Workout Complete sends the image plus "Tracked with FailUp" and the app link (also passed as `url`).
+- Notes: when a workout finishes, each exercise's note is copied onto that exercise in the saved session (`note`) and shown under its sets on Workout Complete. The share image never draws notes.

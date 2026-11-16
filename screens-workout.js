@@ -96,7 +96,7 @@ export function goalPanel(g, vs, v, u, attrs, o = {}) {
   const sub = `<div class="gp-sub tnum">${v.sets} Sets · ${v.reps} Reps</div>`;
   const btns = sug
     ? `<div class="gp-btns"><button class="gp-btn ok" data-action="vs-accept" ${attrs}>Accept</button><button class="gp-btn" data-action="vs-dismiss" ${attrs}>Dismiss</button></div>`
-    : g == null && !o.pending ? `<button class="sess-dpill gp-ico" data-action="open-goal" ${attrs} aria-label="Set overload goal">${I.editPen}</button>`
+    : g == null && !o.pending && !o.noEdit ? `<button class="sess-dpill gp-ico" data-action="open-goal" ${attrs} aria-label="Set overload goal">${I.editPen}</button>`
     : o.btn != null ? o.btn : `<button class="cw-edit" data-action="open-goal" ${attrs}>${I.editPen} Edit</button>`;
   return `<div class="${o.cls || 'cw-goal'} gp${sug ? ' sugg' : ''}"><div class="${o.textCls || 'cw-goal-text'}">${main}${sub}${o.extra || ''}</div>${btns}</div>`;
 }
@@ -210,6 +210,7 @@ function lineupEquipRow(it, i) {
 export const restOf = s => s.rest || (db.settings.rest || { on: false, secs: 60 });
 export const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 export const restLeft = () => { const run = state.restRun; return run ? Math.max(0, run.paused != null ? run.paused : run.end - Date.now()) : 0; };
+export const PIN = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>';
 const STOPWATCH = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 2.5h5M12 2.5v2.6M18.4 6.6l1.4-1.4"/><circle cx="12" cy="13.5" r="8"/><path d="M12 13.5V9.5"/></svg>';
 const PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.2-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z" fill="currentColor"/></svg>';
 const PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></svg>';
@@ -271,26 +272,31 @@ export function LineupScreen() {
           <div class="lu-tile tint" style="--wc:${s.color}"${tex(s)}>${WORKOUT_ICONS[s.icon] || WORKOUT_ICONS.kick}</div>
           <div><div class="lu-title">${esc(s.workoutName)}</div><div class="lu-count">${n ? `Workout completed ${plural(n, 'time')}` : 'First time doing this workout'}</div></div>
         </div>
-        ${s.location ? `
-        <div class="lu-loc">
-          <div class="lu-loctext"><div class="cw-label">Where is this workout?</div><div class="lu-locname">${esc(s.location)}</div></div>
-          <button class="lu-locpill" data-action="open-location" data-target="lineup" aria-label="Change location">${I.swap24}</button>
-        </div>` : `
-        <label class="lu-loc lu-locfield">
-          <span class="lu-loctext"><span class="cw-label">Where is this workout?</span>
-          <input class="lu-locinput" data-firstloc placeholder="Name this gym, like Home or Downtown" autocomplete="off" enterkeyhint="done"></span>
-        </label>`}
       </div>
-      ${pre && ctx.items.length ? `
-      <div class="lu-loc lu-vol">
-        <div class="lu-loctext"><div class="cw-label">Adjust all volume</div><div class="lu-locname tnum">${masterVolLabel(ctx.items)}</div></div>
-        <button class="lu-locpill" data-action="open-mastervol" aria-label="Set the volume for every exercise">${I.filter}</button>
-      </div>` : ''}
-      ${ctx.items.length ? `
-      <div class="lu-loc lu-vol lu-rest">
-        <div class="lu-loctext"><div class="cw-label">Rest timer</div><div class="lu-locname">${restOf(s).on ? `${restOf(s).secs}s between sets` : 'Off'}</div></div>
-        <button class="lu-switch${restOf(s).on ? ' on' : ''}" data-action="rest-toggle" role="switch" aria-checked="${restOf(s).on}" aria-label="Rest timer"><span></span></button>
-      </div>` : ''}
+      <div class="lu-set">
+        ${s.location ? `
+        <div class="lu-row lu-locrow">
+          <span class="lu-chip">${PIN}</span>
+          <div class="lu-tt"><span class="lu-tlabel">Where is this workout?</span><span class="lu-tval">${esc(s.location)}</span></div>
+          <button class="lu-tbtn" data-action="open-location" data-target="lineup" aria-label="Change location">${I.swap24}</button>
+        </div>` : `
+        <label class="lu-row lu-locrow lu-locfield">
+          <span class="lu-chip">${PIN}</span>
+          <span class="lu-tt"><span class="lu-tlabel">Where is this workout?</span>
+          <input class="lu-locinput" data-firstloc placeholder="Name this gym, like Home" autocomplete="off" enterkeyhint="done"></span>
+        </label>`}
+        ${ctx.items.length ? `<div class="lu-grid">
+          <div class="lu-row lu-restcell">
+            <div class="lu-tt"><span class="lu-tlabel">Rest Timer</span><span class="lu-tval">${restOf(s).on ? 'On' : 'Off'}</span></div>
+            <button class="lu-switch${restOf(s).on ? ' on' : ''}" data-action="rest-toggle" role="switch" aria-checked="${restOf(s).on}" aria-label="Rest timer"><span></span></button>
+          </div>
+          ${pre ? `
+          <div class="lu-row">
+            <div class="lu-tt"><span class="lu-tlabel">All Volume</span><span class="lu-tval tnum">${masterVolLabel(ctx.items)}</span></div>
+            <button class="lu-tbtn" data-action="open-mastervol" aria-label="Set the volume for every exercise">${I.filter}</button>
+          </div>` : ''}
+        </div>` : ''}
+      </div>
       </div>
       <div class="cw-listlabel">Exercise List (${ctx.items.length})</div>
       ${exerciseCards(ctx)}
@@ -835,6 +841,7 @@ export function SessionLogScreen() {
           ${e.exId && exById(e.exId) ? `<button class="sess-dpill wc-trk" data-action="log-tracker" data-ei="${i}" aria-label="Open Overload Tracker">${I.graph}</button>` : ''}
         </div>
         <div class="set-list">${setList(e, u, si => `data-action="edit-logged-set" data-ei="${i}" data-si="${si}"`)}</div>
+        ${e.note ? `<div class="wc-note"><span class="wc-note-ic">${NOTE_IC}</span><span class="wc-note-text">${esc(e.note)}</span></div>` : ''}
         ${outcomeLine(s, i, e)}
       </div>`;
   }).join('');
@@ -866,8 +873,8 @@ export function SessionLogScreen() {
         </div>
       </div>
       ${complete ? `<div class="wc-actions">
-        <button class="cw-add" data-action="add-more">${I.plus20} Add more exercises</button>
-        <button class="wc-share" data-action="share-session" aria-label="Share workout">${I.share}</button>
+        <button class="cw-add wc-half" data-action="add-more">${I.plus20} Add Exercises</button>
+        <button class="wc-share wc-half" data-action="share-session" aria-label="Share workout">${I.share} Share</button>
       </div>` : ''}
       ${newGoalsCard}
       ${pendingCard}
