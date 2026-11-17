@@ -146,14 +146,14 @@ export function exerciseCards(ctx) {
       <div class="cw-ex-detail">
         <div class="cw-detail-main">
           ${ctx.owner === 'create' ? `
-          <div class="cw-blk"><div class="cw-st-label">Preferred Equipment Type</div>
+          <div class="cw-blk"><div class="cw-st-label">Equipment Type</div>
           <button class="cw-pref lu-eqrow" data-action="open-preftype" data-owner="create" data-i="${i}">
             ${prefThumb(it.equip)}
             <span class="cw-pref-text"><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span></span>
             <span class="cw-pref-btn">${I.swap24}</span>
           </button></div>` : ''}
           ${ctx.owner === 'lineup' && !ro ? lineupEquipRow(it, i) : ''}
-          ${ro ? `<div class="cw-pref lu-eqrow ro">${prefThumb(it.equip)}<span class="cw-pref-text"><span class="cw-label">Preferred Equipment Type</span><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span></span></div>` : ''}
+          ${ro ? `<div class="cw-pref lu-eqrow ro">${prefThumb(it.equip)}<span class="cw-pref-text"><span class="cw-label">Equipment Type</span><span class="cw-pref-val">${esc(prefLabel(it.equip))}</span></span></div>` : ''}
           ${ro ? `<div class="cw-volrow"><div class="cw-label">Volume</div><div class="cw-volval tnum">${v.sets} Sets · ${v.reps} Reps</div></div>` : `<div class="cw-steppers">${stepper('Sets', 'sets')}${stepper('Reps', 'reps')}</div>`}
           ${ro ? '' : `<div class="cw-blk"><div class="cw-st-label">Overload Goal${vs ? ' (Suggested)' : ''}</div>`}
           ${ro ? `<div class="cw-goal">
@@ -217,16 +217,16 @@ export function CreateWorkoutScreen() {
 // Today's Plan: the equipment this exercise will start on. The workout's preferred kind,
 // matched to your most used saved machine of that kind where you're training. Tap to swap for today.
 const prefThumb = ref => { const sv = eqById(ref); return eqImg(sv, 'xd-eqimg', prefLabel(ref)); };
+// Today's Plan: the equipment type only (generic kinds). A saved machine is picked in the live
+// workout when the type is Specialized Machine and one fits this exercise at your gym.
 function lineupEquipRow(it, i) {
   const sv = eqById(it.equip);
   const kind = it.pref || genericOf(sv ? eqType(sv) : it.equip);
-  const name = sv ? sv.name : eqName(it.equip);
-  const sub = sv ? kind : (GENERIC.includes(kind) && state.session && state.session.location ? `Nothing saved at ${esc(state.session.location)}` : '');
   return `
-          <div class="cw-blk"><div class="cw-st-label">Default Equipment</div>
-          <button class="cw-pref lu-eqrow" data-action="open-swap" data-owner="lineup" data-i="${i}">
-            ${eqImg(sv, 'xd-eqimg', kind)}
-            <span class="cw-pref-text"><span class="cw-pref-val">${esc(name)}</span>${sub ? `<span class="cw-pref-note">${sub}</span>` : ''}</span>
+          <div class="cw-blk"><div class="cw-st-label">Equipment Type</div>
+          <button class="cw-pref lu-eqrow" data-action="open-preftype" data-owner="lineup" data-i="${i}">
+            ${eqImg(null, 'xd-eqimg', kind)}
+            <span class="cw-pref-text"><span class="cw-pref-val">${esc(kind)}</span></span>
             <span class="cw-pref-btn">${I.swap24}</span>
           </button></div>`;
 }

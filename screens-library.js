@@ -75,7 +75,7 @@ export function overloadChart({ dots, goals, x0, x1, today, others = [] }, unit,
   const segs = goals.filter(g => (g.to == null || T(g.to) >= x0) && T(g.from) <= x1);
   const otherIn = others.map(o => o.dots.filter(d => T(d.at) >= x0));
   const otherSegs = others.map(o => (o.goals || []).filter(g => (g.to == null || T(g.to) >= x0) && T(g.from) <= x1));
-  const vals = inView.map(d => d.weight).concat(segs.map(g => g.weight), ...otherIn.map(a => a.map(d => d.weight)), ...otherSegs.map(a => a.map(g => g.weight)));
+  const vals = inView.map(d => d.weight).concat(segs.filter(g => g.current).map(g => g.weight), ...otherIn.map(a => a.map(d => d.weight)), ...otherSegs.map(a => a.filter(g => g.current).map(g => g.weight)));
   if (!vals.length) return `
   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="No overload data yet"${mini ? ' class="hg-spark"' : ''}>
     <text x="${((plotL + plotR) / 2).toFixed(1)}" y="${((plotT + plotB) / 2 + 6).toFixed(1)}" font-family="Archivo" font-weight="500" font-size="16" fill="#5f636b" text-anchor="middle">No Data Yet</text>
@@ -84,9 +84,9 @@ export function overloadChart({ dots, goals, x0, x1, today, others = [] }, unit,
   const lo = Math.min(...vals), hi = Math.max(...vals);
   const inc = increment(unit) || 5;
   const step = inc * ([1, 2, 4, 5, 10, 20, 50, 100].find(k => (hi - lo) / (inc * k) <= 4) || 200);
-  const pad = mini ? step / 2 : step;
-  const yMin = lo >= 0 ? Math.max(0, Math.floor(lo / step) * step - pad) : Math.floor(lo / step) * step - pad;
-  const yMax = Math.ceil(hi / step) * step + pad;
+  // one increment below the lowest point and one above the highest (the goal line, usually), on the grid
+  const yMin = Math.max(lo >= 0 ? 0 : -Infinity, Math.ceil(lo / step) * step - step);
+  const yMax = Math.floor(hi / step) * step + step;
   const yTicks = [];
   for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) yTicks.push(v);
   const y = v => plotB - ((v - yMin) / (yMax - yMin)) * (plotB - plotT);
@@ -100,11 +100,12 @@ export function overloadChart({ dots, goals, x0, x1, today, others = [] }, unit,
   // goal lines: past ones faint, the current one solid with its band
   const cur = segs.find(g => g.current);
   const gx = g => [Math.max(x0, T(g.from)), g.to == null ? x1 : Math.min(x1, T(g.to))];
-  const past = segs.filter(g => !g.current).map(g => { const [a, b] = gx(g);
-    return `<line x1="${f(x(a))}" x2="${f(x(b))}" y1="${f(y(g.weight))}" y2="${f(y(g.weight))}" stroke="${PURPLE}" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>`; }).join('');
+  const past = '';   // past goals aren't drawn, only the current one
   let current = '';
   if (cur) {
-    const [a] = gx(cur), cx = x(a), cy = y(cur.weight);
+    // the current goal's line starts where the goal was last reached (the latest completed workout still logged)
+    const lastDot = dots.length ? T(dots[dots.length - 1].at) : null;
+    const a = Math.max(x0, lastDot != null ? lastDot : gx(cur)[0]), cx = x(a), cy = y(cur.weight);
     current = `
     <rect x="${f(cx)}" y="${f(cy)}" width="${f(plotR - cx)}" height="${f(plotB - cy)}" fill="url(#goalgrad${uid})"/>
     <line x1="${f(cx)}" x2="${plotR}" y1="${f(cy)}" y2="${f(cy)}" stroke="${PURPLE}" stroke-width="2.5" stroke-linecap="round"/>
@@ -117,7 +118,8 @@ export function overloadChart({ dots, goals, x0, x1, today, others = [] }, unit,
   // saved machines of this kind: their goals (lines) and goals reached (dots, joined) in grey, underneath
   const OTHER = '#a3a7ae';
   const otherEls = others.map((o, oi) => {
-    const goalLines = otherSegs[oi].map(g => { const [a, b] = gx(g);
+    const oLast = o.dots.length ? T(o.dots[o.dots.length - 1].at) : null;
+    const goalLines = otherSegs[oi].filter(g => g.current).map(g => { const a = Math.max(x0, oLast != null ? oLast : gx(g)[0]), b = gx(g)[1];
       return `<line x1="${f(x(a))}" x2="${f(x(b))}" y1="${f(y(g.weight))}" y2="${f(y(g.weight))}" stroke="${OTHER}" stroke-opacity="${g.current ? '.9' : '.4'}" stroke-width="2" stroke-linecap="round"/>`; }).join('');
     const fi = o.dots.findIndex(d => T(d.at) >= x0); if (fi < 0) return goalLines;
     const pts = o.dots.slice(Math.max(0, fi - 1));
@@ -255,7 +257,6 @@ export function TrackerScreen() {
       <div class="tk-seg">${seg}</div>
       <div class="tk-legend">
         <div class="lg"><span class="swatch-line"></span> Current Goal</div>
-        <div class="lg"><span class="swatch-line past"></span> Past Goals</div>
         <div class="lg"><span class="swatch-dot"></span> <span>Completed<br><span class="sub">(${v.sets} Sets, ${v.reps} Reps)</span></span></div>
         ${data.others.length ? `<div class="lg"><span class="swatch-dot other"></span> <span>Saved machines<br><span class="sub">Goals and completed</span></span></div>` : ''}
       </div>
@@ -897,13 +898,13 @@ export function AddEquipSheet() {
 export function PrefTypeSheet() {
   const p = state.prefType, c = p && listCtx(p.owner), it = c && c.items[p.index];
   if (!it) return '';
-  const cur = genericOf(eqById(it.equip) ? eqType(eqById(it.equip)) : it.equip);
+  const cur = it.pref || genericOf(eqById(it.equip) ? eqType(eqById(it.equip)) : it.equip);
   return `
   <div class="scrim" data-action="close-preftype">
     <div class="sheet swp-sheet" data-stop>
       <div class="sheet-grab"></div>
       <div class="swp-sheethead">
-        <div class="vs-title">Preferred equipment</div>
+        <div class="vs-title">Equipment type</div>
         <div class="vs-sub">Pick Specialized Machine and FailUp uses your saved machine for this exercise at your gym. You can swap anytime during a workout.</div>
       </div>
       <div class="swp-sheetbody">

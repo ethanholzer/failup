@@ -261,3 +261,10 @@ When a goal for next time is set, the Overload Goal panel shows "Next time:" (bl
 
 ## Copy pass (Nov 17)
 Rewrote modal and confirmation copy after review: Pause sheet ("Take a break?"), Discard, Update goal, goal prompt titles and reasons (merged to four "completed" lines; finishing every set at your goal without effort ratings now offers a raise), Fail safely, Share ask, "Use your goal here?", the other-gym question, equipment and location sheet subtitles, Remove exercise, End plan, library delete, machine wording (Delete/Merge/Edit Machine), Move to generic, Clear/Reset. Exercise History edit mode now uses Save; leaving with unsaved deletions asks "Save your changes?" (Cancel Changes / Save Changes). Merging machines combines the merged machine's sets and goals into the other one (`repointRef`, converting units), and the one kept loses nothing.
+
+## Equipment Type
+Edit Workout and Today's Plan show "Equipment Type", a choice of the six generic kinds only. Generic equipment logs the same at every gym; only saved machines are tied to a location. On Today's Plan, choosing Specialized Machine picks a saved machine that fits the exercise at the workout's gym (and re-picks when the gym changes); with none there it stays the generic Specialized Machine.
+
+## Tracker goal line
+Only the current goal is drawn (no past goal lines, and the y-axis ignores them). The current goal's line and band start at the latest completed workout at that volume that's still in your history, so deleting that workout moves the start back to the one before. Saved machines on the generic graph follow the same rule in grey.
+- Y axis: one grid step below the lowest point shown and one above the highest (usually the goal line).

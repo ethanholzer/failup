@@ -1131,7 +1131,16 @@ function handle(a, d, el, ex) {
     }
     case 'save-picker': if (state.modal === 'color') { const [h, t] = state.pickDraft.split('|'); state.create.color = h; state.create.tex = t || ''; } else state.create.icon = state.pickDraft; state.modal = null; break;
     case 'open-preftype': state.prefType = { owner: d.owner || listCtx().owner, index: +d.i }; state.modal = 'preftype'; break;
-    case 'pick-preftype': { const c = listCtx(state.prefType.owner), it = c.items[state.prefType.index]; if (it) it.equip = d.name; state.modal = null; break; }
+    case 'pick-preftype': {
+      const c = listCtx(state.prefType.owner), it = c.items[state.prefType.index];
+      if (it && c.owner === 'lineup') {   // Today's Plan: set the type; Specialized Machine picks a saved one that fits here
+        if (it.sets.length) { toast('Sets are logged on this one already'); state.modal = null; break; }
+        beginChange('lineup'); it.pref = d.name; it.equip = d.name; it.manual = false;
+        const pick = pickSavedFor(d.name, state.session.location, it.exId); if (pick) it.equip = 'eq:' + pick.id;
+        syncGoal(it);
+      } else if (it) it.equip = d.name;
+      state.modal = null; break;
+    }
     case 'close-preftype': state.modal = null; break;
     case 'addequip-pick': state.addEquip.trayShown = !!state.addEquip.sel; state.addEquip.sel = d.name; break;
     case 'addequip-save': { const it = listCtx('create').items[state.addEquip.index]; if (it && state.addEquip.sel) it.equip = state.addEquip.sel; state.addEquip = null; state.modal = null; break; }
