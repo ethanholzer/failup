@@ -281,16 +281,78 @@ export const unitLabel = u => u === 'kg' ? 'kg' : u === 'simple' ? '' : 'lbs';
 export const unitWord = u => u === 'kg' ? 'Kilograms' : u === 'simple' ? 'Level' : 'Pounds';
 export const increment = u => u === 'kg' ? 2.5 : u === 'simple' ? 1 : 5;
 export const steps = u => u === 'kg' ? [2.5, 1] : u === 'simple' ? [2, 1] : [5, 2.5];
-// The kind of machine a saved piece is: "Cable Machine 1" → "Cable Machine".
-export const eqType = sv => (sv.types && sv.types[0]) || sv.type || sv.name.replace(/\s+\d+$/, '');
+// The kind of machine a saved piece is: always one of the generic kinds ("Cable Machine 1" → "Cable Machine");
+// anything else (an old save named after the machine) counts as a specialized machine.
+const genericKind = t => { const g = genericOf(t || ''); return GENERIC.includes(g) ? g : null; };
+export const eqType = sv => genericKind((sv.types && sv.types[0]) || sv.type) || genericKind(sv.name.replace(/\s+\d+$/, '')) || 'Specialized Machine';
 // every kind a saved machine counts as (an Inspire FT2 can be a Smith Machine and a Cable Machine)
-export const eqTypes = sv => (sv.types && sv.types.length ? sv.types : [eqType(sv)]).map(genericOf);
+export const eqTypes = sv => { const t = [...new Set((sv.types || []).map(genericKind).filter(Boolean))]; return t.length ? t : [eqType(sv)]; };
 // how many sets have been logged on a saved machine (for picking the usual one)
 export const eqUse = id => db.sessions.reduce((n, s) => n + s.exercises.reduce((m, e) => m + e.sets.filter(x => (x.equip || e.equip) === 'eq:' + id).length, 0), 0);
 // order for picking an equipment kind: machines first, they're the usual case
 export const TYPE_ORDER = ['Specialized Machine', 'Cable Machine', 'Smith Machine', 'Barbell', 'Dumbbell', 'Bodyweight'];
 // the only kinds worth saving as your own machine: bars, dumbbells and bodyweight are the same everywhere
 export const MACHINE_TYPES = ['Specialized Machine', 'Cable Machine', 'Smith Machine'];
+// Only specialized machines get saved now. A saved machine is "for" an exercise when the exercise
+// lists it, or when it has been logged or given a goal on it (older saves), so nothing logged is lost.
+export const SPECIAL = 'Specialized Machine';
+export const isSpecial = sv => !!sv && eqTypes(sv).includes(SPECIAL);
+export function machineFor(exId, sv) {
+  const ref = 'eq:' + sv.id, x = exById(exId);
+  if (x && (x.equipment || []).includes(ref)) return true;
+  if (db.goalEdits.some(g => g.key.startsWith(`${exId}|${ref}|`))) return true;
+  return db.sessions.some(s => s.exercises.some(e => e.exId === exId && (e.equip === ref || e.sets.some(x => x.equip === ref))));
+}
+// ---- One-time move: saved cable and Smith machines → the generic Cable Machine / Smith Machine ----
+// Only specialized machines are saved now. This re-points every logged set, goal, workout and suggestion
+// from those saved machines to the generic kind, converting weights when the machine used other units.
+// Nothing logged is deleted; the saved machine entries are removed once their data has moved.
+const MOVE_KINDS = ['Cable Machine', 'Smith Machine'];
+const toUnit = (w, from, to) => w == null || from === to ? w : from === 'kg' ? w * 2.20462 : w / 2.20462;
+export function genericMovePlan() {
+  return db.equipment.filter(sv => !eqTypes(sv).includes(SPECIAL) && MOVE_KINDS.includes(eqTypes(sv)[0]))
+    .map(sv => {
+      const ref = 'eq:' + sv.id, from = sv.units || db.settings.units, to = db.settings.units;
+      const sets = db.sessions.reduce((n, ss) => n + ss.exercises.reduce((m, e) => m + e.sets.filter(x => (x.equip || e.equip) === ref).length, 0), 0);
+      const goals = db.goalEdits.filter(g => g.key.split('|')[1] === ref).length;
+      return { sv, ref, kind: eqTypes(sv)[0], from, to, sets, goals, ok: from !== 'simple' || to === 'simple' };   // numbered stacks can't convert
+    });
+}
+// Move everything logged on one equipment ref to another: workouts, every set, goals, suggestions.
+// Weights convert when the units differ (lbs ↔ kg, rounded to the new step). Nothing is deleted.
+export function repointRef(ref, target, from, to) {
+  const conv = w => { if (w == null || from === to || from === 'simple' || to === 'simple') return w; const inc = increment(to); return Math.round(toUnit(w, from, to) / inc) * inc; };
+  const label = eqLabel(target);
+  for (const w of db.workouts) for (const e of w.exercises) if (e.equip === ref) e.equip = target;
+  for (const ss of db.sessions) for (const e of ss.exercises) {
+    const whole = e.equip === ref;
+    for (const x of e.sets) if ((x.equip || e.equip) === ref) { x.weight = conv(x.weight); if (x.equip) x.equip = target; }
+    if (whole) {
+      e.equip = target; e.equipName = label;
+      if (e.goal) e.goal.weight = conv(e.goal.weight);
+      if (e.newGoal != null) e.newGoal = conv(e.newGoal);
+    }
+  }
+  for (const g of db.goalEdits) { const [a, r, v] = g.key.split('|'); if (r === ref) { g.key = `${a}|${target}|${v}`; g.weight = conv(g.weight); } }
+  for (const g of db.suggestions || []) if (g.equip === ref) { g.equip = target; g.weight = conv(g.weight); if (g.key) g.key = g.key.replace(`|${ref}|`, `|${target}|`); }
+  if (db.volSuggDismissed) db.volSuggDismissed = db.volSuggDismissed.map(k => k.replace(`|${ref}|`, `|${target}|`));
+  for (const x of EXERCISES) if ((x.equipment || []).includes(ref)) x.equipment = [...new Set(x.equipment.map(k => k === ref ? target : k))];
+  invalidate();
+}
+export function moveToGeneric() {
+  const plan = genericMovePlan().filter(m => m.ok);
+  for (const { sv, ref, kind, from, to } of plan) {
+    repointRef(ref, kind, from, to);
+    db.equipment = db.equipment.filter(x => x !== sv);
+  }
+  invalidate();
+  return plan;
+}
+// saved machines for an exercise (at a location when given)
+export const machinesFor = (exId, location) => db.equipment.filter(sv => (!location || eqAt(sv, location)) && machineFor(exId, sv));
+// exercises a machine is for: picked when it was saved (or later), or already logged / given a goal on it
+export const machineExercises = sv => EXERCISES.filter(x => machineFor(x.id, sv));
+
 export const isMachineType = t => MACHINE_TYPES.includes(genericOf(t));
 
 /* ------------------------------ goals replay ----------------------------- */

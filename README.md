@@ -240,3 +240,24 @@ An exercise's session goal follows saved goals only until its first working set 
 
 ## Effort slider and swap
 The slider thumb moves with `transform` straight under the finger (no easing, no re-render on release). At Failure only the halo animates. The set logger header shows the exercise name only. Swap equipment marks equipment that has goals for this exercise with a purple dot and "X Goals" in its subtitle (sheet and full list).
+
+## Saved machines (specialized only)
+Only specialized machines are saved now. The Save a Machine flow is: where it is, a name, weight units (pounds or kilograms) and a photo. The new machine is linked to the exercise it was saved on (`exercise.equipment` gets `eq:<id>`). More exercises are added later from the machine's page: Related Exercises → Add opens a search to pick them (`eqrelated` screen). "What kind of equipment is it?" only offers the generic kinds, and any saved machine without a generic kind counts as a Specialized Machine.
+
+- `machineFor(exId, machine)` in store.js: a machine is for an exercise when the exercise lists it, or it was already logged or given a goal on it. Older saved machines (cable, Smith) keep all their history and goals and still count for the exercises they were used with; they just can't be created anymore.
+- Live workout: a "Specialized Machine" exercise auto-picks the most-used saved machine for that exercise at the workout's location and opens its details. With none saved there, a "Save this machine?" card offers Add Machine or Not Now (Not Now hides it for that exercise for this workout). Adding one uses it right away.
+- Swap equipment during a workout lists only saved machines here that are for this exercise, then the generic list. "View All Saved Equipment" only appears outside a workout.
+- Overload Tracker on the generic Specialized Machine graph: its own goals and completed workouts in purple, and the saved specialized machines for that exercise in grey (goal lines, dots and the line joining them).
+
+## Moving cable and Smith data to generic
+Settings → "Move Cable and Smith Data to Generic" (shown only while saved cable or Smith machines exist) moves every set, goal, workout and suggestion from those saved machines to the generic Cable Machine / Smith Machine (`moveToGeneric` in store.js), converting kg ↔ lbs to the app's units and rounding to the weight step, then removes the saved machines. Logged workouts are never deleted. Machines with numbered weights ("Simple Numbers") can't convert and stay saved. When a generic goal and a moved goal share an exercise and volume, the most recent one wins. It won't run during a workout.
+
+## Editing exercise history
+Exercise History has Edit in the top right. In edit mode each set log (one workout's sets for that exercise) gets a full-width red Delete button along its bottom; tapping it asks "Delete this set block?" with Nevermind or Delete. Deletions hide right away but are only saved when you tap Done (`state.hx.del`); leaving with Back discards them. Saving removes that exercise's entry from the workout, and a workout with nothing left is removed too. Goals and the tracker recalculate from what remains.
+
+## Live workout dropdowns and goal suggestions
+Exercise details in a live workout always start closed and close when you move to another exercise (`session.openAt`). In the Overload Goal panel a suggestion is the goal for the sets ahead (a converted goal with Accept/Dismiss, or a waiting suggestion); "Next time" only appears once a goal for next time is set, and then no suggestion is shown, so the two never appear together.
+When a goal for next time is set, the Overload Goal panel shows "Next time:" (black) with the weight (purple) and that goal's volume underneath, with a pencil to adjust it. Adjusting it there changes next time's goal and leaves this workout's goal as it was.
+
+## Copy pass (Nov 17)
+Rewrote modal and confirmation copy after review: Pause sheet ("Take a break?"), Discard, Update goal, goal prompt titles and reasons (merged to four "completed" lines; finishing every set at your goal without effort ratings now offers a raise), Fail safely, Share ask, "Use your goal here?", the other-gym question, equipment and location sheet subtitles, Remove exercise, End plan, library delete, machine wording (Delete/Merge/Edit Machine), Move to generic, Clear/Reset. Exercise History edit mode now uses Save; leaving with unsaved deletions asks "Save your changes?" (Cancel Changes / Save Changes). Merging machines combines the merged machine's sets and goals into the other one (`repointRef`, converting units), and the one kept loses nothing.

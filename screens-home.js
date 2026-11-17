@@ -336,7 +336,7 @@ export function ShareAskSheet() {
       <div class="sheet-grab"></div>
       <div class="ug-body sa-body">
         <span class="hm2-shareic sa-ic">${ICON.contacts}</span>
-        <div class="ug-titleblock"><div class="ug-title">Share FailUp with a friend</div><div class="ug-text">FailUp doesn’t have a marketing budget. Please help spread the word!</div></div>
+        <div class="ug-titleblock"><div class="ug-title">Share FailUp with a friend</div><div class="ug-text">FailUp is made by one person with no ad budget. Sharing it is the best way to help.</div></div>
         <div class="ug-actions"><button class="ug-btn" data-action="shareask-close">Close</button><button class="ug-btn dark" data-action="shareask-share">${ICON.share}<span>Share</span></button></div>
       </div>
     </div>
@@ -351,7 +351,7 @@ export function SafetySheet() {
       <div class="sheet-grab"></div>
       <div class="ug-body sa-body sf-body">
         <span class="sf-ic">F</span>
-        <div class="ug-titleblock"><div class="ug-title">Fail safely</div><div class="ug-text">FailUp asks you to push sets to failure, so do it where failing is safe.</div></div>
+        <div class="ug-titleblock"><div class="ug-title">Fail safely</div><div class="ug-text">FailUp has you push sets to failure, so set yourself up to fail safely.</div></div>
         <ul class="sf-list">
           <li><b>Machines and dumbbells</b> are the easiest place to fail. Let the weight down under control.</li>
           <li><b>Barbell bench or squat?</b> Set the safety pins or bars, or grab a spotter.</li>

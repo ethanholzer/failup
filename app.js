@@ -8,14 +8,14 @@
 import { state, WORKOUT_COLORS, PURPLE } from './data.js';
 import { I, fmt, esc, wt, wtTight, eqName, D, WORKOUT_ICONS } from './ui.js';
 import {
-  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, MACHINE_TYPES, isMachineType, eqLocs, eqAt, increment,
+  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, MACHINE_TYPES, isMachineType, SPECIAL, isSpecial, machinesFor, machineExercises, genericMovePlan, moveToGeneric, repointRef, eqLocText, invalidate, eqLocs, eqAt, increment,
   goalFor, goalKey, setGoal, volumeSuggestion, dismissVolumeSuggestion, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf, eqKind,
   exportData, importData, clearExerciseData, resetAll, isBodyweight,
  volumeDots,
 } from './store.js';
 import {
   TrackerScreen, VolumeModal, ExercisesScreen, FilterSheet, exListInner, ColorPickerSheet, IconPickerSheet,
-  ExerciseWizard, EquipmentWizard, ExerciseDetailScreen, ExerciseHistoryScreen, EquipmentListScreen, EquipmentDetailScreen,
+  ExerciseWizard, EquipmentWizard, eqWizResults, EquipmentRelatedScreen, ExerciseDetailScreen, ExerciseHistoryScreen, EquipmentListScreen, EquipmentDetailScreen,
   EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, AddEquipSheet, addEquipOptions, LocationSheet, EquipmentTypesSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
@@ -56,7 +56,7 @@ import { OnboardScreen, obSteps } from './screens-onboard.js';
 const SCREENS = {
   onboard: OnboardScreen,
   home: HomeScreen, quickselect: QuickSelectScreen, session: WorkoutSessionScreen, create: CreateWorkoutScreen,
-  exwiz: ExerciseWizard, eqwiz: EquipmentWizard, planwiz: PlanWizard, exercises: ExercisesScreen, tracker: TrackerScreen,
+  exwiz: ExerciseWizard, eqwiz: EquipmentWizard, eqrelated: EquipmentRelatedScreen, planwiz: PlanWizard, exercises: ExercisesScreen, tracker: TrackerScreen,
   workouts: WorkoutsScreen, assignday: AssignDayScreen, lineup: LineupScreen, exdetail: ExerciseDetailScreen,
   exhistory: ExerciseHistoryScreen, equipment: EquipmentListScreen, eqdetail: EquipmentDetailScreen,
   swap: () => EquipmentSwapScreen(swapRef(), swapExId()), details: WorkoutDetailsScreen, newloc: NewLocationScreen,
@@ -90,11 +90,8 @@ function render() {
     if (c) { oldRect = c.getBoundingClientRect(); oldCard = c.cloneNode(true); }
   }
   if (state.pending && (!state.session || !['lineup', 'session', 'exercises', 'swap', 'eqwiz', 'newloc', 'exdetail'].includes(state.screen))) state.pending = null;   // leaving keeps your changes
-  // arriving on a Smith, cable or specialized exercise opens its details, so you see the machine and can save it
-  if (state.screen === 'session' && state.session) {
-    const ss = state.session, cx = ss.exercises[ss.exIndex], k = ss.id + ':' + ss.exIndex;
-    if (cx && ss.autoOpened !== k) { ss.autoOpened = k; if (isMachineType(eqKind(cx.equip)) && !workingSets(cx).length) ss.expanded = true; }
-  }
+  // exercise details start closed, and close when you move to another exercise
+  if (state.session && state.session.openAt !== state.session.exIndex) { state.session.expanded = false; state.session.openAt = state.session.exIndex; }
   app.innerHTML = screenHTML();
   if (oldCard) slideExerciseCard(oldCard, oldRect, state.session.exIndex > pipFrom ? 1 : -1);
   // Up / Down: keep the card you moved where it was on screen, so the list moves around it
@@ -580,8 +577,11 @@ function genericFor(e, sv) {
 // sets of one exercise logged on a saved machine
 const exUse = (exId, id) => db.sessions.reduce((n, s) => n + s.exercises.reduce((m, e) => m + (e.exId === exId ? e.sets.filter(x => (x.equip || e.equip) === 'eq:' + id).length : 0), 0), 0);
 // Most used saved machine of a kind at a location: most sets of this exercise first, then most sets overall.
+// A saved machine is picked automatically only for "Specialized Machine" exercises, and only one
+// that's listed for (or has been used for) this exercise at this location; the most used wins.
 function pickSavedFor(type, location, exId) {
-  const here = db.equipment.filter(x => eqAt(x, location) && eqTypes(x).includes(type));
+  if (type !== SPECIAL) return null;
+  const here = machinesFor(exId, location);
   if (!here.length) return null;
   return here.map(x => [x, exUse(exId, x.id), eqUse(x.id)]).sort((a, b) => b[1] - a[1] || b[2] - a[2] || a[0].name.localeCompare(b[0].name))[0][0];
 }
@@ -705,29 +705,30 @@ function goalPrompt(e, leaving = false) {
 
   if (g != null) {                                                         // a goal already exists at this volume
     const last = w[w.length - 1];
-    if (!done(last)) return last.weight !== g ? out('set', last.weight, { reason: `You earned failure on set ${w.length}. ${show(last.weight)} is your new goal!` }) : null;
+    if (!done(last)) return last.weight !== g ? out('set', last.weight, { reason: `You hit failure on set ${w.length}. Make ${show(last.weight)} your goal.` }) : null;
     if (failed.length) return null;
     const top = Math.max(...w.map(x => x.weight));
     if (new Set(w.map(x => x.weight)).size > 1)                            // stepped up mid-exercise and finished every set: goal is the top weight
-      return top > g ? out('raise', top, { from: g, reason: `You completed ${S}x${R}, working up to ${show(top)}. Make ${show(top)} your goal!` }) : null;
+      return top > g ? out('raise', top, { from: g, reason: `You worked up to ${show(top)} for ${S} × ${R}. Make it your goal.` }) : null;
     const W = Math.min(...w.map(x => x.weight)), to = W + inc, r = w.map(setRpe);
-    if (g >= to || r.some(x => x == null)) return null;
-    if (r.every(x => x >= 7)) return out('raise', to, { from: W, reason: `You completed ${S}x${R} at ${show(W)}. Increase the weight to ${show(to)}!` });
+    if (g >= to) return null;
+    // every set done at the goal: go up a step (also when the sets weren't rated)
+    if (r.some(x => x == null) || r.every(x => x >= 7)) return out('raise', to, { from: W, reason: `You hit ${S} × ${R} at ${show(W)}. Aim for ${show(to)} next time.` });
     return out('pick', W + inc * jump(Math.min(...r)), { from: W, light: true, reason: `You cruised through ${show(W)}. Pick a heavier goal.` });
   }
 
   const ws = new Set(w.map(x => x.weight));
   if (!failed.length && ws.size === 1) {                                   // A
     const W = w[0].weight, r = w.map(setRpe);
-    if (r.some(x => x == null)) return out('set', W, { nudge: true, reason: `You completed ${S}x${R} at ${show(W)}.` });
+    if (r.some(x => x == null)) return out('set', W, { nudge: true, reason: `You hit ${S} × ${R} at ${show(W)}. Make it your goal.` });
     if (w.every(x => x.reps >= R + 3)) return out('pick', W + inc * 2, { from: W, light: true, reason: `Every set flew past ${R} reps. Time to go heavier.` });
     const lo = Math.min(...r);
     if (lo <= 6) return out('pick', W + inc * jump(lo), { from: W, light: true, reason: `You cruised through ${show(W)}. Pick a heavier goal.` });
-    return out('set', W + inc, { reason: `You completed ${S}x${R} at ${show(W)}. Go for ${show(W + inc)} next time!` });   // no goal yet: a first goal, nothing to raise
+    return out('set', W + inc, { reason: `You hit ${S} × ${R} at ${show(W)}. Aim for ${show(W + inc)} next time.` });   // no goal yet: a first goal, nothing to raise
   }
   if (!failed.length) {                                                    // stepped up mid-exercise, every set done: the top weight
     const top = Math.max(...w.map(x => x.weight));
-    return out('set', top, { reason: `You completed ${S}x${R}, working up to ${show(top)}. That’s your new goal!` });
+    return out('set', top, { reason: `You worked up to ${show(top)} for ${S} × ${R}. Make it your goal.` });
   }
   const anchors = w.filter(x => done(x) && (setRpe(x) == null || setRpe(x) >= 6));
   if (anchors.length) {                                                    // B
@@ -737,8 +738,8 @@ function goalPrompt(e, leaving = false) {
   if (failed.length) {
     const best = [...failed].sort((a, b) => b.reps - a.reps || b.weight - a.weight)[0];
     if (failed.length === w.length)                                        // C
-      return out('pick', bw ? best.weight - inc : Math.max(inc, best.weight - inc), { from: best.weight, heavy: true, reason: `You earned failure on every set. Drop to ${show(bw ? best.weight - inc : Math.max(inc, best.weight - inc))} and keep your form sharp.` });
-    return out('set', best.weight, { reason: `You earned failure on set ${lastFailNum}. ${show(best.weight)} is your new goal!` });   // D
+      return out('pick', bw ? best.weight - inc : Math.max(inc, best.weight - inc), { from: best.weight, heavy: true, reason: `Every set went to failure. Try ${show(bw ? best.weight - inc : Math.max(inc, best.weight - inc))} and keep your form sharp.` });
+    return out('set', best.weight, { reason: `You hit failure on set ${lastFailNum}. Make ${show(best.weight)} your goal.` });   // D
   }
   const top = Math.max(...w.map(x => x.weight)), lo = Math.min(...w.map(setRpe).filter(x => x != null), 6);
   return out('pick', top + inc * jump(lo), { from: top, light: true, reason: `You cruised through ${show(top)}. Pick a heavier goal.` });   // E
@@ -759,6 +760,14 @@ function keepSuggestion(e, a, sid, ei) {
 
 /* --------------------------------- helpers --------------------------------- */
 function toggleIn(arr, v) { const i = arr.indexOf(v); if (i === -1) arr.push(v); else arr.splice(i, 1); }
+// Exercise History: apply the set blocks deleted in edit mode
+function saveHistoryEdits() {
+  const h = state.hx; if (!h || !h.del.length) return;
+  for (const key of h.del) { const [sid, i] = key.split(':'); const ss = db.sessions.find(x => x.id === sid); if (ss && ss.exercises[+i]) ss.exercises[+i] = null; }
+  for (const ss of db.sessions) ss.exercises = ss.exercises.filter(Boolean);
+  db.sessions = db.sessions.filter(ss => ss.exercises.length);   // a workout with nothing left in it goes too
+  const n = h.del.length; h.del = []; invalidate(); toast(`Deleted ${n} set block${n === 1 ? '' : 's'}`);
+}
 function confirm(c) { state.confirm = c; state.modal = 'confirm'; }
 function menu(m) { state.menu = m; state.modal = 'menu'; }
 function resetPicker() {
@@ -801,14 +810,14 @@ function applySwap(ref) {
   const oldGoal = goalFor(it.exId, old, G.sets, G.reps);
   if (sv && !eqById(old) && oldGoal != null && goalFor(it.exId, ref, G.sets, G.reps) == null) {
     const u = eqUnits(ref);
-    steps.push(next => confirm({ title: 'Bring your goal over?', label: 'Use it', cancel: 'Not now',
-      text: `You have a ${esc(wt(oldGoal, eqUnits(old)))} goal for ${esc(exInfo(it).name)} on ${esc(old)}. Use it on ${esc(sv.name)} too?`,
+    steps.push(next => confirm({ title: 'Use your goal here?', label: `Use ${esc(wt(oldGoal, eqUnits(old)))}`, cancel: 'Start Fresh',
+      text: `Your ${esc(exInfo(it).name)} goal on ${esc(eqLabel(old))} is ${esc(wt(oldGoal, eqUnits(old)))}. Start ${esc(sv.name)} with the same goal?`,
       run: () => { setGoal(it.exId, ref, G.sets, G.reps, oldGoal); syncGoal(it); toast('Goal brought over'); next(); }, no: next }));
     void u;
   }
   if (sv && !eqAt(sv, state.session.location)) {
-    steps.push(next => confirm({ title: `Training at ${esc(sv.location)}?`, label: `Yes, switch`, cancel: `No, ${esc(state.session.location)}`,
-      text: `${esc(sv.name)} is saved at ${esc(sv.location)}. Switch today’s workout to ${esc(sv.location)}? FailUp will grab your saved gear there.`,
+    steps.push(next => confirm({ title: `Training at ${esc(sv.location)}?`, label: 'Yes', cancel: 'Close',
+      text: `${esc(sv.name)} is saved at ${esc(sv.location)}. Is this workout at ${esc(sv.location)} today?`,
       run: () => { setLocation('lineup', sv.location); toast(`Workout at ${sv.location}`); next(); }, no: next }));
   }
   const run = i => { if (i < steps.length) steps[i](() => run(i + 1)); };
@@ -875,14 +884,11 @@ function openPlanWizard(edit) {
   go('planwiz');
 }
 function freshExWizard(extra = {}) { state.exwiz = { step: 1, name: '', primary: null, secondary: [], equipment: [], saved: [], photo: null, ...extra }; }
-// When saving from the swap sheet, start on the kind of equipment you were using.
-function swapTypeGuess(returnTo) {
-  if (returnTo !== 'swap') return null;
-  const r = swapRef(), sv = eqById(r);
-  const t = r ? genericOf(sv ? eqType(sv) : r) : null;
-  return t && isMachineType(t) ? t : null;
+// Save a machine. ctxEx: the exercise it's being saved for (pre-picked on the last step).
+function freshEqWizard(returnTo, ctxEx = null) {
+  state.eqwiz = { step: 1, location: (state.session && state.session.location) || db.settings.location || db.locations[0] || '', name: '',
+    units: db.settings.units === 'kg' ? 'kg' : 'lbs', photo: null, returnTo, ctxEx, };
 }
-function freshEqWizard(returnTo) { state.eqwiz = { step: 1, location: (state.session && state.session.location) || db.settings.location || db.locations[0] || '', name: '', type: swapTypeGuess(returnTo), types: swapTypeGuess(returnTo) ? [swapTypeGuess(returnTo)] : [], units: db.settings.units, photo: null, returnTo }; }
 
 // Replace one equipment ref with another everywhere (merge / delete).
 function replaceRef(from, toFn, { history } = {}) {
@@ -1162,8 +1168,8 @@ function handle(a, d, el, ex) {
       const c = listCtx(), i = +d.i, it = c.items[i];
       const run = () => { beginChange(c.owner); keepCurrentExercise(c, () => { c.items.splice(i, 1); c.ui.expanded = null; }); };
       const logged = c.owner === 'lineup' && it.sets.length;
-      confirm({ title: 'Delete exercise?', danger: true, label: 'Delete',
-        text: logged ? `You’ve logged ${it.sets.length} set${it.sets.length === 1 ? '' : 's'} of ${esc(exInfo(it).name)} today. Deleting it removes them.` : `${esc(exInfo(it).name)} comes off this ${c.owner === 'lineup' ? 'plan' : 'workout'}.`, run });
+      confirm({ title: 'Remove exercise?', danger: true, label: 'Remove',
+        text: logged ? `You logged ${it.sets.length} set${it.sets.length === 1 ? '' : 's'} of ${esc(exInfo(it).name)} today. Removing it deletes them.` : `${esc(exInfo(it).name)} will be removed from this ${c.owner === 'lineup' ? 'plan' : 'workout'}.`, run });
       break;
     }
     case 'add-exercise': { const c = listCtx(); c.ui.swapIndex = null; ex.returnTo = c.owner; ex.mode = 'add'; ex.search = ''; go('exercises'); break; }
@@ -1232,7 +1238,7 @@ function handle(a, d, el, ex) {
     case 'safety-ok': db.settings.safetySeen = true; state.modal = null; render(); return handle('lets-go', {}, null, null);
     case 'resume-session': state.stack = ['home']; state.screen = s.started ? 'session' : 'lineup'; break;
     case 'discard-session':
-      confirm({ title: 'Discard workout?', danger: true, label: 'Discard', text: s.started ? 'The sets you logged in this workout will be deleted.' : 'Today’s lineup changes will be cleared.',
+      confirm({ title: 'Discard workout?', danger: true, label: 'Discard', text: s.started ? 'Every set you logged in this workout will be deleted.' : 'Your changes to today’s lineup will be cleared.',
         run: () => { restStop(); state.session = null; home(); } });
       break;
     case 'end-session':   // from the paused card on Home: save what was logged and show the summary
@@ -1403,21 +1409,27 @@ function handle(a, d, el, ex) {
     }
     case 'open-goal': {
       let it, owner = d.owner;
-      if (owner === 'session') it = { ...cur(), sets: cur().goal.sets, reps: cur().goal.reps };
+      if (owner === 'session') { const c = cur(), nv = c.newGoal != null ? (c.newGoalVol || c.goal) : c.goal; it = { ...c, sets: nv.sets, reps: nv.reps }; }
       else if (owner === 'tracker') { const t = state.tracker; it = { exId: t.exId, equip: t.equip, sets: t.volume.sets, reps: t.volume.reps }; }
       else { const src = listCtx(owner).items[+d.i], v = vol(src); it = { exId: src.exId, equip: src.equip, sets: v.sets, reps: v.reps }; }
       const g = goalFor(it.exId, it.equip, it.sets, it.reps), info = exInfo(it);
       const last = lastDone(it.exId, it.equip);
       const suggest = last ? Math.max(0, ...workingSets(last.e).map(x => x.weight)) : 0;
-      state.goalEdit = { ...it, name: info.name, muscle: info.muscle, unit: eqUnits(it.equip), weight: g ?? suggest };
+      const next = owner === 'session' && cur().newGoal != null ? cur().newGoal : null;   // adjusting next time's goal starts from it
+      state.goalEdit = { ...it, name: info.name, muscle: info.muscle, unit: eqUnits(it.equip), weight: next ?? g ?? suggest };
       state.modal = 'goal'; break;
     }
     case 'goal-adj': state.goalEdit.weight = Math.max(0, Math.round((state.goalEdit.weight + +d.d) * 100) / 100); break;
     case 'close-goal': state.modal = null; break;
     case 'save-goal': {
       const g = state.goalEdit;
+      // adjusting a goal already set for next time keeps it for next time (this workout's goal stays)
+      const it = state.screen === 'session' && state.session ? cur() : null, nextOnly = it && it.newGoal != null && it.exId === g.exId && it.equip === g.equip;
+      const keep = nextOnly ? { w: it.goal.weight, lock: it.goalLock } : null;
       setGoal(g.exId, g.equip, g.sets, g.reps, g.weight);
-      syncAllGoals(); state.modal = null; toast('Overload goal saved'); break;
+      syncAllGoals();
+      if (nextOnly) { it.goal.weight = keep.w; it.newGoal = g.weight; it.newGoalVol = { sets: g.sets, reps: g.reps }; }
+      state.modal = null; toast(nextOnly ? 'Goal for next time saved' : 'Overload goal saved'); break;
     }
     case 'session-tracker': { const it = cur(); state.tracker = { exId: it.exId, equip: it.equip, range: 'All', volume: { sets: it.goal.sets, reps: it.goal.reps } }; go('tracker'); break; }
     case 'log-tracker': {
@@ -1425,7 +1437,28 @@ function handle(a, d, el, ex) {
       state.tracker = { exId: le.exId, equip: le.equip, range: 'All', volume: { sets: le.goal.sets, reps: le.goal.reps } };
       go('tracker'); break;
     }
-    case 'open-exhistory': state.exHistory = d.id; go('exhistory'); break;
+    case 'open-exhistory': state.exHistory = d.id; state.hx = { editing: false, del: [] }; go('exhistory'); break;
+    case 'hx-edit': {   // Edit ↔ Save; Save applies the deletions
+      const h = state.hx;
+      if (h.editing) saveHistoryEdits();
+      h.editing = !h.editing; break;
+    }
+    case 'hx-back': {   // leaving while editing with unsaved deletions: save or cancel them first
+      const h = state.hx;
+      if (h && h.editing && h.del.length) {
+        const n = h.del.length;
+        confirm({ title: 'Save your changes?', label: 'Save Changes', cancel: 'Cancel Changes', scrimClose: true,
+          text: `You deleted ${n} set block${n === 1 ? '' : 's'}.`,
+          run: () => { saveHistoryEdits(); h.editing = false; back(); },
+          no: () => { h.del = []; h.editing = false; back(); } });
+        break;
+      }
+      back(); break;
+    }
+    case 'hx-delete':
+      confirm({ title: 'Delete this set block?', danger: true, label: 'Delete', cancel: 'Nevermind',
+        text: 'The sets logged for this exercise in this workout will be deleted.', run: () => { state.hx.del.push(d.key); } });
+      break;
     case 'workouts-tab': state.workoutsTab = d.tab; break;
     case 'view-complete': if (!d.id || !db.sessions.some(x => x.id === d.id)) break; state.log = { sid: d.id, mode: 'complete' }; go('complete'); break;
     case 'view-session': state.log = { sid: d.id, mode: 'view' }; go('log'); break;
@@ -1458,7 +1491,7 @@ function handle(a, d, el, ex) {
       menu({ title: db.plan.name, items: [
         { label: 'Edit Plan', icon: I.editPen, run: () => openPlanWizard(true) },
         { label: 'End Plan', icon: I.trash24, danger: true, run: () => confirm({ title: 'End this plan?', danger: true, label: 'End Plan',
-          text: 'It comes off your home screen. Workouts and history stay.', run: () => { db.plan = null; } }) },
+          text: 'Ending this plan will remove it from your homescreen, it will not erase your workout data.', run: () => { db.plan = null; } }) },
       ] });
       break;
     case 'plan-next': {
@@ -1544,7 +1577,7 @@ function handle(a, d, el, ex) {
     case 'delete-exercise': {
       const x = exById(state.exDetail);
       confirm({ title: 'Delete exercise?', danger: true, label: 'Delete',
-        text: `${esc(x.name)} will be removed from your library and your saved workouts. Workouts you’ve already logged keep their sets.`,
+        text: `${esc(x.name)} is removed from your library and saved workouts. Sets you’ve logged stay in your history.`,
         run: () => {
           EXERCISES.splice(EXERCISES.indexOf(x), 1);
           for (const w of db.workouts) w.exercises = w.exercises.filter(it => it.exId !== x.id);
@@ -1575,43 +1608,66 @@ function handle(a, d, el, ex) {
     /* ---------------- equipment ---------------- */
     case 'open-equipment-detail': state.eqDetail = d.id; go('eqdetail'); break;
     case 'eq-create': freshEqWizard('equipment'); go('eqwiz'); break;
-    case 'xd-add-equipment': freshEqWizard('exdetail'); go('eqwiz'); break;
-    case 'swap-add': state.modal = null; freshEqWizard('swap'); go('eqwiz'); break;
+    case 'xd-add-equipment': freshEqWizard('exdetail', state.exDetail); go('eqwiz'); break;
+    case 'swap-add': state.modal = null; freshEqWizard('swap', swapExId()); go('eqwiz'); break;
+    case 'machine-add': freshEqWizard('prompt', cur().exId); go('eqwiz'); break;   // live workout: save the machine you're on
+    case 'machine-notnow': s.noMachinePrompt = [...(s.noMachinePrompt || []), cur().exId]; break;
     case 'edit-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail);
-      state.eqwiz = { step: 1, editId: sv.id, location: sv.location, name: sv.name, type: GENERIC.includes(eqType(sv)) ? eqType(sv) : null, types: eqTypes(sv).filter(t => GENERIC.includes(t)), units: sv.units, photo: sv.photo, returnTo: 'eqdetail' };
+      state.eqwiz = { step: 1, editId: sv.id, location: sv.location, name: sv.name, units: sv.units, photo: sv.photo, returnTo: 'eqdetail', ctxEx: null };
       go('eqwiz'); break;
+    }
+    case 'eqrel-open': {   // Related Exercises → Add
+      const sv = db.equipment.find(x => x.id === state.eqDetail);
+      state.eqRel = { q: '', exIds: machineExercises(sv).map(x => x.id) }; go('eqrelated'); break;
+    }
+    case 'eqrel-done': {
+      const sv = db.equipment.find(x => x.id === state.eqDetail), ref = 'eq:' + sv.id, want = new Set(state.eqRel.exIds);
+      for (const x of EXERCISES) {   // list the machine on the exercises picked (and off any un-picked)
+        const has = (x.equipment || []).includes(ref);
+        if (want.has(x.id) && !has) x.equipment = [...(x.equipment || []), ref];
+        else if (!want.has(x.id) && has) x.equipment = x.equipment.filter(k => k !== ref);
+      }
+      back(); toast('Related exercises saved'); break;
     }
     case 'eq-units': { const sv = db.equipment.find(x => x.id === state.eqDetail); sv.units = d.unit; syncAllGoals(); break; }
     case 'eqwiz-next': {
       const w = state.eqwiz; w.err = null;
-      if (w.step === 1 && !db.locations.includes(w.location)) { w.err = 'Pick where this equipment is.'; break; }
+      if (w.step === 1 && !db.locations.includes(w.location)) { w.err = 'Pick where this machine is.'; break; }
       if (w.step === 2) {
         const name = w.name.trim();
-        if (!name) { w.err = 'Give the equipment a name.'; break; }
+        if (!name) { w.err = 'Give the machine a name.'; break; }
         if (db.equipment.some(x => x.id !== w.editId && x.location === w.location && x.name.toLowerCase() === name.toLowerCase())) { w.err = `There’s already a ${name} at ${w.location}.`; break; }
       }
-      if (w.step === 3 && !(w.types || []).length) { w.err = 'Pick at least one kind.'; break; }
-      if (w.step < 5) { w.step++; break; }
-      const types = TYPE_ORDER.filter(t => w.types.includes(t)).sort((a, b) => w.types.indexOf(a) - w.types.indexOf(b));
-      const rec = { name: w.name.trim(), location: w.location, type: types[0], types, units: w.units, photo: w.photo || null };
-      if (w.editId) { Object.assign(db.equipment.find(x => x.id === w.editId), rec); back(); syncAllGoals(); toast('Equipment saved'); break; }
-      const sv = { id: uid('e'), ...rec }; db.equipment.push(sv);
+      if (w.step < 4) { w.step++; break; }
+      const prev = w.editId ? db.equipment.find(x => x.id === w.editId) : null;
+      const rec = { name: w.name.trim(), location: w.location, units: w.units, photo: w.photo || null,
+        ...(prev ? {} : { type: SPECIAL, types: [SPECIAL] }) };   // an older saved machine keeps its kind
+      let sv = prev;
+      if (prev && prev.locations && !prev.locations.includes(w.location)) delete prev.locations;
+      if (prev) Object.assign(prev, rec); else { sv = { id: uid('e'), ...rec }; db.equipment.push(sv); }
       const ref = 'eq:' + sv.id;
+      const forEx = !prev && exById(w.ctxEx);   // a new machine belongs to the exercise it was saved on
+      if (forEx && !(forEx.equipment || []).includes(ref)) forEx.equipment = [...(forEx.equipment || []), ref];
       back();
+      if (prev) { syncAllGoals(); toast('Machine saved'); break; }
       if (w.returnTo === 'exwiz') { if (!state.exwiz.saved.includes(ref)) state.exwiz.saved.push(ref); }
-      else if (w.returnTo === 'exdetail') { const x = exById(state.exDetail); if (x && !x.equipment.includes(ref)) x.equipment.push(ref); }
-      else if (w.returnTo === 'swap') { const x = exById(swapExId()); if (x && !x.equipment.includes(ref)) x.equipment.push(ref); return handle('swap-pick', { ref }, el, ex); }
-      toast('Equipment saved'); break;
+      else if (w.returnTo === 'swap') return handle('swap-pick', { ref }, el, ex);
+      else if (w.returnTo === 'prompt' && state.session) {   // use it right away on the exercise you're doing
+        const it = cur(); if (it && it.exId === w.ctxEx) { it.equip = ref; it.manual = true; syncGoal(it); }
+        if (state.session.location !== w.location) toast(`Saved at ${w.location}`); else toast('Machine saved');
+        break;
+      }
+      toast('Machine saved'); break;
     }
     case 'eqwiz-prev': state.eqwiz.err = null; state.eqwiz.step = Math.max(1, state.eqwiz.step - 1); break;
     case 'eqwiz-headback': if (state.eqwiz.step > 1) { state.eqwiz.err = null; state.eqwiz.step--; } else back(); break;
     case 'eqwiz-location': state.eqwiz.location = d.name; state.eqwiz.err = null; break;
     case 'eqwiz-units': state.eqwiz.units = d.name; break;
-    case 'eqwiz-type': {   // pick one or more kinds
-      const w = state.eqwiz, t = w.types || (w.types = []), i = t.indexOf(d.name);
-      if (i >= 0) t.splice(i, 1); else t.push(d.name);
-      w.type = t[0] || null; w.err = null; break;
+    case 'eqwiz-ex': {   // Related Exercises: pick or unpick
+      const w = state.eqRel, i = w.exIds.indexOf(d.id);
+      if (i >= 0) w.exIds.splice(i, 1); else w.exIds.push(d.id);
+      break;
     }
     case 'eqwiz-addloc': state.newLoc = { name: '', target: 'eqwiz' }; go('newloc'); break;
     case 'open-swap': state.swap = { owner: d.owner || listCtx().owner, index: +d.i || 0 }; state.modal = 'swap'; break;
@@ -1628,20 +1684,20 @@ function handle(a, d, el, ex) {
     }
     case 'delete-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail), ref = 'eq:' + sv.id;
-      confirm({ title: 'Delete equipment?', danger: true, label: 'Delete',
-        text: `${esc(sv.name)} at ${esc(sv.location)} will be removed. Workouts using it switch to generic equipment. Logged workouts keep their sets.`,
+      confirm({ title: 'Delete machine?', danger: true, label: 'Delete',
+        text: `${esc(sv.name)} at ${esc(sv.location)} will be removed. Workouts using it switch to ${esc(eqType(sv))}. Logged workouts keep their sets.`,
         run: () => { replaceRef(ref, e => genericFor(e, sv)); db.equipment.splice(db.equipment.indexOf(sv), 1); back(); toast('Equipment deleted'); } });
       break;
     }
     case 'merge-equipment': go('mergeeq'); break;
     case 'merge-pick-eq': {
       const A = db.equipment.find(x => x.id === state.eqDetail), B = db.equipment.find(x => x.id === d.id);
-      confirm({ title: 'Merge equipment?', label: 'Merge',
-        text: `${esc(A.name)} at ${esc(A.location)} will be merged into ${esc(B.name)} at ${esc(B.location)}. Its goals and history move over, and ${esc(A.name)} is removed.`,
+      confirm({ title: 'Merge machines?', label: 'Merge',
+        text: `${esc(A.name)}’s sets and goals are combined into ${esc(B.name)} at ${esc(B.location)}, and ${esc(A.name)} is removed. ${esc(B.name)} keeps everything it already has.`,
         run: () => {
           const from = 'eq:' + A.id, to = 'eq:' + B.id;
-          for (const x of EXERCISES) if (x.equipment.includes(from) && !x.equipment.includes(to)) x.equipment.push(to);
-          replaceRef(from, () => to, { history: to });
+          repointRef(from, to, A.units || db.settings.units, B.units || db.settings.units);   // combine A's sets and goals into B (B keeps its own)
+          if (state.session) for (const e of state.session.exercises) if (e.equip === from) { e.equip = to; syncGoal(e); }
           if (!B.photo && A.photo) B.photo = A.photo;
           db.equipment.splice(db.equipment.indexOf(A), 1);
           state.eqDetail = B.id; state.stack.pop(); state.screen = 'eqdetail';
@@ -1678,11 +1734,25 @@ function handle(a, d, el, ex) {
     }
 
     /* ---------------- confirm ---------------- */
+    case 'confirm-close': state.modal = null; state.confirm = null; break;   // tapping outside: just close
     case 'confirm-no': { const no = state.confirm && state.confirm.no; state.modal = null; state.confirm = null; if (no) no(); break; }
     case 'confirm-yes': { const run = state.confirm.run; state.modal = null; state.confirm = null; run(); break; }
 
     /* ---------------- settings ---------------- */
     case 'set-units': db.settings.units = d.unit; syncAllGoals(); break;
+    case 'move-generic': {   // Settings: saved cable / Smith machine data → generic Cable Machine / Smith Machine
+      if (s && s.started) { toast('Finish your workout first'); break; }
+      const all = genericMovePlan(), plan = all.filter(m => m.ok), skip = all.filter(m => !m.ok);
+      const ns = plan.map(m => esc(m.sv.name)), names = ns.length > 1 ? `${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}` : ns[0];
+      confirm({ title: 'Move to generic?', label: 'Move Data', cancel: 'Not Now',
+        text: `Sets and goals from ${names} move to the generic ${[...new Set(plan.map(m => m.kind))].join(' and ')}, and those saved machines are removed. Back up first if you want a way back.${skip.length ? ` ${skip.map(m => esc(m.sv.name)).join(', ')} use${skip.length === 1 ? 's' : ''} numbered weights, so ${skip.length === 1 ? 'it stays' : 'they stay'} saved.` : ''}`,
+        run: () => {
+          const moved = moveToGeneric();
+          if (s) for (const e of s.exercises) { const m = moved.find(x => x.ref === e.equip); if (m) { e.equip = m.kind; syncGoal(e); } }
+          toast(`Moved ${moved.length} machine${moved.length === 1 ? '' : 's'} to generic`);
+        } });
+      break;
+    }
     case 'export-data': {
       const blob = new Blob([exportData()], { type: 'application/json' });
       const name = `failup-backup-${dayKey()}.json`, file = new File([blob], name, { type: 'application/json' });
@@ -1691,11 +1761,11 @@ function handle(a, d, el, ex) {
       return false;
     }
     case 'clear-data':
-      confirm({ title: 'Clear exercise data?', danger: true, label: 'Clear', text: 'This deletes every logged workout and overload goal. Your workouts, exercises, and equipment stay. Back up first if you might want it later.',
+      confirm({ title: 'Clear exercise data?', danger: true, label: 'Clear', text: 'This deletes every logged workout and overload goal. Your workouts, exercises, and saved machines stay. Back up first if you might want it later.',
         run: () => { clearExerciseData(); home(); toast('Exercise data cleared'); } });
       break;
     case 'reset-app':
-      confirm({ title: 'Reset FailUp?', danger: true, label: 'Reset', text: 'Everything goes back to the starter workouts. Logged workouts, goals, custom exercises, equipment, and plans are deleted.',
+      confirm({ title: 'Reset FailUp?', danger: true, label: 'Reset', text: 'Everything goes back to the starter workouts. Logged workouts, goals, custom exercises, saved machines, and plans are deleted.',
         run: () => { resetAll(); home(); toast('FailUp was reset'); } });
       break;
 
@@ -1761,6 +1831,7 @@ device.addEventListener('input', (e) => {
   if (t.matches('[data-search]')) { state.exercises.search = t.value; const l = document.getElementById('ex-list'); if (l) l.innerHTML = exListInner(); return; }
   if (t.matches('[data-exwizname]')) { state.exwiz.name = t.value; return; }
   if (t.matches('[data-eqwizname]')) { state.eqwiz.name = t.value; return; }
+  if (t.matches('[data-eqwizq]')) { state.eqRel.q = t.value; t.parentElement.classList.toggle('has-text', !!t.value); const l = document.getElementById('eqwiz-results'); if (l) l.innerHTML = eqWizResults(); const h = document.querySelector('.eqw-sechdr'); if (h) h.textContent = t.value ? 'Results' : 'Suggested'; return; }
   if (t.matches('[data-newloc]')) { state.newLoc.name = t.value; return; }
   if (t.matches('[data-planwizname]')) { state.planwiz.name = t.value; return; }
   if (t.matches('[data-cwname]')) { state.create.name = t.value; if (state.create.err) { state.create.err = null; const er = t.closest('.cw-body').querySelector('.wiz-err'); if (er) er.remove(); } return; }

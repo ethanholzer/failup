@@ -3135,3 +3135,40 @@ button.rp:active { transform: scale(.97); }
 .sw-feel .ff-thumb.fail::before { animation: ffHaloIn .5s ease-out forwards, ffHalo 3.2s ease-in-out .5s infinite !important; }
 /* swap equipment: a purple dot on equipment that has goals for this exercise */
 .swp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; margin-left: 7px; vertical-align: middle; position: relative; top: -1px; }
+/* live workout: offer to save the specialized machine you're on */
+.mp-card { background: #fff; border-radius: 20px; padding: 16px; margin-bottom: 12px; box-shadow: var(--card-shadow); }
+.mp-top { display: flex; gap: 12px; align-items: flex-start; }
+.mp-ic { width: 52px; height: 52px; border-radius: 12px; flex: none; display: grid; place-items: center; }
+.mp-ic svg { max-width: 30px; max-height: 30px; }
+.mp-text { flex: 1; min-width: 0; }
+.mp-title { font-size: 1.0625rem; font-weight: 700; color: #111; }
+.mp-sub { font-size: 0.875rem; color: var(--sec); line-height: 1.35; margin-top: 3px; }
+.mp-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.mp-btn { height: 46px; border-radius: 14px; background: var(--bg); color: #111; font-size: 0.9375rem; font-weight: 600; border: 0; }
+.mp-btn.dark { background: #111; color: #fff; }
+.mp-btn:active { transform: scale(.97); }
+/* save-a-machine: the exercises step */
+.eqw-picked { margin-bottom: 14px; }
+.eqw-search { margin: 0 0 12px !important; }
+.eqw-sechdr { font-size: 0.875rem; font-weight: 600; color: var(--sec); margin: 4px 0 6px; }
+.eqw-ex .exth, .eqw-ex img, .eqw-ex .ex-tile { flex: none; }
+.tk-legend .lg .swatch-dot.other { background: #a3a7ae !important; box-shadow: none !important; }
+/* machine page: Add on the Related Exercises card */
+.xd-related .xd-relhead { display: flex; align-items: flex-start; gap: 12px; }
+.xd-related .xd-relhead .xd-hgroup { flex: 1; min-width: 0; }
+.eqd-add { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 12px 0 8px; border-radius: 12px; background: var(--bg); color: #111; font-size: 0.9375rem; font-weight: 600; border: 0; }
+.eqd-add svg { width: 18px; height: 18px; }
+.eqd-add:active { transform: scale(.97); }
+.eqr-screen .wiz-body { padding-bottom: 24px; }
+/* Exercise History: Edit mode puts a delete button on each set log */
+.hx-card { position: relative; }
+.hx-del { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border-radius: 12px; background: #fdecec; color: #d64545; display: grid; place-items: center; border: 0; z-index: 1; }
+.hx-del svg { width: 20px; height: 20px; }
+.hx-del:active { transform: scale(.94); }
+.hx-screen.editing .hx-head { padding-right: 56px; }
+.hx-del svg path { fill: currentColor; }
+/* delete sits across the bottom of the set log */
+.hx-del { position: static !important; width: 100% !important; height: 48px !important; margin-top: 10px; display: flex !important; align-items: center; justify-content: center; gap: 8px; border-radius: 14px !important; font-size: 1rem; font-weight: 600; }
+.hx-screen.editing .hx-head { padding-right: 0; }
+.gp .gp-val .gp-nt { color: #111; }
+.wc-titlerow .wl-titleblock { gap: 0; } .wc-titlerow .wl-title + .wl-help { margin-top: 4px !important; }

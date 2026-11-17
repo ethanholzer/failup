@@ -5,13 +5,26 @@
 import { state } from './data.js';
 import { I, WORKOUT_ICONS, tex, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP, eqName } from './ui.js';
 import {
-  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, volumeSuggestion, isFail, derived, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC, isMachineType,
+  db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, volumeSuggestion, isFail, derived, SPECIAL, machinesFor, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC, isMachineType,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
 } from './store.js';
 import { eqImg } from './screens-library.js';
 
 /* ------------------------------ shared logic ------------------------------ */
 export const exInfo = it => { const x = exById(it.exId); return x ? { name: x.name, muscle: x.muscle } : { name: it.name || 'Exercise', muscle: it.muscle || '' }; };
+// On a "Specialized Machine" exercise with no saved machine for it here: offer to save the one you're on
+export function machinePrompt(s, ex) {
+  if (!ex || ex.equip !== SPECIAL || !s.location || ex.sets.length) return '';
+  if ((s.noMachinePrompt || []).includes(ex.exId) || machinesFor(ex.exId, s.location).length) return '';
+  return `
+      <div class="mp-card">
+        <div class="mp-top">
+          <span class="mp-ic generic ph kind">${PH_EQUIP(SPECIAL)}</span>
+          <div class="mp-text"><div class="mp-title">Save this machine?</div><div class="mp-sub">Track your progress for this specific machine.</div></div>
+        </div>
+        <div class="mp-btns"><button class="mp-btn" data-action="machine-notnow">Not Now</button><button class="mp-btn dark" data-action="machine-add">Add Machine</button></div>
+      </div>`;
+}
 // muscle groups in a list, with how many exercises hit each, in list order
 export function muscleSummary(items) {
   const m = new Map();
@@ -95,6 +108,9 @@ function exSub(it) {
 // The Overload Goal panel: weight on top, volume underneath in grey; a converted
 // suggestion from another volume gets Accept and Dismiss in place of Edit.
 export function goalPanel(g, vs, v, u, attrs, o = {}) {
+  if (o.next) {   // a goal is set for next time: show it (adjustable from the pencil), nothing else
+    return `<div class="${o.cls || 'cw-goal'} gp"><div class="${o.textCls || 'cw-goal-text'}"><div class="gp-val tnum"><span class="gp-nt">Next time:</span> ${wtTight(o.next.weight, u)}</div><div class="gp-sub tnum">${o.next.sets} Sets · ${o.next.reps} Reps</div></div><button class="sess-dpill gp-ico" data-action="open-goal" ${attrs} aria-label="Adjust next time's goal">${I.editPen}</button></div>`;
+  }
   const sug = g == null && vs;
   const main = g != null ? `<div class="gp-val tnum">${wtTight(g, u)}</div>`
     : sug ? `<div class="gp-val tnum">${wtTight(vs.weight, u)}</div>`
@@ -549,7 +565,9 @@ export function WorkoutSessionScreen() {
   const img = imgSrc ? `${PH_EQUIP(eqKind(ex.equip))}<img src="${imgSrc}" alt="" onerror="this.remove()">` : '';
   // goal row button: View a waiting suggestion, the tracker when there's a goal, nothing otherwise
   const sugg = ex.newGoal == null ? pendingSuggestion(ex) : null;
-  const vsx = ex.goal.weight == null && !sugg ? volumeSuggestion(ex.exId, ex.equip, ex.goal.sets, ex.goal.reps) : null;
+  // A suggestion in the dropdown is the goal to aim for in the sets ahead. Once a goal for next time
+  // has been set (after reaching one), that's all that shows; the two never appear together.
+  const vsx = ex.goal.weight == null && !sugg && ex.newGoal == null ? volumeSuggestion(ex.exId, ex.equip, ex.goal.sets, ex.goal.reps) : null;
   const goalBtn = sugg ? `<button class="sess-dpill sess-view" data-action="goal-view">View</button>`
     : ex.goal.weight != null ? `<button class="sess-dpill" data-action="session-tracker" aria-label="Open Overload Tracker">${I.graph}</button>` : '';
   const detail = !s.expanded ? '' : `
@@ -559,7 +577,7 @@ export function WorkoutSessionScreen() {
         <div class="sess-blabel">Equipment</div>
         <div class="sess-panel">
           <div class="dimg generic ph kind${img ? ' photo' : ''}">${img || PH_EQUIP(eqKind(ex.equip))}</div>
-          <div class="sess-ptext"><div class="dval">${esc(eqLabel(ex.equip))}</div>${!sv && isMachineType(ex.equip) ? '<div class="dlabel sess-savehint">Machines vary, tap swap to save the one you’re on</div>' : ''}${sv ? `<div class="dlabel">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
+          <div class="sess-ptext"><div class="dval">${esc(eqLabel(ex.equip))}</div>${sv ? `<div class="dlabel">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
           <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
         </div>
       </div>
@@ -574,7 +592,7 @@ export function WorkoutSessionScreen() {
         <div class="sess-blabel">Overload Goal${ex.goal.weight == null && (vsx || sugg) ? ' (Suggested)' : ''}</div>
         ${goalPanel(ex.goal.weight, vsx, ex.goal, u, 'data-owner="session"', {
           cls: 'sess-panel', textCls: 'sess-ptext', pending: sugg, btn: goalBtn,
-          extra: `${sugg && ex.goal.weight != null ? `<div class="gp-sub">Suggested: ${wtTight(sugg.weight, u)}</div>` : ''}${ex.newGoal != null ? `<div class="gp-sub">Next time: ${wtTight(ex.newGoal, u)}</div>` : ''}` })}
+          next: ex.newGoal != null ? { weight: ex.newGoal, ...(ex.newGoalVol || ex.goal) } : null })}
       </div>
     </div>`;
   const working = workingSets(ex);
@@ -616,6 +634,7 @@ export function WorkoutSessionScreen() {
       </div>
     </div>
     <div class="sess-sets">
+      ${machinePrompt(s, ex)}
       ${logged ? `<div class="set-list">${logged}</div>` : ''}
       ${ghosts}
       ${complete ? `<button class="set-extra" data-action="sess-log" data-type="working">${I.plus20} Extra Set</button>` : ''}
@@ -713,7 +732,7 @@ export function UpdateGoalSheet() {
     <div class="sheet ug-sheet" data-stop>
       <div class="sheet-grab"></div>
       <div class="ug-body">
-        <div class="ug-titleblock"><div class="ug-title">Update goal weight?</div><div class="ug-text">Lighter weight, strong effort. Make this your goal?</div></div>
+        <div class="ug-titleblock"><div class="ug-title">Update goal weight?</div><div class="ug-text">Reducing your goal weight can help keep your form in check.</div></div>
         <div class="ug-summary">${e.goal.sets} sets · ${e.goal.reps} reps · <s>${wtTight(u.from, unit)}</s> <span>${wtTight(u.to, unit)}</span></div>
         <div class="ug-actions"><button class="ug-btn" data-action="ug-cancel">Cancel</button><button class="ug-btn dark" data-action="ug-confirm">Yes, Update Goal</button></div>
       </div>
@@ -726,7 +745,7 @@ export function GoalAskSheet() {
   const g = state.goalAsk, e = state.session.exercises[g.ei] || state.session.exercises[state.session.exIndex], u = eqUnits(e.equip);
   const [big, small] = steps(u), ul = unitLabel(u);
   const pick = g.kind === 'pick', raise = g.kind === 'raise' && !g.noGoal;
-  const title = g.first ? 'Your first goal!' : raise ? 'Raise your goal?' : pick ? (g.heavy ? 'Lighten it up?' : 'Too light?') : 'New overload goal!';
+  const title = g.first ? 'Your first goal' : raise ? 'Raise your goal?' : pick ? (g.heavy ? 'Go lighter?' : 'Go heavier?') : 'New overload goal';
   // New Goal: locked until you tap the pencil, so the suggestion is the easy path
   const val = g.editing
     ? `<label class="sw-val tnum"><span class="sw-numwrap">${u === 'simple' ? '<span class="pre">#</span>' : ''}<input class="sw-in" data-goalaskfield inputmode="decimal" value="${fmt(g.weight)}" style="width:${Math.max(1, fmt(g.weight).length) + 0.3}ch" aria-label="New goal weight">${ul ? `<span class="u">${ul}</span>` : ''}</span></label>`
@@ -762,7 +781,7 @@ export function GoalAskSheet() {
         </div>
         ${picker}
         <div class="ug-summary">${esc(exInfo(e).name)} · ${g.sets} × ${g.reps} · ${raise ? `<s>${wtTight(g.from, u)}</s> ` : ''}<span>${wtTight(g.weight, u)}</span></div>
-        <div class="ug-actions"><button class="ug-btn" data-action="goalask-no">Not Now</button><button class="ug-btn dark" data-action="goalask-yes">${g.noGoal ? 'Set as Goal' : 'Set Goal'}</button></div>
+        <div class="ug-actions"><button class="ug-btn" data-action="goalask-no">Not Now</button><button class="ug-btn dark" data-action="goalask-yes">Set Goal</button></div>
       </div>
     </div>
   </div>`;
@@ -781,10 +800,10 @@ export function PauseSheet() {
   <div class="scrim" data-action="close-pause">
     <div class="sheet" data-stop>
       <div class="sheet-grab"></div>
-      <div class="mn-head"><div class="vs-title">Pause Workout?</div><div class="vs-sub">Everything’s saved.</div></div>
+      <div class="mn-head"><div class="vs-title">Take a break?</div><div class="vs-sub">Your sets are saved</div></div>
       <div class="mn-list">
         ${row('pause-confirm', I.pause, 'Pause Workout', 'Resume it from the home screen')}
-        ${row('finish-early', I.checkC('#1C1B1F'), 'End Workout', st.sets ? `Save the ${st.sets} set${st.sets === 1 ? '' : 's'} you’ve logged and see your summary` : 'Nothing logged yet, so nothing will be saved')}
+        ${row('finish-early', I.checkC('#1C1B1F'), 'End Workout', st.sets ? 'Finish now and see your summary' : 'Nothing logged yet, so nothing will be saved')}
         ${row('close-pause', I.arrowR.replace(/fill="white"/g, 'fill="#1C1B1F"'), 'Keep Going', 'Back to your workout')}
         ${row('discard-session', I.trash24, 'Discard Workout', 'Delete everything from this workout', true)}
       </div>
