@@ -58,7 +58,7 @@ function body(step, ob) {
       <div class="ob-mid ob-welcome ob-txt">
         <div class="ob-logo">Fail<span>Up</span></div>
         <h1 class="ob-h1"><span class="ob-fbox">Failure</span> is<br>the goal</h1>
-        <p class="ob-p">FailUp turns your hardest set into your next goal, here’s how it works in about a minute</p>
+        <p class="ob-p">FailMore turns your hardest set into your next goal, here’s how it works in about a minute</p>
       </div>
       <div class="ob-foot">
         <button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button>
@@ -99,7 +99,7 @@ function body(step, ob) {
       <div class="ob-foot"><button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button></div>`;
     case 'loop': return `
       ${trackerDemo()}
-      <div class="ob-top ob-txt"><div class="ob-kicker">How FailUp works</div></div>
+      <div class="ob-top ob-txt"><div class="ob-kicker">How FailMore works</div></div>
       <ol class="ob-steps">
         <li style="--d:2.6s"><span>Step 1</span>Find a weight where you fail on the last few reps of your last set</li>
         <li style="--d:2.95s"><span>Step 2</span>Set a goal to do all of those reps without failing</li>
@@ -108,12 +108,12 @@ function body(step, ob) {
       <div class="ob-foot ob-late"><button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button></div>`;
     case 'nosub': return `
       <div class="ob-visual ob-share" data-ob-share aria-hidden="true"></div>
-      <div class="ob-top ob-txt"><div class="ob-kicker">Spread the word</div><h2 class="ob-h2">FailUp relies on its users to spread the word</h2>
+      <div class="ob-top ob-txt"><div class="ob-kicker">Spread the word</div><h2 class="ob-h2">FailMore relies on its users to spread the word</h2>
         <p class="ob-p">If you enjoy the app, please share it with a friend</p>
         <p class="ob-p ob-p2">If you’re a cool friend, you’ll buy the app for them</p></div>
       <div class="ob-foot">
         <button class="ob-btn" data-action="ob-next">Continue ${ARROW}</button>
-        <button class="ob-btn2" data-action="ob-share">Share FailUp with a friend</button>
+        <button class="ob-btn2" data-action="ob-share">Share FailMore with a friend</button>
       </div>`;
     case 'ready': return `
       <div class="ob-flame big" data-ob-flame></div>

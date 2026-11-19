@@ -1,5 +1,5 @@
 // ============================================================================
-// FailUp — workout screens: home, workouts, Today's Lineup, the live session,
+// FailMore — workout screens: home, workouts, Today's Lineup, the live session,
 // set sheets, Workout Complete / past workout logs, and the plan wizard.
 // ============================================================================
 import { state } from './data.js';
@@ -162,10 +162,10 @@ export function exerciseCards(ctx) {
           ${ro ? '' : '</div>'}
         </div>
         ${ro ? '' : `<div class="cw-actions">
-          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="-1">${I.chevUp20}<span>Up</span></button>
-          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="1">${I.chevDn20}<span>Down</span></button>
-          <button class="cw-act" data-action="ex-swap" data-i="${i}">${I.swap}<span>Swap</span></button>
-          <button class="cw-act del" data-action="ex-delete" data-i="${i}">${I.trashRed}<span>Delete</span></button>
+          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="-1" aria-label="Move up">${I.chevUp20}<span>Up</span></button>
+          <button class="cw-act" data-action="ex-move" data-i="${i}" data-dir="1" aria-label="Move down">${I.chevDn20}<span>Down</span></button>
+          <button class="cw-act" data-action="ex-swap" data-i="${i}" aria-label="Swap exercise">${I.swap}<span>Swap</span></button>
+          <button class="cw-act del" data-action="ex-delete" data-i="${i}" aria-label="Delete exercise">${I.trashRed}<span>Delete</span></button>
         </div>`}
       </div>`;
     return `

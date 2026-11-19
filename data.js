@@ -1,9 +1,9 @@
 // ============================================================================
-// FailUp — data layer
+// FailMore — data layer
 // Constants + the mutable UI state. Saved user data lives in store.js.
 // ============================================================================
 
-// 12 workout colors, picked to sit well next to FailUp purple (#6C5CE7): warm golds and
+// 12 workout colors, picked to sit well next to FailMore purple (#6C5CE7): warm golds and
 // tangerine as its complements, cool aquas and blues beside it, pinks that lean away from red.
 // No red (it fights the purple) and no purple (that color means "goal reached").
 export const WORKOUT_COLORS = [
@@ -116,10 +116,10 @@ export const state = {
   planwiz: null,          // Create a Plan wizard (set when opened)
 };
 
-// Links used on the home screen. Set appStore once FailUp is in the App Store and
-// "Share FailUp with Friends" will share that instead of the website.
+// Links used on the home screen. Set appStore once FailMore is in the App Store and
+// "Share FailMore with Friends" will share that instead of the website.
 export const LINKS = {
-  site: 'https://ethanholzer.github.io/failup/',
+  site: 'https://failmore.app/',
   appStore: '',
   maker: 'https://ethanholzer.github.io/',
 };

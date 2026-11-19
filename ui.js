@@ -1,6 +1,6 @@
 import { EXTRA_ICONS, ICON_GROUPS } from './icons-workout.js';
 // ============================================================================
-// FailUp — shared UI bits: icons (exported from Figma), formatting helpers.
+// FailMore — shared UI bits: icons (exported from Figma), formatting helpers.
 // ============================================================================
 export const fmt = (n) => (Number.isInteger(n) ? n : n.toFixed(1)); // trim trailing .0
 

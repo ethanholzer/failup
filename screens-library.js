@@ -1,5 +1,5 @@
 // ============================================================================
-// FailUp — library screens: exercises, equipment, the Overload Tracker,
+// FailMore — library screens: exercises, equipment, the Overload Tracker,
 // creation wizards, locations, merge/confirm sheets, Settings.
 // ============================================================================
 import { state, PURPLE, UPPER_BODY, LOWER_BODY } from './data.js';
@@ -585,7 +585,7 @@ export function EquipmentRelatedScreen() {
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Related Exercises</span></div>
     <div class="wiz-body">
       <div class="wiz-title">What else do you do on it?</div>
-      <div class="wiz-help">FailUp picks ${esc(sv.name)} for these exercises when you train at ${esc(eqLocText(sv))}</div>
+      <div class="wiz-help">FailMore picks ${esc(sv.name)} for these exercises when you train at ${esc(eqLocText(sv))}</div>
       ${picked.length ? `<div class="pk-list eqw-picked">${picked.map(x => eqwExRow(x, true)).join('')}</div>` : ''}
       <div class="ex-search eqw-search${w.q ? ' has-text' : ''}">
         ${I.search}
@@ -905,7 +905,7 @@ export function PrefTypeSheet() {
       <div class="sheet-grab"></div>
       <div class="swp-sheethead">
         <div class="vs-title">Equipment type</div>
-        <div class="vs-sub">Pick Specialized Machine and FailUp uses your saved machine for this exercise at your gym. You can swap anytime during a workout.</div>
+        <div class="vs-sub">Pick Specialized Machine and FailMore uses your saved machine for this exercise at your gym. You can swap anytime during a workout.</div>
       </div>
       <div class="swp-sheetbody">
         ${GENERIC.map(t => `<button class="xd-eqrow swp-row${t === cur ? ' on' : ''}" data-action="pick-preftype" data-name="${esc(t)}">${eqImg(null, 'xd-eqimg', t)}<span class="xd-eqtext"><span class="xd-eqname">${esc(t)}</span></span>${t === cur ? `<span class="swp-tick">${I.checkW}</span>` : ''}</button>`).join('')}
@@ -984,7 +984,7 @@ export function LocationSheet() {
     <div class="sheet pk-sheet" data-stop style="--pk-sel:${state.create ? state.create.color : '#111'}">
       <div class="sheet-grab"></div>
       <div class="pk-body loc-body">
-        <div class="pk-titleblock"><div class="vs-title">${eqsv ? 'Where is this located?' : 'Choose a location'}</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you lifting? FailUp will use your saved machines.' : 'Pick every place you have this same machine.'}</div></div>
+        <div class="pk-titleblock"><div class="vs-title">${eqsv ? 'Where is this located?' : 'Choose a location'}</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you lifting? FailMore will use your saved machines.' : 'Pick every place you have this same machine.'}</div></div>
         ${eqsv ? locationCells(cur, 'toggle-eqloc', 'add-location', true) : locationCells(cur, 'pick-location', 'add-location')}
         ${eqsv ? '<div class="ug-actions loc-done"><button class="ug-btn dark" data-action="close-location">Done</button></div>' : ''}
       </div>
@@ -1098,7 +1098,7 @@ export function SettingsScreen() {
     ${statusBar()}
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Settings</span></div>
     <div class="xd-content st-content">
-      ${storageWorks() ? '' : '<div class="st-warn">This browser isn’t letting FailUp save. Your data will be lost when you close the tab. Private browsing is the usual cause.</div>'}
+      ${storageWorks() ? '' : '<div class="st-warn">This browser isn’t letting FailMore save. Your data will be lost when you close the tab. Private browsing is the usual cause.</div>'}
       <div class="xd-card eqd-units">
         <div class="xd-hgroup"><div class="xd-h">Weight Units</div><div class="xd-sub">Used for generic equipment. Saved equipment keeps its own units.</div></div>
         <div class="eqd-unitrow">${unit('lbs', 'Pounds (lbs)')}${unit('kg', 'Kilograms (kg)')}</div>
@@ -1117,11 +1117,11 @@ export function SettingsScreen() {
       ${row('move-generic', I.merge, 'Move Cable and Smith Data to Generic', `${plan.length} saved machine${plan.length === 1 ? '' : 's'} · ${sets} logged set${sets === 1 ? '' : 's'}`)}
     </div>`; })()}
     <div class="xd-actions">
-      ${row('intro-replay', I.history, 'Replay the Intro', 'The one-minute tour of how FailUp works')}
+      ${row('intro-replay', I.history, 'Replay the Intro', 'The one-minute tour of how FailMore works')}
       ${row('export-data', I.share, 'Back Up My Data', 'Save a backup file')}
       <label class="xd-act st-act"><span class="xd-acticon">${I.history}</span><span><span class="st-label">Restore From Backup</span><span class="st-sub">Replaces what’s on this device</span></span>${I.smChevR}<input type="file" accept=".json,application/json" data-import hidden></label>
       ${row('clear-data', I.trash24, 'Clear My Exercise Data', 'Deletes logged workouts and goals', true)}
-      ${row('reset-app', I.trash24, 'Reset FailUp', 'Back to the 3 starter workouts', true)}
+      ${row('reset-app', I.trash24, 'Reset FailMore', 'Back to the 3 starter workouts', true)}
     </div>
     <div class="st-credits">Skull, beast and battle icons by Lorc and Delapouite at game-icons.net, CC BY 3.0. Flame animation by Tom Fabre</div>
   </div>`;

@@ -1,5 +1,5 @@
 // ============================================================================
-// FailUp — app shell
+// FailMore — app shell
 // Screens are pure functions of state that return HTML strings. render() swaps
 // #app.innerHTML, a single delegated click handler runs actions, and every
 // render saves the store. Maps to React as: Screen → component, data-action →
@@ -156,10 +156,10 @@ function fitExNames() {
 }
 addEventListener('resize', () => fitExNames());
 
-// Share FailUp: the App Store link once there is one, otherwise the website.
+// Share FailMore: the App Store link once there is one, otherwise the website.
 async function shareApp() {
   const url = LINKS.appStore || LINKS.site;
-  const data = { title: 'FailUp', text: 'FailUp is a quality workout tracker. It’s only $8.99, no subscription. You should get it too!', url };
+  const data = { title: 'FailMore', text: 'FailMore is a quality workout tracker. It’s only $8.99, no subscription. You should get it too!', url };
   try { if (navigator.share) { await navigator.share(data); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { toast(url); }
 }
@@ -176,7 +176,7 @@ function homeHeaderIcons() {
 }
 app.addEventListener('scroll', homeHeaderIcons, { passive: true });
 
-// How FailUp Works: each card slides in from the right as it scrolls into view.
+// How FailMore Works: each card slides in from the right as it scrolls into view.
 let slideIO = null;
 // Back from the picker: center the exercise you just added and slide it in from the right.
 function revealAdded() {
@@ -251,7 +251,7 @@ function mountObFlame() {
   if (flameData) go(flameData); else fetch('./assets/flame.json').then(r => r.json()).then(d => { flameData = d; if (box.isConnected) go(d); }).catch(() => {});
   void obFlame;
 }
-// The spread-the-word slide: one person sharing out to friends (assets/share.json, drawn for FailUp)
+// The spread-the-word slide: one person sharing out to friends (assets/share.json, drawn for FailMore)
 let shareData = null;
 function mountObShare() {
   const box = app.querySelector('[data-ob-share]');
@@ -655,7 +655,7 @@ function setDraft(type, si) {
   const lastTop = last ? Math.max(0, ...workingSets(last.e).map(x => x.weight)) : null;
   const hint = type === 'working' ? (e.goal.weight != null
     ? { goal: true, title: `${wt(e.goal.weight, u)} × ${e.goal.reps} reps`, sub: 'Hit every rep, or go to failure.' }
-    : { goal: false, title: 'No goal yet', sub: `Finish ${e.goal.sets} × ${e.goal.reps} and FailUp suggests one.` }) : null;
+    : { goal: false, title: 'No goal yet', sub: `Finish ${e.goal.sets} × ${e.goal.reps} and FailMore suggests one.` }) : null;
   if (si != null) {
     const st = e.sets[si];
     const num = st.type === 'working' ? working.indexOf(st) + 1 : 0;
@@ -999,10 +999,10 @@ async function shareSession(s) {
   text('Fail', P, H - 30, PURPLE, 800, 22); text('Up', P + fw, H - 30, '#111', 800, 22);
   text('Earn failure. Raise the goal.', W - P, H - 33, '#5f636b', 500, 13, 'right');
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-  const file = new File([blob], `failup-${s.workoutName.replace(/\W+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
+  const file = new File([blob], `failmore-${s.workoutName.replace(/\W+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
   if (window.__shareTest) { window.__shareTest(c.toDataURL('image/png')); return; }
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: `${s.workoutName} · FailUp`, text: `Tracked with FailUp\n${LINKS.appStore || LINKS.site}`, url: LINKS.appStore || LINKS.site }); } catch {}
+    try { await navigator.share({ files: [file], title: `${s.workoutName} · FailMore`, text: `Tracked with FailMore\n${LINKS.appStore || LINKS.site}`, url: LINKS.appStore || LINKS.site }); } catch {}
   } else downloadBlob(blob, file.name);
 }
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -1029,12 +1029,17 @@ device.addEventListener('pointerdown', (e) => {
   el.classList.add('flash'); if (isDark(el)) el.classList.add('flash-dark');
   el.addEventListener('animationend', () => el.classList.remove('flash', 'flash-dark'), { once: true });
 }, { passive: true });
+// Where the last press started. A tap that began on a sheet never closes it, even if Safari
+// shifts the page mid-tap (its toolbars) and the click lands on the dimmed background instead.
+let pressStart = null;
+device.addEventListener('pointerdown', (e) => { pressStart = e.target; }, { capture: true, passive: true });
 device.addEventListener('click', (e) => {
   // a tap anywhere outside the open rest timer closes it
   if (state.restOpen && !e.target.closest('.rp')) { state.restOpen = false; if (!e.target.closest('[data-action]')) { render(); return; } }
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
   if (el.classList.contains('scrim') && e.target.closest('[data-stop]')) return;
+  if (el.classList.contains('scrim') && pressStart && pressStart.isConnected && pressStart.closest && pressStart.closest('[data-stop]')) return;
   const a = el.dataset.action, d = el.dataset, ex = state.exercises;
   if (handle(a, d, el, ex) !== false) render();
 });
@@ -1764,8 +1769,8 @@ function handle(a, d, el, ex) {
     }
     case 'export-data': {
       const blob = new Blob([exportData()], { type: 'application/json' });
-      const name = `failup-backup-${dayKey()}.json`, file = new File([blob], name, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: 'FailUp backup' }).catch(() => {});
+      const name = `failmore-backup-${dayKey()}.json`, file = new File([blob], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: 'FailMore backup' }).catch(() => {});
       else downloadBlob(blob, name);
       return false;
     }
@@ -1774,8 +1779,8 @@ function handle(a, d, el, ex) {
         run: () => { clearExerciseData(); home(); toast('Exercise data cleared'); } });
       break;
     case 'reset-app':
-      confirm({ title: 'Reset FailUp?', danger: true, label: 'Reset', text: 'Everything goes back to the starter workouts. Logged workouts, goals, custom exercises, saved machines, and plans are deleted.',
-        run: () => { resetAll(); home(); toast('FailUp was reset'); } });
+      confirm({ title: 'Reset FailMore?', danger: true, label: 'Reset', text: 'Everything goes back to the starter workouts. Logged workouts, goals, custom exercises, saved machines, and plans are deleted.',
+        run: () => { resetAll(); home(); toast('FailMore was reset'); } });
       break;
 
     /* ---------------- back ---------------- */
@@ -1844,7 +1849,7 @@ device.addEventListener('input', (e) => {
   if (t.matches('[data-newloc]')) { state.newLoc.name = t.value; return; }
   if (t.matches('[data-planwizname]')) { state.planwiz.name = t.value; return; }
   if (t.matches('[data-cwname]')) { state.create.name = t.value; if (state.create.err) { state.create.err = null; const er = t.closest('.cw-body').querySelector('.wiz-err'); if (er) er.remove(); } return; }
-  if (t.matches('[data-rpedemo]')) {   // How FailUp Works: the practice effort slider
+  if (t.matches('[data-rpedemo]')) {   // How FailMore Works: the practice effort slider
     const v = +t.value, demo = t.closest('.hv-rpe-demo'), c = FEEL_SEGS[v - 1];
     demo.style.setProperty('--c', c); demo.style.setProperty('--p', `${((v - 0.5) / 10) * 100}%`);
     demo.querySelector('[data-rpe-label]').textContent = rpeLabel(v);

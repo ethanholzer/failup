@@ -1,5 +1,5 @@
 // ============================================================================
-// FailUp — persistent store
+// FailMore — persistent store
 // Everything the user creates lives in `db` and is saved to localStorage after
 // every change (photos go to IndexedDB, they're too big for localStorage).
 // Goals and overload achievements are never stored directly: they're replayed
@@ -217,11 +217,11 @@ export function exportData() {
   snapshotExercises();
   const json = JSON.stringify(db), photos = {};
   for (const id of Object.keys(photoCache)) if (json.includes(id)) photos[id] = photoCache[id];
-  return JSON.stringify({ app: 'FailUp', exported: new Date().toISOString(), ...db, photos });
+  return JSON.stringify({ app: 'FailMore', exported: new Date().toISOString(), ...db, photos });
 }
 export function importData(text) {
   const d = JSON.parse(text);
-  if (!d || !Array.isArray(d.workouts) || !Array.isArray(d.sessions)) throw new Error('That file isn’t a FailUp backup.');
+  if (!d || !Array.isArray(d.workouts) || !Array.isArray(d.sessions)) throw new Error('That file isn’t a FailMore backup.');
   const photos = d.photos || {};
   delete d.app; delete d.exported; delete d.photos;
   for (const [id, url] of Object.entries(photos)) {

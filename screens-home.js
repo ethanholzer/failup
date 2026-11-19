@@ -1,5 +1,5 @@
 // ============================================================================
-// FailUp: home (modular sections), How FailUp Works, and the list of overload goals.
+// FailMore: home (modular sections), How FailMore Works, and the list of overload goals.
 // ============================================================================
 import { state, LINKS } from './data.js';
 import { I, statusBar, fmt, esc, wtTight, D } from './ui.js';
@@ -154,7 +154,7 @@ export function HomeScreen() {
     <header class="hm2-head">
       ${statusBar(true)}
       <div class="hm2-bar">
-        <div class="hm2-logo">FailUp</div>
+        <div class="hm2-logo">FailMore</div>
         <div class="hm2-icons">
           ${iBtn('workouts', I.book, 'Workouts', 'mini')}${iBtn('exercises', I.barbell, 'Exercises', 'mini')}${iBtn('equipment', I.equipment, 'Equipment', 'mini')}
           ${iBtn('settings', I.gear, 'Settings')}
@@ -171,9 +171,9 @@ export function HomeScreen() {
     </section>
 
     <section class="hm2-sec">
-      <div class="hm2-sechead"><h2>How FailUp Works</h2></div>
+      <div class="hm2-sechead"><h2>How FailMore Works</h2></div>
       <div class="hm2-rail hm2-howrail">
-        <button class="hm2-how" data-action="intro-replay" aria-label="How FailUp Works. Learn about our super simple training strategy.">
+        <button class="hm2-how" data-action="intro-replay" aria-label="How FailMore Works. Learn about our super simple training strategy.">
           <img class="hm2-howimg" src="./assets/hero.jpg" alt="">
           <span class="hm2-howart">${heroLines()}</span>
           <span class="hm2-howtext"><span class="hm2-howsub">Learn about our super simple training strategy.</span></span>
@@ -187,7 +187,7 @@ export function HomeScreen() {
       ${goals.length ? `<div class="hm2-rail hm2-goalrail">${goals.map(goalCard).join('')}</div>` : `
       <div class="hm2-card hm2-nogoals">
         <div class="hm2-nogoalstitle">Your goals will live here</div>
-        <div class="hm2-nogoalstext">Finish an exercise and FailUp suggests one. Then watch them climb.</div>
+        <div class="hm2-nogoalstext">Finish an exercise and FailMore suggests one. Then watch them climb.</div>
       </div>`}
     </section>
 
@@ -197,13 +197,13 @@ export function HomeScreen() {
           <div><div class="hm2-sharetitle">Tell your friends, please!</div><div class="hm2-sharetext">It helps a ton. Send it to your gym buddy.</div></div>
           <span class="hm2-shareic">${ICON.contacts}</span>
         </div>
-        <button class="hm2-btn dark" data-action="share-app">${ICON.share}<span>Share FailUp with Friends</span></button>
+        <button class="hm2-btn dark" data-action="share-app">${ICON.share}<span>Share FailMore with Friends</span></button>
       </div>
     </section>
   </div>`;
 }
 
-/* ---- How FailUp Works ---- */
+/* ---- How FailMore Works ---- */
 // "Hit failure. Set a goal. Beat it. Repeat." with the yellow pointer stepping down the lines
 export const heroLines = () => `<div class="hw-big" aria-label="Hit failure. Set a goal. Beat it. Repeat."><i class="hw-pointer" aria-hidden="true"></i><span class="hw-line l1">Hit failure.</span><span class="hw-line l2">Set a goal.</span><span class="hw-line l3">Beat it.</span><span class="hw-line l4 yel">Repeat.</span></div>`;
 // the same colors as the set logger's effort slider
@@ -246,7 +246,7 @@ export function HowItWorksScreen() {
   return `
   <div class="hw-screen">
     ${statusBar()}
-    <div class="nav"><button class="icon-btn" data-action="back" aria-label="Back">${I.chevL}</button><span class="nav-title">How FailUp Works</span></div>
+    <div class="nav"><button class="icon-btn" data-action="back" aria-label="Back">${I.chevL}</button><span class="nav-title">How FailMore Works</span></div>
     <div class="hw-hero">
       ${heroLines()}
       <div class="hw-herosub">Two minutes. Here’s why it works.</div>
@@ -260,8 +260,8 @@ export function HowItWorksScreen() {
     ${sec(3, 'Why go to failure',
       '<b>Failure tells you the truth.</b>',
       ['Failure is the rep you can’t finish with good form. Those last grinding reps build the most muscle, and hitting failure means you know your real limit. Most people stop early and guess.'])}
-    ${sec(4, 'How FailUp helps',
-      '<b>You lift. FailUp does the math.</b>',
+    ${sec(4, 'How FailMore helps',
+      '<b>You lift. FailMore does the math.</b>',
       [])}
     <div class="hw-steps">
       <div class="hw-step">
@@ -328,7 +328,7 @@ export function GoalsScreen() {
   </div>`;
 }
 
-// After a workout (Back to Home on Workout Complete): ask to share FailUp
+// After a workout (Back to Home on Workout Complete): ask to share FailMore
 export function ShareAskSheet() {
   return `
   <div class="scrim" data-action="shareask-close">
@@ -336,7 +336,7 @@ export function ShareAskSheet() {
       <div class="sheet-grab"></div>
       <div class="ug-body sa-body">
         <span class="hm2-shareic sa-ic">${ICON.contacts}</span>
-        <div class="ug-titleblock"><div class="ug-title">Share FailUp with a friend</div><div class="ug-text">FailUp is made by one person with no ad budget. Sharing it is the best way to help.</div></div>
+        <div class="ug-titleblock"><div class="ug-title">Share FailMore with a friend</div><div class="ug-text">FailMore is made by one person with no ad budget. Sharing it is the best way to help.</div></div>
         <div class="ug-actions"><button class="ug-btn" data-action="shareask-close">Close</button><button class="ug-btn dark" data-action="shareask-share">${ICON.share}<span>Share</span></button></div>
       </div>
     </div>
@@ -351,7 +351,7 @@ export function SafetySheet() {
       <div class="sheet-grab"></div>
       <div class="ug-body sa-body sf-body">
         <span class="sf-ic">F</span>
-        <div class="ug-titleblock"><div class="ug-title">Fail safely</div><div class="ug-text">FailUp has you push sets to failure, so set yourself up to fail safely.</div></div>
+        <div class="ug-titleblock"><div class="ug-title">Fail safely</div><div class="ug-text">FailMore has you push sets to failure, so set yourself up to fail safely.</div></div>
         <ul class="sf-list">
           <li><b>Machines and dumbbells</b> are the easiest place to fail. Let the weight down under control.</li>
           <li><b>Barbell bench or squat?</b> Set the safety pins or bars, or grab a spotter.</li>
