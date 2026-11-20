@@ -5,7 +5,7 @@
 // no sets, goals, photos or saved machines (those become their generic kind).
 // The same code also arrives as failmore://plan#<code> (the app's own link) or #plan=<code> (web app).
 // ============================================================================
-import { db, EXERCISES, exById, uid, eqKind, GENERIC, SPECIAL, daysBetween } from './store.js';
+import { db, EXERCISES, exById, uid, eqKind, GENERIC, SPECIAL, daysBetween, workoutById } from './store.js';
 
 export const LINK_BASE = 'https://failmore.app/plan/#';
 export const WORKOUT_LINK_BASE = 'https://failmore.app/workout/#';
@@ -36,7 +36,7 @@ const packWorkout = (w, custom) => ({ n: w.name, c: w.color, i: w.icon, t: w.tex
   if (x && x.custom) custom.set(x.id, { id: x.id, n: x.name, m: x.muscle, s: x.secondary || [], q: (x.equipment || []).filter(k => GENERIC.includes(k)), k: x.mechanic || '', f: x.force || '', l: x.level || '' });
   return [e.exId, (x && x.name) || e.name || '', (x && x.muscle) || e.muscle || '', kindOf(e.equip), e.sets, e.reps];
 }) });
-export function planPayload(t, findWorkout = id => db.workouts.find(w => w.id === id)) {
+export function planPayload(t, findWorkout = workoutById) {
   const wIds = [], ws = [], custom = new Map();
   const days = t.days.slice(0, t.splitDays).map(d => {
     const w = d.type === 'workout' && findWorkout(d.workoutId);

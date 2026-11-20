@@ -103,7 +103,8 @@ export function exByName(name, muscle) {
 }
 
 /* --------------------------------- seeds --------------------------------- */
-function seedWorkouts() {
+// the three starter workouts earlier versions gave new users (kept for tests and old data)
+export function seedWorkouts() {
   const libId = (name, muscle) => {
     const seeded = SEED_CUSTOM.find(e => e.name === name);
     if (seeded) return seeded.id;
@@ -129,10 +130,36 @@ function seedWorkouts() {
       ['Plank', 'Abs', 'Bodyweight']]),
   ];
 }
+/* ---- preloaded workouts: ten ready-to-go workouts every user has, kept apart from your own ----
+   They're built from the library (ids "pre:..."), so they can't be edited or deleted; editing one makes a copy. */
+const PRE = [
+  ['push', 'Push', '#FF7A1A', 'chest', [['Bench Press', 'Chest', 'Barbell', 8], ['Incline Press', 'Chest', 'Dumbbell', 10], ['Shoulder Press', 'Shoulders', 'Dumbbell', 10], ['Lateral Raise', 'Shoulders', 'Dumbbell', 12], ['Chest Fly', 'Chest', 'Cable Machine', 12], ['Tricep Pulldown', 'Triceps', 'Cable Machine', 12], ['Skull Crusher', 'Triceps', 'Barbell', 10]]],
+  ['pull', 'Pull', '#2B8CFF', 'back', [['Deadlift', 'Back', 'Barbell', 5], ['Lat Pulldown', 'Back', 'Cable Machine', 10], ['Barbell Row', 'Back', 'Barbell', 8], ['Seated Cable Row', 'Back', 'Cable Machine', 10], ['Face Pull', 'Shoulders', 'Cable Machine', 12], ['Bicep Curl', 'Biceps', 'Dumbbell', 10], ['Hammer Curl', 'Biceps', 'Dumbbell', 12]]],
+  ['legs', 'Legs', '#1FC79A', 'legs', [['Squat', 'Quads', 'Barbell', 8], ['Romanian Deadlift', 'Hamstrings', 'Barbell', 8], ['Leg Press', 'Quads', 'Specialized Machine', 10], ['Leg Extension', 'Quads', 'Specialized Machine', 12], ['Seated Leg Curl', 'Hamstrings', 'Specialized Machine', 12], ['Hip Thrust', 'Glutes', 'Barbell', 10], ['Calf Raise', 'Calves', 'Smith Machine', 15]]],
+  ['upper', 'Upper Body', '#E23FB4', 'arms', [['Bench Press', 'Chest', 'Barbell', 8], ['Barbell Row', 'Back', 'Barbell', 8], ['Shoulder Press', 'Shoulders', 'Dumbbell', 10], ['Lat Pulldown', 'Back', 'Cable Machine', 10], ['Bicep Curl', 'Biceps', 'Dumbbell', 12], ['Tricep Pulldown', 'Triceps', 'Cable Machine', 12]]],
+  ['lower', 'Lower Body', '#0B8A7A', 'squat', [['Squat', 'Quads', 'Barbell', 8], ['Romanian Deadlift', 'Hamstrings', 'Barbell', 8], ['Bulgarian Split Squat', 'Quads', 'Dumbbell', 10], ['Lying Leg Curl', 'Hamstrings', 'Specialized Machine', 12], ['Seated Calf Raise', 'Calves', 'Specialized Machine', 15], ['Plank', 'Abs', 'Bodyweight', 15]]],
+  ['fullA', 'Full Body A', '#FFB300', 'fullbody', [['Squat', 'Quads', 'Barbell', 8], ['Bench Press', 'Chest', 'Barbell', 8], ['Barbell Row', 'Back', 'Barbell', 8], ['Shoulder Press', 'Shoulders', 'Dumbbell', 10], ['Plank', 'Abs', 'Bodyweight', 15]]],
+  ['fullB', 'Full Body B', '#8CCB2E', 'lifter', [['Deadlift', 'Back', 'Barbell', 5], ['Incline Press', 'Chest', 'Dumbbell', 10], ['Lat Pulldown', 'Back', 'Cable Machine', 10], ['Goblet Squat', 'Quads', 'Dumbbell', 10], ['Arnold Press', 'Shoulders', 'Dumbbell', 10], ['Hanging Leg Raise', 'Abs', 'Bodyweight', 12]]],
+  ['chestarms', 'Chest & Arms', '#FF4F8B', 'flex', [['Bench Press', 'Chest', 'Barbell', 8], ['Incline Press', 'Chest', 'Dumbbell', 10], ['Chest Fly', 'Chest', 'Cable Machine', 12], ['Bicep Curl', 'Biceps', 'Dumbbell', 10], ['Preacher Curl', 'Biceps', 'Barbell', 10], ['Tricep Pulldown', 'Triceps', 'Cable Machine', 12], ['Tricep Kickback', 'Triceps', 'Dumbbell', 12]]],
+  ['backshoulders', 'Back & Shoulders', '#4F7A9A', 'shoulders', [['Pull-Up', 'Back', 'Bodyweight', 8], ['Barbell Row', 'Back', 'Barbell', 8], ['Seated Cable Row', 'Back', 'Cable Machine', 10], ['Shoulder Press', 'Shoulders', 'Dumbbell', 10], ['Lateral Raise', 'Shoulders', 'Dumbbell', 12], ['Face Pull', 'Shoulders', 'Cable Machine', 12], ['Shrug', 'Back', 'Dumbbell', 12]]],
+  ['core', 'Core & Abs', '#12C2E0', 'abs', [['Plank', 'Abs', 'Bodyweight', 15], ['Hanging Leg Raise', 'Abs', 'Bodyweight', 12], ['Cable Crunch', 'Abs', 'Cable Machine', 15], ['Russian Twist', 'Abs', 'Bodyweight', 15], ['Dead Bug', 'Abs', 'Bodyweight', 12], ['Crunches', 'Abs', 'Bodyweight', 15]]],
+];
+let preCache = null;
+export function preloadedWorkouts() {
+  if (preCache) return preCache;
+  const builtIn = x => !x.custom || String(x.id).startsWith('seed:');   // library and FailMore's own starter exercises, never a user's
+  const find = (n, m) => EXERCISES.find(x => builtIn(x) && x.name === n && x.muscle === m) || EXERCISES.find(x => builtIn(x) && x.name === n);
+  preCache = PRE.map(([slug, name, color, icon, list]) => ({ id: 'pre:' + slug, preloaded: true, name, color, icon,
+    exercises: list.map(([n, m, equip, reps]) => { const x = find(n, m); return x && { exId: x.id, name: x.name, muscle: x.muscle, sets: 3, reps, equip }; }).filter(Boolean) }));
+  return preCache;
+}
+export const isPreloaded = id => String(id || '').startsWith('pre:');
+// any workout by id: yours first, then the preloaded ones
+export const workoutById = id => db.workouts.find(w => w.id === id) || (isPreloaded(id) ? preloadedWorkouts().find(w => w.id === id) : null);
 function freshDb() {
   return {
     v: SCHEMA,
-    workouts: seedWorkouts(),
+    workouts: [],                  // your own; ten preloaded ones are always available too
     equipment: [],                 // saved equipment { id, name, location, units, photo }
     locations: [],                 // added by you the first time you pick where you train
     sessions: [],                  // finished workouts, oldest first
@@ -153,6 +180,7 @@ export const db = {};
 let storageOk = true;
 
 function buildExercises() {
+  preCache = null;
   EXERCISES.length = 0;
   const del = new Set(db.exDeleted);
   for (const c of db.exCustom) EXERCISES.push({ ...seedMedia(c.id), ...c });

@@ -8,6 +8,7 @@ import {
   db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, volumeSuggestion, isFail, derived, SPECIAL, machinesFor, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC, isMachineType,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
   planRuns, planRunning,
+  workoutById, preloadedWorkouts, isPreloaded,
 } from './store.js';
 import { eqImg } from './screens-library.js';
 import { inboxPlan, inboxWorkout, isWorkoutEntry } from './plan-share.js';
@@ -92,7 +93,7 @@ export const pendingTray = () => { const p = state.pending; const t = `<div clas
 export function listCtx(owner) {
   owner = owner || (state.screen === 'exercises' ? state.exercises.returnTo : state.screen);
   if (owner === 'lineup') return { owner, items: state.session.exercises, ui: state.lineup, look: state.session };
-  if (owner === 'details') { const w = db.workouts.find(x => x.id === state.details.wid); return { owner, items: w ? w.exercises : [], ui: state.details, readOnly: true, look: w }; }
+  if (owner === 'details') { const w = workoutById(state.details.wid); return { owner, items: w ? w.exercises : [], ui: state.details, readOnly: true, look: w }; }
   return { owner: 'create', items: state.create.exercises, ui: state.create, look: state.create };
 }
 export function keepCurrentExercise(ctx, fn) {
@@ -334,7 +335,7 @@ export function LineupScreen() {
 
 /* ---- Workout Details (read-only) ---- */
 export function WorkoutDetailsScreen() {
-  const w = db.workouts.find(x => x.id === state.details.wid);
+  const w = workoutById(state.details.wid);
   if (!w) return '';
   const ctx = listCtx('details'), n = timesCompleted(w.id);
   return `
@@ -390,7 +391,7 @@ export function missedWorkout(plan = db.plan, today = dayKey()) {
   for (let k = n - 1; k >= 0; k--) {
     const date = addDays(plan.start, k), day = plan.days[k % plan.splitDays];
     if (!day || day.type !== 'workout') break;               // back to the previous rest day: stop
-    const w = db.workouts.find(x => x.id === day.workoutId);
+    const w = workoutById(day.workoutId);
     if (!w) continue;
     const done = db.sessions.some(ss => ss.workoutId === w.id && dayKey(new Date(ss.finishedAt)) >= date);
     if (done || (plan.dismissed || []).includes(date)) continue;
@@ -429,7 +430,7 @@ export function todayCard(pt, plan) {
   if (pt.status === 'upcoming') return card(restTile, `Starts in ${plural(pt.startsIn, 'day')}`, [D.dow(parseDay(plan.start))]);
   if (pt.status === 'ended') return card(restTile, 'Plan complete', ['Nice work. Start a new one when you’re ready.'],
     `<div class="wcard-actions"><button class="wpill dark" data-action="home-go" data-to="planwiz">Create a Plan</button></div>`);
-  const day = pt.day, w = day && day.type === 'workout' ? db.workouts.find(x => x.id === day.workoutId) : null;
+  const day = pt.day, w = day && day.type === 'workout' ? workoutById(day.workoutId) : null;
   if (!w) return card(restTile, 'Rest day', [`Day ${pt.index + 1} of ${plan.splitDays}${day && day.type === 'workout' ? ' · that workout was deleted' : ''}`]) + missedCard(plan);
   return workoutCard(w, { label: 'Start', action: 'start-workout', needsExercises: true }, { done: doneToday(w.id) });
 }
@@ -470,14 +471,31 @@ export function workoutCard(w, primary, opts = {}) {
       </div>
     </div>`;
 }
-function workoutsNav(title = 'Workouts') {
-  return `<div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">${title}</span><button class="nav-create" data-action="workout-create">Create</button></div>`;
+// Create sits top right, except while Your Workouts shows its own "Create your own workout" cell
+function workoutsNav(title = 'Workouts', listShown = true) {
+  const create = listShown && !db.workouts.length ? '' : '<button class="nav-create" data-action="workout-create">Create</button>';
+  return `<div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">${title}</span>${create}</div>`;
 }
-const workoutList = (primary, opts) => `
+// Your Workouts first (an empty state that invites you to make one), then the ten preloaded workouts.
+// Used by My Workouts, Quickstart and picking a workout for a plan day.
+const workoutList = (primary, opts = {}) => {
+  const pre = preloadedWorkouts();
+  const empty = `
+      <div class="wl-rest wl-create">
+        <span class="wl-emptyic" aria-hidden="true">${I.plus20}</span>
+        <div class="wl-resttext"><div class="wl-restname">Create your own workout</div></div>
+        <button class="wpill dark" data-action="workout-create">Create</button>
+      </div>`;   // styled like the Rest day option: outline only, no fill
+  return `
     <div class="wl-list">
       <div class="wl-label">Your Workouts (${db.workouts.length})</div>
-      ${db.workouts.map(w => workoutCard(w, primary, opts)).join('') || '<div class="mg-empty">No workouts yet. Tap Create to build one.</div>'}
+      ${db.workouts.map(w => workoutCard(w, primary, opts)).join('') || empty}
+    </div>
+    <div class="wl-list wl-pre">
+      <div class="wl-label">Pre-loaded workouts (${pre.length})</div>
+      ${pre.map(w => workoutCard(w, primary, opts)).join('')}
     </div>`;
+};
 export function QuickSelectScreen() {
   return `
   <div class="wl-screen">
@@ -494,11 +512,10 @@ export function WorkoutsScreen() {
   const seg = (k, icon, label) => `<button class="wt-seg${tab === k ? ' on' : ''}" data-action="workouts-tab" data-tab="${k}" role="tab" aria-selected="${tab === k}">${icon}<span>${label}</span></button>`;
   return `
   <div class="wl-screen">
-    ${statusBar()}${workoutsNav('My Workouts')}
+    ${statusBar()}${workoutsNav('My Workouts', tab !== 'history')}
     <div class="wl-body">
       <div class="wt-tabs" role="tablist">${seg('workouts', I.book, 'Workouts')}${seg('history', I.history, 'History')}</div>
       ${tab === 'history' ? historyList() : `
-      <div class="wl-titleblock"><div class="wl-title">Saved Workouts</div><div class="wl-help">Tap details to see the full workout.</div></div>
       ${workoutInbox()}${workoutList(null, { menu: true })}`}
     </div>
   </div>`;
@@ -551,7 +568,7 @@ export function AssignDayScreen() {
       <div class="wl-titleblock"><div class="wl-title">Choose a workout</div><div class="wl-help">Pick a workout for day ${state.planwiz.pickDay + 1}, or set it as rest.</div></div>
       <div class="wl-rest">
         <div class="wl-moon">☾</div>
-        <div class="wl-resttext"><div class="wl-restname">Rest day</div><div class="wl-restsub">Rest up. That’s when you grow.</div></div>
+        <div class="wl-resttext"><div class="wl-restname">Rest day</div><div class="wl-restsub">Recovery means growth!</div></div>
         <button class="wpill dark" data-action="plan-assign" data-type="rest">Select</button>
       </div>
       ${workoutList({ label: 'Select', action: 'plan-assign' })}
@@ -961,7 +978,7 @@ function planCalendar(w) {
 // ws: workouts carried by a plan sent to you (not in your list yet)
 function planDayMeta(day, ws = null) {
   if (day.type === 'rest') return { name: 'Rest day', sub: 'Recovery', cls: 'rest' };
-  const w = day.type === 'workout' && ((ws && ws[day.workoutId]) || db.workouts.find(x => x.id === day.workoutId));
+  const w = day.type === 'workout' && ((ws && ws[day.workoutId]) || workoutById(day.workoutId));
   if (!w) return { name: 'Add a workout', sub: '', cls: 'empty' };
   return { name: w.name, sub: `${muscleList(w)} · ${plural(w.exercises.length, 'exercise')}`, cls: 'work', color: w.color, w };
 }
@@ -1052,7 +1069,7 @@ export function planDots(t, cell = 9) {
   const days = (t.days || []).slice(0, t.splitDays || (t.days || []).length).slice(0, 10);
   const n = Math.max(1, days.length), ROWS = 3, gap = 2, rad = 2;
   const rows = Math.min(ROWS, n), cols = Math.ceil(n / ROWS);
-  const color = d => { if (!d || d.type !== 'workout') return '#dddbe6'; const w = (t.ws && t.ws[d.workoutId]) || db.workouts.find(x => x.id === d.workoutId); return w ? w.color : '#dddbe6'; };
+  const color = d => { if (!d || d.type !== 'workout') return '#dddbe6'; const w = (t.ws && t.ws[d.workoutId]) || workoutById(d.workoutId); return w ? w.color : '#dddbe6'; };
   const W = cols * cell + (cols - 1) * gap, H = ROWS * cell + (ROWS - 1) * gap, top = (ROWS - rows) * (cell + gap) / 2;
   const sq = days.map((d, i) => `<rect x="${Math.floor(i / ROWS) * (cell + gap)}" y="${top + (i % ROWS) * (cell + gap)}" width="${cell}" height="${cell}" rx="${rad}" fill="${color(d)}"/>`).join('');
   return `<svg class="plan-dots" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${sq}</svg>`;

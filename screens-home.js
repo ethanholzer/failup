@@ -3,7 +3,7 @@
 // ============================================================================
 import { state, LINKS } from './data.js';
 import { I, statusBar, fmt, esc, wt, wtTight, D } from './ui.js';
-import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay, daysBetween, dayKey, volumeDots, goalSegments, planGains } from './store.js';
+import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay, daysBetween, dayKey, volumeDots, goalSegments, planGains, workoutById } from './store.js';
 import { overloadChart, rangeBounds, exTile } from './screens-library.js';
 import { resumeCard, todayCard, doneToday, planStats, missedWorkout, planLibraryList, planDots } from './screens-workout.js';
 
@@ -89,7 +89,7 @@ export function countdownParts(startKey, now = Date.now()) {
 }
 function planCountdown(plan) {
   const c = countdownParts(plan.start), first = plan.days[0];
-  const w = first && first.type === 'workout' ? db.workouts.find(x => x.id === first.workoutId) : null;
+  const w = first && first.type === 'workout' ? workoutById(first.workoutId) : null;
   const box = (k, n, l) => `<div class="hm2-cd"><div class="hm2-cdnum tnum" data-cd="${k}">${n}</div><div class="hm2-statlbl">${l}</div></div>`;
   return `
         <div class="hm2-today">Starts ${D.dow(parseDay(plan.start))}</div>
@@ -116,7 +116,7 @@ function planPart(underPaused) {
   const quick = `<button class="hm2-quick" data-action="home-go" data-to="quickselect">${I.quickstart}<span>Quickstart</span></button>`;
   // a workout on deck that you haven't done yet: its yellow Start is the main button, so no Quickstart
   const pt = plan ? planToday() : null, day = pt && pt.status === 'active' ? pt.day : null;
-  const todayW = day && day.type === 'workout' ? db.workouts.find(x => x.id === day.workoutId) : null;
+  const todayW = day && day.type === 'workout' ? workoutById(day.workoutId) : null;
   const startToday = !!(todayW && !doneToday(todayW.id));
   const missed = !todayW && pt && pt.status === 'active' && !!missedWorkout(plan);   // its Start is the main button too
   if (plan) return `
@@ -156,7 +156,7 @@ export function HomeScreen() {
       <div class="hm2-bar">
         <div class="hm2-logo">FailMore</div>
         <div class="hm2-icons">
-          ${iBtn('workouts', I.book, 'Workouts', 'mini')}${iBtn('exercises', I.barbell, 'Exercises', 'mini')}${iBtn('plans', I.plans, 'Plans', 'mini')}
+          ${iBtn('workouts', I.book, 'Workouts', 'mini')}${iBtn('exercises', I.exercises, 'Exercises', 'mini')}${iBtn('plans', I.plans, 'Plans', 'mini')}
           ${iBtn('settings', I.gear, 'Settings')}
         </div>
       </div>
@@ -167,7 +167,7 @@ export function HomeScreen() {
     </section>
 
     <section class="hm2-nav" aria-label="Library">
-      ${navBtn('workouts', I.book, 'Workouts')}${navBtn('exercises', I.barbell, 'Exercises')}${navBtn('plans', I.plans, 'Plans')}
+      ${navBtn('workouts', I.book, 'Workouts')}${navBtn('exercises', I.exercises, 'Exercises')}${navBtn('plans', I.plans, 'Plans')}
     </section>
 
     <section class="hm2-sec">

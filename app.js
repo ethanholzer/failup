@@ -12,7 +12,9 @@ import {
   archivePlan, planRunning, planToday, goalFor, goalKey, setGoal, volumeSuggestion, dismissVolumeSuggestion, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf, eqKind,
   exportData, importData, clearExerciseData, resetAll, isBodyweight,
  volumeDots,
+  workoutById, preloadedWorkouts, isPreloaded,
 } from './store.js';
+import { healthAvailable, requestHealth, saveToHealth, isNativeApp } from './health.js';
 import { receivePlan, adoptPlan, adoptWorkout, isWorkoutEntry, planLink, workoutLink, shareLink, codeFrom } from './plan-share.js';
 import {
   TrackerScreen, VolumeModal, ExercisesScreen, FilterSheet, exListInner, ColorPickerSheet, IconPickerSheet,
@@ -642,6 +644,10 @@ function finishSession() {
     exercises: done.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, equip: e.equip, equipName: eqLabel(e.equip), goal: { ...e.goal }, newGoal: e.newGoal ?? null, newGoalVol: e.newGoalVol || null, sets: e.sets.map(x => ({ ...x })), ...(noteFor(s, e) ? { note: noteFor(s, e) } : {}) })),
   };
   db.sessions.push(rec);
+  // Apple Health (if you turned it on): saved once per workout, even if you reopen it to add more
+  if (db.settings.health && !(db.healthSaved || []).includes(rec.id)) {
+    saveToHealth(rec).then(ok => { if (ok) { db.healthSaved = [...(db.healthSaved || []), rec.id].slice(-500); render(); } });
+  }
   // anything you said "Not now" to, or never got asked about (fewer sets, ended early), waits as a suggestion
   done.forEach((e, j) => {
     const a = e.declined || goalPrompt(e, true);
@@ -795,7 +801,7 @@ function setLocation(target, name) {
   else if (target === 'eqwiz') { const w = state.eqwiz; if (!w.locations.includes(name)) w.locations.push(name); }
 }
 function openWorkoutEditor(wid) {
-  const w = db.workouts.find(x => x.id === wid);
+  const w = workoutById(wid);
   if (!w) return;
   state.create = { mode: 'edit', editId: wid, name: w.name, color: w.color, tex: w.tex || '', icon: w.icon, expanded: null, exercises: w.exercises.map(e => ({ ...e })) };
   go('create');
@@ -888,7 +894,7 @@ function defaultVolume(exId, ref) {
     const e = db.sessions[i].exercises.find(x => x.exId === exId && x.equip === ref);
     if (e) return { sets: e.goal.sets, reps: e.goal.reps };
   }
-  for (const w of db.workouts) { const t = w.exercises.find(x => x.exId === exId); if (t) return { sets: t.sets, reps: t.reps }; }
+  for (const w of [...db.workouts, ...preloadedWorkouts()]) { const t = w.exercises.find(x => x.exId === exId); if (t) return { sets: t.sets, reps: t.reps }; }
   return { sets: 3, reps: 8 };
 }
 function openTracker(exId, ref) {
@@ -921,8 +927,15 @@ function savePlanWizard(w) {
   db.plan = { ...(w.editing && db.plan ? db.plan : { id: uid('p') }), planId: t.id, name: body.name, splitDays: body.splitDays, days: body.days, start: w.start, end: w.end };
   home(); toast(w.editing ? 'Plan updated' : w.fromId ? 'Plan started' : 'Plan saved');
 }
+// a preloaded workout → a copy in your workouts ("Push", or "Push 2" if you already have one)
+function copyPreloaded(w) {
+  let name = w.name, n = 2;
+  while (db.workouts.some(x => x.name.toLowerCase() === name.toLowerCase())) name = `${w.name} ${n++}`;
+  const c = { ...JSON.parse(JSON.stringify(w)), id: uid('w'), name }; delete c.preloaded;
+  db.workouts.push(c); return c;
+}
 function sharePlan(t) {
-  planLink(t, id => (t.ws && t.ws[id]) || db.workouts.find(x => x.id === id))
+  planLink(t, id => (t.ws && t.ws[id]) || workoutById(id))
     .then(url => shareLink(url, t.name, `Here’s my FailMore plan, ${t.name}. Want to do it with me?`))
     .then(r => { if (r === 'copied') toast('Link copied'); else if (r === 'failed') toast('That link couldn’t be shared'); });
 }
@@ -1145,6 +1158,7 @@ function handle(a, d, el, ex) {
       state.modal = 'volume'; break;
     }
     case 'close-volume': state.modal = null; break;
+    case 'tk-volume': state.tracker.volume = { sets: +d.sets, reps: +d.reps }; break;   // Overload Tracker: pick a volume from the row
     case 'open-mastervol': {   // Today's Plan: one volume for every exercise
       const items = state.session.exercises, f = items[0].goal;
       state.volumeDraft = { context: 'master', sets: f.sets, reps: f.reps, count: items.length };
@@ -1275,7 +1289,7 @@ function handle(a, d, el, ex) {
       if (!name) { c.err = 'Give your workout a name.'; break; }
       const rec = { name, color: c.color, tex: c.tex || '', icon: c.icon, exercises: c.exercises.map(e => ({ exId: e.exId, name: exInfo(e).name, muscle: exInfo(e).muscle, sets: e.sets, reps: e.reps, equip: e.equip })) };
       if (c.mode === 'edit') {
-        const w = db.workouts.find(x => x.id === c.editId);
+        const w = workoutById(c.editId);
         if (w) Object.assign(w, rec);
         if (s && s.workoutId === c.editId) { s.workoutName = name; s.color = c.color; s.tex = c.tex || ''; s.icon = c.icon; }
       } else db.workouts.push({ id: uid('w'), ...rec });
@@ -1285,7 +1299,12 @@ function handle(a, d, el, ex) {
       state.create = { mode: 'new', editId: null, name: '', color: WORKOUT_COLORS[db.workouts.length % WORKOUT_COLORS.length].hex, icon: 'kick', expanded: null, exercises: [] };
       go('create'); break;
     case 'workout-details': state.details = { wid: d.id, expanded: null }; go('details'); break;
-    case 'details-edit': openWorkoutEditor(state.details.wid); break;
+    case 'details-edit': {   // a preloaded workout is edited as your own copy
+      const w = workoutById(state.details.wid);
+      if (w && w.preloaded) { const c = copyPreloaded(w); state.details.wid = c.id; toast(`${c.name} copied to your workouts`); openWorkoutEditor(c.id); }
+      else openWorkoutEditor(state.details.wid);
+      break;
+    }
     case 'lineup-edit': openWorkoutEditor(s.workoutId); break;
     case 'search-clear': {   // the little × in a search field
       const inp = el.parentElement.querySelector('input');
@@ -1295,7 +1314,14 @@ function handle(a, d, el, ex) {
     }
     case 'workouts-tab': state.workoutsTab = d.tab; break;
     case 'workout-menu': {
-      const w = db.workouts.find(x => x.id === d.id);
+      const w = workoutById(d.id);
+      if (w && w.preloaded) {   // preloaded: share it, or copy it into your workouts to change it
+        menu({ title: w.name, items: [
+          { label: 'Share Workout', icon: I.share, run: () => shareWorkout(w) },
+          { label: 'Save a Copy to Edit', icon: COPY_ICON, run: () => { const c = copyPreloaded(w); toast(`${c.name} added to your workouts`); } },
+        ] });
+        break;
+      }
       menu({ title: w.name, items: [
         { label: 'Share Workout', icon: I.share, run: () => shareWorkout(w) },
         { label: 'Edit Workout', icon: I.editPen, run: () => openWorkoutEditor(w.id) },
@@ -1319,7 +1345,7 @@ function handle(a, d, el, ex) {
     /* ---------------- starting / running a workout ---------------- */
     case 'missed-dismiss': if (db.plan) { db.plan.dismissed = [...(db.plan.dismissed || []), d.date]; } break;
     case 'start-workout': {
-      const w = db.workouts.find(x => x.id === d.id);
+      const w = workoutById(d.id);
       if (!w) break;
       if (s && s.started) confirm({ title: 'Start a new workout?', danger: true, label: 'Start New', cancel: 'Keep Paused',
         text: `${esc(s.workoutName)} is still in progress. Starting ${esc(w.name)} discards it.`, run: () => { state.session = null; prepSession(w); } });
@@ -1397,6 +1423,17 @@ function handle(a, d, el, ex) {
     }
     case 'ob-close': state.ob = null; home(); break;
     case 'set-restsound': db.settings.restSound = db.settings.restSound === false; break;
+    case 'set-health': {   // Apple Health: on asks Apple for permission first; off just stops saving
+      if (db.settings.health) { db.settings.health = false; toast('Workouts won’t be saved to Apple Health'); break; }
+      requestHealth().then(ok => {
+        if (ok) { db.settings.health = true; toast('Workouts will be saved to Apple Health'); }
+        else confirm({ title: 'Apple Health is off for FailMore', label: 'Open Health', cancel: 'Not Now',
+          text: 'To turn it on, open the Health app, tap your picture, then Apps, then FailMore, and allow Workouts.',
+          run: () => { location.href = 'x-apple-health://'; } });
+        render();
+      });
+      break;
+    }
     case 'open-notes': state.modal = 'notes'; break;
     case 'close-notes': state.modal = null; break;
     case 'rest-open': state.restOpen = !state.restOpen; break;
@@ -1638,7 +1675,7 @@ function handle(a, d, el, ex) {
       if (w.step === 1 && !w.name.trim()) { w.err = 'Give your plan a name.'; break; }
       if (w.step === 3) {
         const days = w.days.slice(0, w.splitDays);
-        if (days.some(x => x.type === 'empty' || (x.type === 'workout' && !db.workouts.some(k => k.id === x.workoutId)))) { w.err = 'Pick a workout or rest for every day.'; break; }
+        if (days.some(x => x.type === 'empty' || (x.type === 'workout' && !workoutById(x.workoutId)))) { w.err = 'Pick a workout or rest for every day.'; break; }
         if (!days.some(x => x.type === 'workout')) { w.err = 'Add at least one workout day.'; break; }
       }
       if (w.editTpl && w.step === 3) {   // a plan from your list: save name, split and days
@@ -2097,6 +2134,8 @@ window.addEventListener('hashchange', () => {
   if (codeFrom(location.hash)) { const h = location.hash; history.replaceState(null, '', location.pathname + location.search); takeLink(h); return; }   // a plan link opened in this tab
   applyHash(); render();
 });
+// onboarding animates in as it appears: if it rendered under the launch animation, show it again once that's gone
+window.addEventListener('failmore:splashdone', () => { if (state.screen === 'onboard') render(); });
 window.__failup = { db, state, render };   // handy for debugging in the console
 
 /* ---- boot ---- */
@@ -2106,6 +2145,7 @@ load();
 loadPhotos().finally(() => {
   applyHash();
   window.__failmoreLink = url => { takeLink(url); return 'ok'; };
+  healthAvailable().then(ok => { state.healthReady = ok; if (ok) render(); });   // the Apple Health switch only shows on iPhone
   if (bootLink) takeLink(bootLink);
   // first launch: the intro (automated test browsers skip it unless #intro asks for it)
   if ((!db.settings.onboarded && !db.sessions.length && !navigator.webdriver && !location.hash) || location.hash === '#intro') startIntro();

@@ -183,8 +183,29 @@ function trackerGoalList(unit) {
     ? `<div class="tk-gl"><div class="tk-gl-head"><span>Saved machines</span><span class="tk-gl-vol">${v.sets} × ${v.reps}</span></div><div class="tk-gl-empty">None of your saved ${esc(kinds[0].toLowerCase())}s have a goal for ${v.sets} × ${v.reps} yet</div></div>` : '';
   return `<div class="tk-gl"><div class="tk-gl-head"><span>${sv ? 'Other equipment' : 'Saved machines'}</span><span class="tk-gl-vol">${v.sets} × ${v.reps}</span></div><div class="tk-gl-list">${rows.join('')}</div></div>`;
 }
+// the volumes (sets × reps) with a goal for this exercise + equipment, plus the one on screen
+function trackerVolumes(t) {
+  const seen = new Map();
+  for (const g of goalsOf(g => g.exId === t.exId && g.ref === t.equip && g.weight != null)) seen.set(`${g.sets}x${g.reps}`, { sets: g.sets, reps: g.reps });
+  seen.set(`${t.volume.sets}x${t.volume.reps}`, { sets: t.volume.sets, reps: t.volume.reps });
+  return [...seen.values()].sort((a, b) => a.sets - b.sets || a.reps - b.reps);
+}
+// draws the chart in: lines sweep across, dots pop in one after another (only when what's shown changes)
+function animateChart(svg) {
+  let i = 0;
+  return svg.replace(/stroke-linecap="round"/g, 'stroke-linecap="round" pathLength="1"')
+    .replace(/<circle /g, () => `<circle style="--d:${Math.min(i++ * 40, 600) + 300}ms" `);
+}
 export function TrackerScreen() {
   const t = state.tracker, v = t.volume;
+  const view = [t.exId, t.equip, v.sets, v.reps, t.range].join('|'), anim = t.drawn !== view;
+  t.drawn = view;
+  const vols = trackerVolumes(t);
+  const volRow = `
+      <div class="tk-vols-wrap">
+        <div class="tk-equip-label tk-vols-label">Volume</div>
+        <div class="tk-vols" role="tablist" aria-label="Volume">${vols.map(o => { const on = o.sets === v.sets && o.reps === v.reps; return `<button class="tk-vol${on ? ' on' : ''}" data-action="tk-volume" data-sets="${o.sets}" data-reps="${o.reps}" role="tab" aria-selected="${on}" aria-label="${o.sets} sets of ${o.reps}">${o.sets}×${o.reps}</button>`; }).join('')}</div>
+      </div>`;
   const ex = exById(t.exId) || { name: 'Exercise', muscle: '' };
   const data = trackerData(), { dots, goal, unit } = data;
   const seg = RANGES.map(r => `<button data-action="set-range" data-range="${r}" class="${r === t.range ? 'on' : ''}">${r}</button>`).join('');
@@ -236,6 +257,7 @@ export function TrackerScreen() {
         </div>
         <button class="tk-sortbtn" data-action="open-swap" data-owner="tracker" aria-label="Change equipment">${I.swap24}</button>
       </div>
+      ${volRow}
       ${sugg ? `
       <div class="tk-sugg">
         <div class="g-label">Overload Goal Suggestion</div>
@@ -243,14 +265,13 @@ export function TrackerScreen() {
         ${sugg.reason ? `<div class="tk-sugg-reason">${esc(sugg.reason)}</div>` : ''}
         <div class="wcard-actions"><button class="wpill" data-action="sugg-no" data-key="${esc(sugg.key)}">Dismiss</button><button class="wpill dark" data-action="sugg-yes" data-key="${esc(sugg.key)}">Set Goal</button></div>
       </div>` : ''}
-      <div class="tk-chart">${overloadChart(data, unit)}</div>
+      <div class="tk-chart${anim ? ' tk-anim' : ''}">${anim ? animateChart(overloadChart(data, unit)) : overloadChart(data, unit)}</div>
       <div class="tk-goalrow">
         <div>
-          <div class="g-label">${goal != null ? 'Overload Goal Displayed' : 'Overload Goal'}</div>
+          <div class="g-label">Overload Goal</div>
           <div class="g-value tnum">${v.sets} Sets · ${v.reps} Reps · <span class="lbs">${goal != null ? wtTight(goal, unit) : 'No Goal Yet'}</span></div>
         </div>
         <div class="g-actions">
-          <button class="pill-btn circle" data-action="open-volume" aria-label="Volume filter">${I.filter}</button>
           <button class="pill-btn circle" data-action="open-goal" data-owner="tracker" aria-label="Edit goal">${I.pencil}</button>
         </div>
       </div>
@@ -1157,6 +1178,10 @@ export function SettingsScreen() {
         <div class="xd-hgroup"><div class="xd-h">Rest Timer Sound</div><div class="xd-sub">Boops at 3, 2 and 1, then a beep when rest is over</div></div>
         <button class="lu-switch${db.settings.restSound !== false ? ' on' : ''}" data-action="set-restsound" role="switch" aria-checked="${db.settings.restSound !== false}" aria-label="Rest timer sound"><span></span></button>
       </div>
+      ${state.healthReady ? `<div class="xd-card st-sound st-health">
+        <div class="xd-hgroup"><div class="xd-h">Apple Health</div><div class="xd-sub">Save finished workouts to Health as Strength Training, with their time and name. FailMore never reads your Health data.</div></div>
+        <button class="lu-switch${db.settings.health ? ' on' : ''}" data-action="set-health" role="switch" aria-checked="${!!db.settings.health}" aria-label="Save workouts to Apple Health"><span></span></button>
+      </div>` : ''}
       <div class="xd-card st-card">
         <div class="xd-hgroup"><div class="xd-h">Your Data</div><div class="xd-sub">Everything is saved in this browser. Back it up now and then, and restore it on a new phone.</div></div>
         <div class="st-stats">${db.sessions.length} workout${db.sessions.length === 1 ? '' : 's'} logged · ${db.workouts.length} saved workout${db.workouts.length === 1 ? '' : 's'} · ${db.equipment.length} saved machine${db.equipment.length === 1 ? '' : 's'}</div>
