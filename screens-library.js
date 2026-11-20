@@ -8,7 +8,7 @@ import { I, WORKOUT_ICONS, WORKOUT_ICON_KEYS, WORKOUT_ICON_GROUPS, tex, statusBa
 import { WORKOUT_COLORS, TEXTURED_COLORS } from './data.js';
 import {
   db, EXERCISES, exById, GENERIC, MACHINE_TYPES, isMachineType, SPECIAL, isSpecial, machineFor, machinesFor, machineExercises, genericMovePlan, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, increment,
-  derived, goalKey, goalFor, volumeSuggestion, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind, volumeDots, goalSegments, eqTypes, TYPE_ORDER, eqLocs, eqAt, eqLocText,
+  derived, goalKey, goalFor, volumeSuggestion, goalsOf, exerciseStats, exerciseLog, isFail, photoSrc, storageWorks, exPhoto, eqType, genericOf, eqKind, volumeDots, goalSegments, eqTypes, TYPE_ORDER, eqLocs, eqAt, eqTagged, eqLocText,
 } from './store.js';
 import { rpeOf, setRow, listCtx, goalPanel } from './screens-workout.js';
 import { searchExercises } from './search.js';
@@ -546,33 +546,43 @@ export function pickCell({ action, data = {}, on = false, icon, title, sub = '',
       ${tick}
     </button>`;
 }
+// where a saved machine is, for row subtitles
+export const atText = sv => eqLocs(sv).length ? `At ${eqLocs(sv).join(', ')}` : 'Any location';
 export function locationCells(cur, pickAction, addAction, multi = false) {
-  const n = l => db.equipment.filter(x => eqAt(x, l)).length;
+  const n = l => db.equipment.filter(x => eqTagged(x, l)).length;
   return `<div class="pk-list">
       ${db.locations.map(l => pickCell({ action: pickAction, data: { name: l }, on: multi ? cur.includes(l) : l === cur, multi, icon: PIN, title: l, sub: n(l) ? `${n(l)} saved machine${n(l) === 1 ? '' : 's'}` : 'No saved machines yet' })).join('')}
       ${pickCell({ action: addAction, icon: I.plus20, title: 'Add a new location', add: true })}
     </div>`;
 }
-/* ===================== SAVE EQUIPMENT (4-step wizard) ===================== */
-// Save a machine: where, a name, its units and a photo. It's linked to the exercise it was saved for;
-// more exercises can be added later from the machine's page (Related Exercises → Add).
-const EQW_STEPS = 4;
-function eqwExRow(x, on, sub = '') {
-  return `<button class="xd-eqrow swp-row pk-cell eqw-ex${on ? ' on' : ''}" data-action="eqwiz-ex" data-id="${esc(x.id)}" role="checkbox" aria-checked="${on}">
+/* ===================== SAVE A MACHINE (5-step wizard) ===================== */
+// Name, location tags (optional), units, the exercises it's for (optional) and a photo (optional).
+// Saved from an exercise, that exercise comes pre-picked.
+const EQW_STEPS = 5;
+function eqwExRow(x, on, sub = '', action = 'eqwiz-ex') {   // same row as the exercise list, with a checkbox
+  const n = setsLogged(x.id);
+  return `<button class="ex-row eqw-ex${on ? ' picked' : ''}" data-action="${action}" data-id="${esc(x.id)}" role="checkbox" aria-checked="${on}">
       ${exTile(x)}
-      <span class="xd-eqtext"><span class="xd-eqname">${esc(x.name)}</span><span class="xd-eqsub">${esc(sub || x.muscle)}</span></span>
-      <span class="fl-check${on ? ' on' : ''}">${on ? I.checkW : ''}</span>
+      <span class="ex-meta">
+        <span class="ex-name">${esc(x.name)}</span>
+        <span class="ex-sub"><span class="mus">${esc(sub || x.muscle)}</span>${n ? `${n} set${n === 1 ? '' : 's'} logged` : 'No sets yet'}</span>
+      </span>
+      <span class="wiz-check${on ? ' on' : ''}">${on ? I.checkW : ''}</span>
     </button>`;
 }
 // suggestions under the search: machine exercises, the same muscle as this one first
 export function eqWizResults() {   // the Add Related Exercises search
   const logged = id => db.sessions.reduce((n, ss) => n + ss.exercises.filter(e => e.exId === id).length, 0);   // exercises you do come first
-  const w = state.eqRel, picked = new Set(w.exIds || []), ctx = exById((w.exIds || [])[0]);
+  // the wizard's exercise picker sheet: already-added exercises are left out, ones checked in the sheet stay checked
+  const sheet = state.modal === 'eqexpick' && state.eqwiz && state.eqwiz.pick;
+  const w = sheet ? state.eqwiz.pick : state.screen === 'eqwiz' ? state.eqwiz : state.eqRel;
+  const picked = new Set(sheet ? state.eqwiz.exIds : w.exIds || []), ctx = exById((sheet ? state.eqwiz.exIds : w.exIds || [])[0]);
   const pool = EXERCISES.filter(x => !picked.has(x.id));
   const list = w.q ? searchExercises(pool, w.q).slice(0, 25)
     : pool.filter(x => (x.equipment || []).includes(SPECIAL) && (x.mechanic || x.custom || x.basic))   // strength moves, not cardio machines
         .map(x => [x, logged(x.id), x.muscle === (ctx && ctx.muscle)])
         .sort((a, b) => (b[1] > 0) - (a[1] > 0) || b[2] - a[2] || b[1] - a[1] || a[0].name.localeCompare(b[0].name)).slice(0, 12).map(r => r[0]);
+  if (sheet) return list.length ? list.map(x => eqwExRow(x, w.sel.includes(x.id), '', 'eqpick-ex')).join('') : '<div class="mg-empty sm">No exercises match</div>';
   return list.length ? list.map(x => eqwExRow(x, false)).join('') : '<div class="mg-empty sm">No exercises match</div>';
 }
 // Related Exercises → Add: search and pick what else you do on this machine
@@ -585,16 +595,41 @@ export function EquipmentRelatedScreen() {
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Related Exercises</span></div>
     <div class="wiz-body">
       <div class="wiz-title">What else do you do on it?</div>
-      <div class="wiz-help">FailMore picks ${esc(sv.name)} for these exercises when you train at ${esc(eqLocText(sv))}</div>
-      ${picked.length ? `<div class="pk-list eqw-picked">${picked.map(x => eqwExRow(x, true)).join('')}</div>` : ''}
+      <div class="wiz-help">FailMore picks ${esc(sv.name)} for these exercises ${eqLocs(sv).length ? `when you train at ${esc(eqLocs(sv).join(', '))}` : 'wherever you train'}</div>
+      ${picked.length ? `<div class="eqw-list eqw-picked">${picked.map(x => eqwExRow(x, true)).join('')}</div>` : ''}
       <div class="ex-search eqw-search${w.q ? ' has-text' : ''}">
         ${I.search}
         <input type="text" placeholder="Search exercises" data-eqwizq value="${esc(w.q || '')}" autocomplete="off">
       </div>
       <div class="eqw-sechdr">${w.q ? 'Results' : 'Suggested'}</div>
-      <div class="pk-list" id="eqwiz-results">${eqWizResults()}</div>
+      <div class="eqw-list" id="eqwiz-results">${eqWizResults()}</div>
     </div>
     <div class="wiz-footer"><button class="btn solid" data-action="eqrel-done">Done</button></div>
+  </div>`;
+}
+// how many are checked, in plain words
+export const exSelText = n => n === 0 ? 'No exercises selected' : `${n} exercise${n === 1 ? '' : 's'} selected`;
+export const eqPickFoot = n => n ? `<button class="btn ghost" data-action="eqpick-close">Cancel</button><button class="btn solid" data-action="eqpick-add">Add (${n})</button>` : '';
+// Save a Machine, step 4 → Add an exercise: the exercise list on a tall slide-up sheet
+export function EqExercisePickSheet() {
+  const p = state.eqwiz && state.eqwiz.pick; if (!p) return '';
+  return `
+  <div class="scrim" data-action="eqpick-close">
+    <div class="sheet eqp-sheet" data-stop>
+      <div class="eqp-head">
+        <button class="icon-btn eqp-close" data-action="eqpick-close" aria-label="Close">${I.close}</button>
+        <span class="eqp-count" aria-live="polite">${exSelText(p.sel.length)}</span>
+      </div>
+      <div class="ex-search eqw-search eqp-search${p.q ? ' has-text' : ''}">
+        ${I.search}
+        <input type="text" placeholder="Search exercises" data-eqwizq value="${esc(p.q || '')}" autocomplete="off">
+      </div>
+      <div class="eqp-body">
+        <div class="eqw-sechdr">${p.q ? 'Results' : 'Suggested'}</div>
+        <div class="eqw-list" id="eqwiz-results">${eqWizResults()}</div>
+      </div>
+      <div class="eqp-foot${p.sel.length ? ' on' : ''}">${eqPickFoot(p.sel.length)}</div>
+    </div>
   </div>`;
 }
 export function EquipmentWizard() {
@@ -604,19 +639,31 @@ export function EquipmentWizard() {
   let body = '';
   if (w.step === 1) {
     body = `
-      <div class="wiz-title">Where is this machine?</div>
-      <div class="wiz-help">It’ll be picked for you when you train there.</div>
-      ${locationCells(w.location, 'eqwiz-location', 'eqwiz-addloc')}${wizErr(w)}`;
-  } else if (w.step === 2) {
-    body = `
       <div class="wiz-title">Name the machine</div>
       <div class="wiz-help">Something you can recognize at a glance.</div>
-      <div class="wiz-namecard"><input type="text" placeholder="e.g. Pendulum Squat" data-eqwizname value="${esc(w.name)}" autocomplete="off"><div class="loc">At ${esc(w.location)}</div></div>${wizErr(w)}`;
+      <div class="wiz-namecard"><input type="text" placeholder="e.g. Pendulum Squat" data-eqwizname value="${esc(w.name)}" autocomplete="off"></div>${wizErr(w)}`;
+  } else if (w.step === 2) {
+    body = `
+      <div class="wiz-title">Where is this machine?</div>
+      <div class="wiz-help">(Optional) Pick every gym that has it. With none picked, it shows up wherever you train.</div>
+      ${locationCells(w.locations, 'eqwiz-location', 'eqwiz-addloc', true)}${wizErr(w)}`;
   } else if (w.step === 3) {
     body = `
       <div class="wiz-title">Choose weight units</div>
       <div class="wiz-help">Match the stack or plates.</div>
       <div class="wiz-unitcard"><div class="ulbl">Weight Units</div><div class="unit-pills">${UNITS.map(([k, label]) => `<button class="unit-pill ${w.units === k ? 'on' : ''}" data-action="eqwiz-units" data-name="${k}">${label}</button>`).join('')}</div></div>`;
+  } else if (w.step === 4) {
+    const picked = w.exIds.map(exById).filter(Boolean);
+    body = `
+      <div class="wiz-title">What do you do on it?</div>
+      <div class="wiz-help">(Optional) FailMore picks this machine for these exercises. You can add more later.</div>
+      <div class="eqw-list eqw-picked">
+        ${picked.map(x => eqwExRow(x, true)).join('')}
+        <button class="ex-row eqw-addex" data-action="eqwiz-addex">
+          <span class="ex-tile eqw-addic">${I.plus20}</span>
+          <span class="ex-meta"><span class="ex-name">Add an exercise</span></span>
+        </button>
+      </div>`;
   } else {
     const p = photoSrc(w.photo);
     body = `
@@ -656,7 +703,7 @@ export function ExerciseDetailScreen() {
   const savedRow = sv => `
         <button class="xd-eqrow" data-action="open-tracker" data-equip="eq:${sv.id}">
           ${eqImg(sv)}
-          <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">At ${esc(eqLocText(sv))}${goalTxt(goalCount('eq:' + sv.id))}</span></span>
+          <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">${esc(atText(sv))}${goalTxt(goalCount('eq:' + sv.id))}</span></span>
           <span class="xd-chev">${I.smChevR}</span>
         </button>`;
   const genRows = generic.map(g => `
@@ -704,10 +751,10 @@ export function ExerciseDetailScreen() {
           <div class="xd-hgroup"><div class="xd-h">Related Equipment</div><div class="xd-sub">Your mid-workout swaps. Tap one to see its goals.</div></div>
           <button class="xd-add" data-action="xd-add-equipment">Add</button>
         </div>
-        ${saved.length ? `<div class="xd-sechdr"><span>SAVED (${saved.length})</span></div>${saved.map(savedRow).join('')}` : ''}
-        <div class="xd-sechdr"><span>GENERIC EQUIPMENT (${generic.length})</span></div>
+        ${saved.length ? `<div class="xd-sechdr"><span>Saved (${saved.length})</span></div>${saved.map(savedRow).join('')}` : ''}
+        <div class="xd-sechdr"><span>Generic equipment (${generic.length})</span></div>
         ${genRows}
-        ${others.length ? `<div class="xd-sechdr"><span>OTHER SAVED EQUIPMENT (${others.length})</span></div>${others.map(savedRow).join('')}` : ''}
+        ${others.length ? `<div class="xd-sechdr"><span>Other saved equipment (${others.length})</span></div>${others.map(savedRow).join('')}` : ''}
       </div>
       ${howTo.length ? `
       <div class="xd-card xd-howto">
@@ -758,16 +805,26 @@ export function ExerciseHistoryScreen() {
   </div>`;
 }
 
-/* ---- Your Saved Equipment ---- */
+/* ---- Saved Machines ---- */
 const eqGoalCount = sv => goalsOf(g => g.ref === 'eq:' + sv.id).length;
+// location filter chips: All, then each location. A machine with no tags is at every location.
+function eqFilterChips() {
+  if (!db.locations.length) return '';
+  const cur = state.eqFilter || 'All';
+  return `<div class="eqf-chips" role="tablist">${['All', ...db.locations].map(l => `<button class="eqf-chip${l === cur ? ' on' : ''}" data-action="eq-filter" data-name="${esc(l)}" role="tab" aria-selected="${l === cur}">${esc(l)}</button>`).join('')}</div>`;
+}
+function filteredMachines() {
+  const f = state.eqFilter && state.eqFilter !== 'All' && db.locations.includes(state.eqFilter) ? state.eqFilter : null;
+  return db.equipment.filter(sv => !f || eqAt(sv, f)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+}
 export function EquipmentListScreen() {
-  const list = [...db.equipment].sort((a, b) => a.location.localeCompare(b.location) || a.name.localeCompare(b.name));
+  const list = filteredMachines();
   const rows = list.map(sv => {
     const n = eqGoalCount(sv);
     return `
       <button class="xd-eqrow eq-row" data-action="open-equipment-detail" data-id="${sv.id}">
         ${eqImg(sv)}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">At ${esc(eqLocText(sv))}${n ? ` · <span class="goals">${n} Goal${n === 1 ? '' : 's'}</span>` : ''}</span></span>
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">${esc(atText(sv))}${n ? ` · <span class="goals">${n} Goal${n === 1 ? '' : 's'}</span>` : ''}</span></span>
         <span class="xd-chev">${I.smChevR}</span>
       </button>`;
   }).join('');
@@ -777,10 +834,10 @@ export function EquipmentListScreen() {
     <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Saved Machines</span><button class="nav-create" data-action="eq-create">Create</button></div>
     <div class="eql-head">
       <div class="eql-title">Your Saved Machines</div>
-      <div class="eql-help">Specialized machines feel different from gym to gym. Save the ones you use so each gets its own goals.</div>
+      <div class="eql-help">Specialized machines feel different from brand to brand. Save the ones you use so each gets its own goals.</div>
     </div>
-    ${rows ? `<div class="eql-listhdr"><span>Saved machines (${list.length})</span></div>${rows}` : ''}
-
+    ${db.equipment.length ? eqFilterChips() : ''}
+    ${db.equipment.length ? `<div class="eql-listhdr"><span>Saved machines (${list.length})</span></div>${rows || '<div class="mg-empty sm">No machines tagged here yet.</div>'}` : ''}
   </div>`;
 }
 export function EquipmentDetailScreen() {
@@ -809,11 +866,11 @@ export function EquipmentDetailScreen() {
     </div>
     <div class="xd-content">
       <div class="xd-card xd-details">
-        <div class="xd-name eqd-name">${eqLocs(sv).length > 1 ? esc(sv.name) : `${esc(sv.location)} ${esc(sv.name)}`}</div>
+        <div class="xd-name eqd-name">${esc(sv.name)}</div>
         <div class="xd-kv"><span>Listing Type</span><span>User Added</span></div>
       </div>
       <div class="eqd-loc eqd-loccard">${eqImg(null, 'eqd-thumb', eqTypes(sv)[0])}<span class="eqd-loctext"><span class="cw-label">What kind of equipment is it?</span><span class="eqd-locval">${esc(eqTypes(sv).join(', '))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-eqtypes" aria-label="Edit equipment kind">${I.pencil}</button></div>
-      <div class="eqd-loc eqd-loccard"><span class="eqd-thumb eqd-pin">${PIN}</span><span class="eqd-loctext"><span class="cw-label">Where is this located?</span><span class="eqd-locval">${esc(eqLocText(sv))}</span></span><button class="sess-dpill eqd-locedit" data-action="open-location" data-target="equipment" aria-label="Edit locations">${I.pencil}</button></div>
+      <div class="eqd-loc eqd-loccard"><span class="eqd-thumb eqd-pin">${PIN}</span><span class="eqd-loctext"><span class="cw-label">Where is this located?</span><span class="eqd-locval">${eqLocs(sv).length ? esc(eqLocs(sv).join(', ')) : 'Any location'}</span></span><button class="sess-dpill eqd-locedit" data-action="open-location" data-target="equipment" aria-label="Edit locations">${I.pencil}</button></div>
       <div class="xd-card eqd-units">
         <div class="xd-hgroup"><div class="xd-h">Equipment Details</div><div class="xd-sub">Units and how big your goal jumps are.</div></div>
         <div class="cw-label eqd-unitslbl">Weight Units</div>
@@ -821,7 +878,7 @@ export function EquipmentDetailScreen() {
       </div>
       <div class="xd-card xd-related">
         <div class="xd-relhead"><div class="xd-hgroup"><div class="xd-h">Related Exercises</div><div class="xd-sub">Exercises you do on this machine and any active overload goals per exercise</div></div><button class="eqd-add" data-action="eqrel-open">${I.plus20} Add</button></div>
-        <div class="xd-sechdr"><span>EXERCISES (${exIds.size})</span></div>
+        <div class="xd-sechdr"><span>Exercises (${exIds.size})</span></div>
         <div class="eqd-exlist">${related || '<div class="mg-empty sm">Log something on this and it shows up here.</div>'}</div>
       </div>
     </div>
@@ -833,43 +890,36 @@ export function EquipmentDetailScreen() {
   </div>`;
 }
 
-/* ---- Equipment Swap ---- */
-// All Equipment: every saved machine, then every generic type. Tap a row to use it now;
-// the checkbox picks what shows up in this exercise's quick swap sheet.
+/* ---- Show All Saved: the Saved Machines list, picking for a swap ---- */
+// Same list and filter chips as Saved Machines. Tap one to stage it; Save swaps it in.
 export function EquipmentSwapScreen(currentRef, exId) {
   const sel = state.swap.sel || currentRef;
-  const saved = [...db.equipment].sort((a, b) => a.location.localeCompare(b.location) || a.name.localeCompare(b.name));
-  const row = (ref, img, name, sub) => {
-    const nG = exId ? goalsOf(g => g.exId === exId && g.ref === ref && g.weight != null).length : 0;   // active goals on this equipment
-    const on = ref === sel;
+  const saved = filteredMachines();
+  const rows = saved.map(sv => {
+    const ref = 'eq:' + sv.id, on = ref === sel;
+    const nG = exId ? goalsOf(g => g.exId === exId && g.ref === ref && g.weight != null).length : 0;
     return `
       <button class="xd-eqrow swp-row ae-cell${on ? ' on' : ''}" data-action="swap-pick" data-ref="${esc(ref)}">
-        ${img}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(name)}${nG ? '<span class="swp-dot" aria-hidden="true"></span>' : ''}</span>${sub || nG ? `<span class="xd-eqsub">${[nG ? `${nG} Goal${nG === 1 ? '' : 's'}` : '', sub ? esc(sub) : ''].filter(Boolean).join(' · ')}</span>` : ''}</span>
+        ${eqImg(sv)}
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}${nG ? '<span class="swp-dot" aria-hidden="true"></span>' : ''}</span><span class="xd-eqsub">${[nG ? `${nG} Goal${nG === 1 ? '' : 's'}` : '', esc(atText(sv))].filter(Boolean).join(' · ')}</span></span>
         ${on ? `<span class="swp-tick">${I.checkW}</span>` : ''}
       </button>`;
-  };
+  }).join('');
   const changed = state.swap.sel && state.swap.sel !== currentRef;
   const tray = changed ? `<div class="cw-footer pend-tray${state.swap.trayShownAll ? '' : ' enter'}"><button class="btn ghost" data-action="swap-cancel">Nevermind</button><button class="btn solid" data-action="swap-save">Save</button></div>` : '';
   state.swap.trayShownAll = !!changed;
   return `
-  <div class="swp-screen ae-screen${changed ? ' has-tray' : ''}">
+  <div class="swp-screen ae-screen eql-screen${changed ? ' has-tray' : ''}">
     ${statusBar()}
-    <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">All Equipment</span><button class="nav-create" data-action="swap-add">Create</button></div>
-    <div class="ae-hdr"><span>Saved</span></div>
+    <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Saved Machines</span><button class="nav-create" data-action="swap-add">Create</button></div>
+    ${eqFilterChips()}
+    <div class="eql-listhdr"><span>Saved machines (${saved.length})</span></div>
     <div class="ae-list">
-      ${saved.map(sv => row('eq:' + sv.id, eqImg(sv), sv.name, `${eqTypes(sv).join(', ')} · At ${eqLocText(sv)}`)).join('') || `<div class="swp-none">Nothing saved yet. Tap Create to add a machine.</div>`}
-    </div>
-    <div class="ae-hdr"><span>Generic</span></div>
-    <div class="ae-list">
-      ${GENERIC.map(k => row(k, eqImg(null, 'xd-eqimg', k), k, '')).join('')}
+      ${rows || `<div class="swp-none">${db.equipment.length ? 'No machines tagged here yet.' : 'Nothing saved yet. Tap Create to add a machine.'}</div>`}
     </div>
     ${tray}
   </div>`;
 }
-
-/* Preferred equipment type for an exercise in a workout (Create / Edit Workout). */
-// Right after adding an exercise to a workout: which equipment will you use for it?
 export function addEquipOptions(exId) {
   const x = exById(exId); if (!x) return [];
   const kinds = [...new Set((x.equipment || []).filter(k => !k.startsWith('eq:')).map(k => genericOf(eqName(k))).filter(k => GENERIC.includes(k)))];
@@ -931,7 +981,7 @@ export function EquipmentSwapSheet(currentRef, exId, location) {
     const ref = 'eq:' + sv.id, on = ref === sel, nG = nGoals(ref);
     return `<button class="xd-eqrow swp-row${on ? ' on' : ''}" data-action="swap-pick" data-ref="${ref}">
         ${eqImg(sv)}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}${dot(nG)}</span><span class="xd-eqsub">${[goalTag(nG), esc(eqTypes(sv).join(', ')), location && eqAt(sv, location) ? '' : `At ${esc(eqLocText(sv))}`].filter(Boolean).join(' · ')}</span></span>
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}${dot(nG)}</span><span class="xd-eqsub">${[goalTag(nG), esc(eqTypes(sv).join(', ')), location && eqAt(sv, location) ? '' : esc(atText(sv))].filter(Boolean).join(' · ')}</span></span>
         ${tick(on)}
       </button>`;
   }).join('');
@@ -958,7 +1008,7 @@ export function EquipmentSwapSheet(currentRef, exId, location) {
         <div class="swp-sechdr"><span>${location ? `Saved at ${esc(location)}` : 'Saved'}</span></div>
         ${pickCell({ action: 'swap-add', icon: I.plus20, title: 'Save a new machine', add: true }).replace('<span class="xd-chev">' + I.smChevR + '</span>', '')}
         ${savedRows}
-        ${db.equipment.length && !location ? pickCell({ action: 'swap-all', icon: I.list || I.smChevR, title: `View All Saved Equipment (${db.equipment.length})`, add: true }).replace('pk-ic add', 'pk-ic add swp-allic') : ''}
+        ${db.equipment.length ? pickCell({ action: 'swap-all', icon: I.list || I.smChevR, title: `Show All Saved (${db.equipment.length})`, add: true }).replace('pk-ic add', 'pk-ic add swp-allic') : ''}
         <div class="swp-sechdr"><span>Generic</span></div>${genRows}
       </div>
       ${tray}
@@ -984,7 +1034,7 @@ export function LocationSheet() {
     <div class="sheet pk-sheet" data-stop style="--pk-sel:${state.create ? state.create.color : '#111'}">
       <div class="sheet-grab"></div>
       <div class="pk-body loc-body">
-        <div class="pk-titleblock"><div class="vs-title">${eqsv ? 'Where is this located?' : 'Choose a location'}</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you lifting? FailMore will use your saved machines.' : 'Pick every place you have this same machine.'}</div></div>
+        <div class="pk-titleblock"><div class="vs-title">${eqsv ? 'Where is this located?' : 'Choose a location'}</div><div class="vs-sub">${lp.target === 'lineup' ? 'Where are you lifting? FailMore will use your saved machines.' : 'Pick every place you have this same machine. With none picked, it shows up wherever you train.'}</div></div>
         ${eqsv ? locationCells(cur, 'toggle-eqloc', 'add-location', true) : locationCells(cur, 'pick-location', 'add-location')}
         ${eqsv ? '<div class="ug-actions loc-done"><button class="ug-btn dark" data-action="close-location">Done</button></div>' : ''}
       </div>
@@ -1076,7 +1126,7 @@ export function MergeEquipmentScreen() {
   const rows = db.equipment.filter(sv => sv !== src).map(sv => `
       <button class="xd-eqrow eq-row" data-action="merge-pick-eq" data-id="${sv.id}">
         ${eqImg(sv)}
-        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">At ${esc(eqLocText(sv))}</span></span>
+        <span class="xd-eqtext"><span class="xd-eqname">${esc(sv.name)}</span><span class="xd-eqsub">${esc(atText(sv))}</span></span>
         <span class="xd-chev">${I.smChevR}</span>
       </button>`).join('');
   return `
@@ -1117,6 +1167,7 @@ export function SettingsScreen() {
       ${row('move-generic', I.merge, 'Move Cable and Smith Data to Generic', `${plan.length} saved machine${plan.length === 1 ? '' : 's'} · ${sets} logged set${sets === 1 ? '' : 's'}`)}
     </div>`; })()}
     <div class="xd-actions">
+      ${row('open-machines', I.equipment, 'Saved Machines', `${db.equipment.length} saved machine${db.equipment.length === 1 ? '' : 's'}`)}
       ${row('intro-replay', I.history, 'Replay the Intro', 'The one-minute tour of how FailMore works')}
       ${row('export-data', I.share, 'Back Up My Data', 'Save a backup file')}
       <label class="xd-act st-act"><span class="xd-acticon">${I.history}</span><span><span class="st-label">Restore From Backup</span><span class="st-sub">Replaces what’s on this device</span></span>${I.smChevR}<input type="file" accept=".json,application/json" data-import hidden></label>

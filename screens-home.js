@@ -2,10 +2,10 @@
 // FailMore: home (modular sections), How FailMore Works, and the list of overload goals.
 // ============================================================================
 import { state, LINKS } from './data.js';
-import { I, statusBar, fmt, esc, wtTight, D } from './ui.js';
-import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay, volumeDots, goalSegments } from './store.js';
-import { overloadChart, rangeBounds } from './screens-library.js';
-import { resumeCard, todayCard, doneToday, planStats, missedWorkout } from './screens-workout.js';
+import { I, statusBar, fmt, esc, wt, wtTight, D } from './ui.js';
+import { db, exById, eqLabel, eqUnits, derived, planToday, parseDay, daysBetween, dayKey, volumeDots, goalSegments, planGains } from './store.js';
+import { overloadChart, rangeBounds, exTile } from './screens-library.js';
+import { resumeCard, todayCard, doneToday, planStats, missedWorkout, planLibraryList, planDots } from './screens-workout.js';
 
 const ICON = {
   contacts: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M8 16.5c.8-1.8 2.2-2.6 4-2.6s3.2.8 4 2.6"/><path d="M2.5 7h2M2.5 12h2M2.5 17h2"/></svg>',
@@ -122,10 +122,10 @@ function planPart(underPaused) {
   if (plan) return `
       <div class="hm2-card hm2-plan">
         <div class="hm2-planhead">
-          <div>
+          <div class="plan-id">${planDots(plan)}<div>
             <div class="hm2-planname">${esc(plan.name)}</div>
             <div class="hm2-planmeta">${plan.splitDays} day split</div>
-          </div>
+          </div></div>
           <button class="hm2-kebab" data-action="plan-menu" aria-label="Plan options">${I.kebab}</button>
         </div>
         ${pt.status === 'upcoming' ? planCountdown(plan) : `
@@ -156,7 +156,7 @@ export function HomeScreen() {
       <div class="hm2-bar">
         <div class="hm2-logo">FailMore</div>
         <div class="hm2-icons">
-          ${iBtn('workouts', I.book, 'Workouts', 'mini')}${iBtn('exercises', I.barbell, 'Exercises', 'mini')}${iBtn('equipment', I.equipment, 'Equipment', 'mini')}
+          ${iBtn('workouts', I.book, 'Workouts', 'mini')}${iBtn('exercises', I.barbell, 'Exercises', 'mini')}${iBtn('plans', I.plans, 'Plans', 'mini')}
           ${iBtn('settings', I.gear, 'Settings')}
         </div>
       </div>
@@ -167,7 +167,7 @@ export function HomeScreen() {
     </section>
 
     <section class="hm2-nav" aria-label="Library">
-      ${navBtn('workouts', I.book, 'Workouts')}${navBtn('exercises', I.barbell, 'Exercises')}${navBtn('equipment', I.equipment, 'Equipment')}
+      ${navBtn('workouts', I.book, 'Workouts')}${navBtn('exercises', I.barbell, 'Exercises')}${navBtn('plans', I.plans, 'Plans')}
     </section>
 
     <section class="hm2-sec">
@@ -359,6 +359,71 @@ export function SafetySheet() {
         </ul>
         <div class="ug-actions"><button class="ug-btn dark" data-action="safety-ok">Got it, let’s lift</button></div>
       </div>
+    </div>
+  </div>`;
+}
+
+/* ---- Plans: every plan you finished or ended, newest first ---- */
+// Each card looks like the plan card on home. Its bottom part shows the 3 biggest goal jumps
+// (exercise + volume) from the goal you had when the plan started to the last one set during it.
+const fmtRange = (a, b) => {
+  const A = parseDay(a), B = parseDay(b), sameYear = A.getFullYear() === B.getFullYear();
+  const md = d => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return sameYear ? `${md(A)} – ${md(B)}, ${B.getFullYear()}` : `${md(A)}, ${A.getFullYear()} – ${md(B)}, ${B.getFullYear()}`;
+};
+function pastPlans() {
+  const list = (db.planHistory || []).map(p => ({ p, to: p.endedOn || p.end, current: false }));
+  const pt = db.plan ? planToday() : null;
+  if (db.plan && pt && pt.status !== 'upcoming') list.push({ p: db.plan, to: pt.status === 'ended' ? db.plan.end : dayKey(), current: pt.status === 'active' });
+  return list.sort((a, b) => (a.p.start < b.p.start ? 1 : a.p.start > b.p.start ? -1 : 0));
+}
+function gainRow(g) {
+  const x = exById(g.exId) || { name: 'Exercise', muscle: '' };
+  return `
+          <div class="pl-gain">
+            ${exTile(x, g.ref)}
+            <span class="pl-gaintext"><span class="pl-gainname">${esc(x.name)}</span><span class="pl-gainsub tnum">${g.sets} × ${g.reps} · ${esc(eqLabel(g.ref))}</span></span>
+            <span class="pl-gainnums"><span class="pl-gainup tnum">${I.trendUp('#6C5CE7')} +${esc(wt(g.gain, g.unit))}</span><span class="pl-gainfrom tnum">${esc(fmt(g.first))} → ${esc(wt(g.last, g.unit))}</span></span>
+          </div>`;
+}
+function planHistoryCard({ p, to, current }) {
+  const total = daysBetween(p.start, p.end) + 1, ran = Math.min(total, daysBetween(p.start, to) + 1);
+  const pct = Math.round((current ? ran - 1 : ran) / total * 100);   // in progress: full days behind you, like home
+  const label = current ? `Day ${ran} of ${total}` : ran >= total ? 'Plan complete' : `Ended on day ${ran} of ${total}`;
+  const st = planStats({ ...p, end: to }), gains = planGains(p.start, to);
+  return `
+      <div class="wh-item">
+        <div class="wh-date">${current ? `${fmtRange(p.start, p.end)} · In progress` : fmtRange(p.start, to)}</div>
+        <div class="hm2-card hm2-plan pl-card">
+          <div class="hm2-planhead"><div class="plan-id">${planDots(p)}<div>
+            <div class="hm2-planname">${esc(p.name)}</div>
+            <div class="hm2-planmeta">${p.splitDays} day split</div>
+          </div></div></div>
+          <div class="hm2-stats">
+            <div class="hm2-stat"><div class="hm2-statnum tnum">${st.failures}</div><div class="hm2-statlbl">Failures earned</div></div>
+            <div class="hm2-stat"><div class="hm2-statnum tnum">${st.goals}</div><div class="hm2-statlbl">Goals reached</div></div>
+          </div>
+          <div class="hm2-prog">
+            <div class="hm2-progtop"><span>${label}</span><span class="tnum">${pct}%</span></div>
+            <div class="hm2-progbar"><span style="width:${pct}%"></span></div>
+          </div>
+          <div class="hm2-today">Biggest jumps</div>
+          <div class="pl-gains">${gains.length ? gains.map(gainRow).join('') : '<div class="pl-nogain">No goal increases during this plan</div>'}</div>
+        </div>
+      </div>`;
+}
+export function PlansScreen() {
+  const tab = state.plansTab || 'plans';
+  const seg = (k, icon, label) => `<button class="wt-seg${tab === k ? ' on' : ''}" data-action="plans-tab" data-tab="${k}" role="tab" aria-selected="${tab === k}">${icon}<span>${label}</span></button>`;
+  const list = pastPlans();
+  const history = list.length ? `<div class="wh-list">${list.map(planHistoryCard).join('')}</div>` : '<div class="mg-empty">No plans yet. When a plan finishes or you end it, it lands here.</div>';
+  return `
+  <div class="wl-screen pl-screen">
+    ${statusBar()}
+    <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">My Plans</span><button class="nav-create" data-action="plans-create">Create</button></div>
+    <div class="wl-body">
+      <div class="wt-tabs" role="tablist">${seg('plans', I.plans, 'Plans')}${seg('history', I.history, 'History')}</div>
+      ${tab === 'history' ? history : planLibraryList()}
     </div>
   </div>`;
 }

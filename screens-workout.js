@@ -7,14 +7,16 @@ import { I, WORKOUT_ICONS, tex, statusBar, fmt, esc, wt, wtTight, D, PH_EQUIP, e
 import {
   db, exById, eqById, eqLabel, eqUnits, unitLabel, unitWord, steps, goalFor, volumeSuggestion, isFail, derived, SPECIAL, machinesFor, photoSrc, exPhoto, eqType, genericOf, eqKind, GENERIC, isMachineType,
   timesCompleted, lastDone, dayKey, parseDay, daysBetween, addDays, planToday,
+  planRuns, planRunning,
 } from './store.js';
 import { eqImg } from './screens-library.js';
+import { inboxPlan, inboxWorkout, isWorkoutEntry } from './plan-share.js';
 
 /* ------------------------------ shared logic ------------------------------ */
 export const exInfo = it => { const x = exById(it.exId); return x ? { name: x.name, muscle: x.muscle } : { name: it.name || 'Exercise', muscle: it.muscle || '' }; };
 // On a "Specialized Machine" exercise with no saved machine for it here: offer to save the one you're on
 export function machinePrompt(s, ex) {
-  if (!ex || ex.equip !== SPECIAL || !s.location || ex.sets.length) return '';
+  if (!ex || ex.equip !== SPECIAL || ex.sets.length) return '';
   if ((s.noMachinePrompt || []).includes(ex.exId) || machinesFor(ex.exId, s.location).length) return '';
   return `
       <div class="mp-card">
@@ -497,9 +499,30 @@ export function WorkoutsScreen() {
       <div class="wt-tabs" role="tablist">${seg('workouts', I.book, 'Workouts')}${seg('history', I.history, 'History')}</div>
       ${tab === 'history' ? historyList() : `
       <div class="wl-titleblock"><div class="wl-title">Saved Workouts</div><div class="wl-help">Tap details to see the full workout.</div></div>
-      ${workoutList(null, { menu: true })}`}
+      ${workoutInbox()}${workoutList(null, { menu: true })}`}
     </div>
   </div>`;
+}
+// Workouts sent to you by link: add one to your workouts, or discard it
+function workoutInbox() {
+  const items = (db.inbox || []).filter(isWorkoutEntry).slice().reverse();
+  if (!items.length) return '';
+  return `
+    <div class="wl-list wk-inbox">
+      <div class="wl-label">Workouts sent to you (${items.length})</div>
+      ${items.map(e => { const w = inboxWorkout(e); return `
+      <div class="wcard" style="--wc:${w.color}">
+        <div class="wcard-top">
+          <div class="wcard-tile tint" style="--wc:${w.color}"${tex(w)}>${WORKOUT_ICONS[w.icon] || ''}</div>
+          <div class="wcard-text">
+            <div class="wcard-name">${esc(w.name)}</div>
+            ${w.exercises.length ? `<div class="mtags">${[...new Set(w.exercises.map(x => x.muscle).filter(Boolean))].map(m => `<span class="mtag">${esc(m)}</span>`).join('')}</div>` : ''}
+            <div class="wcard-sub">${plural(w.exercises.length, 'exercise')} · Sent ${D.short(new Date(e.at))}</div>
+          </div>
+        </div>
+        <div class="wcard-actions"><button class="wpill" data-action="inbox-discard" data-id="${e.id}">Discard</button><button class="wpill dark" data-action="inbox-add-workout" data-id="${e.id}">Add Workout</button></div>
+      </div>`; }).join('')}
+    </div>`;
 }
 // History: every finished workout, newest first, with its date and time above it
 function historyList() {
@@ -577,7 +600,7 @@ export function WorkoutSessionScreen() {
         <div class="sess-blabel">Equipment</div>
         <div class="sess-panel">
           <div class="dimg generic ph kind${img ? ' photo' : ''}">${img || PH_EQUIP(eqKind(ex.equip))}</div>
-          <div class="sess-ptext"><div class="dval">${esc(eqLabel(ex.equip))}</div>${sv ? `<div class="dlabel">At ${esc(sv.locations && sv.locations.length > 1 && state.session && sv.locations.includes(state.session.location) ? state.session.location : (sv.locations || [sv.location]).join(', '))}</div>` : ''}</div>
+          <div class="sess-ptext"><div class="dval">${esc(eqLabel(ex.equip))}</div>${sv ? `<div class="dlabel">${esc(!(sv.locations || []).length ? 'Any location' : `At ${state.session && sv.locations.includes(state.session.location) ? state.session.location : sv.locations.join(', ')}`)}</div>` : ''}</div>
           <button class="sess-dpill" data-action="open-swap" data-owner="session" aria-label="Change equipment">${I.swap24}</button>
         </div>
       </div>
@@ -618,7 +641,7 @@ export function WorkoutSessionScreen() {
           <span class="sess-exbadge tnum"${tex(s)}>${s.exIndex + 1}</span>
           <span class="sess-exmeta">
             <span class="sess-exname">${esc(info.name)}</span>
-            <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span><span class="sess-eqtext">${esc(eqLabel(ex.equip))}${sv ? ` · ${esc(sv.locations && state.session && sv.locations.includes(state.session.location) ? state.session.location : sv.location)}` : ''}</span></span>
+            <span class="sess-exsub"><span class="mtag">${esc(info.muscle)}</span><span class="sess-eqtext">${esc(eqLabel(ex.equip))}${sv && (sv.locations || []).length ? ` · ${esc(state.session && sv.locations.includes(state.session.location) ? state.session.location : sv.locations[0])}` : ''}</span></span>
           </span>
           <span class="sess-excaret">${s.expanded ? I.caretUp : I.caretDn}</span>
         </button>
@@ -935,15 +958,17 @@ function planCalendar(w) {
       <div class="cal-foot"><div class="cal-month">${D.month(first)}</div><div class="cal-nav"><button data-action="plan-month" data-dir="-1" aria-label="Previous month">${I.chevL}</button><button data-action="plan-month" data-dir="1" aria-label="Next month">${I.navR}</button></div></div>
     </div>`;
 }
-function planDayMeta(day) {
+// ws: workouts carried by a plan sent to you (not in your list yet)
+function planDayMeta(day, ws = null) {
   if (day.type === 'rest') return { name: 'Rest day', sub: 'Recovery', cls: 'rest' };
-  const w = day.type === 'workout' && db.workouts.find(x => x.id === day.workoutId);
+  const w = day.type === 'workout' && ((ws && ws[day.workoutId]) || db.workouts.find(x => x.id === day.workoutId));
   if (!w) return { name: 'Add a workout', sub: '', cls: 'empty' };
-  return { name: w.name, sub: `${muscleList(w)} · ${plural(w.exercises.length, 'exercise')}`, cls: 'work' };
+  return { name: w.name, sub: `${muscleList(w)} · ${plural(w.exercises.length, 'exercise')}`, cls: 'work', color: w.color, w };
 }
-const dayBadge = (m, i) => `<span class="plan-daybadge ${m.cls === 'work' ? 'work' : m.cls === 'empty' ? 'empty' : 'rest'}">${i + 1}</span>`;
+// the day number sits in a circle of that day's workout color
+const dayBadge = (m, i) => `<span class="plan-daybadge ${m.cls === 'work' ? 'work' : m.cls === 'empty' ? 'empty' : 'rest'}"${m.color ? ` style="background:${m.color}"` : ''}>${i + 1}</span>`;
 export function PlanWizard() {
-  const w = state.planwiz, STEPS = 5;
+  const w = state.planwiz, STEPS = w.editTpl ? 3 : 5;   // editing a plan from your list: name, split, days
   const segs = `<div class="wiz-fill" style="width:${(w.step / STEPS * 100).toFixed(2)}%"></div>`;   // one bar across the screen, filled purple
   const totalDays = daysBetween(w.start, w.end) + 1;
   const cycles = Math.floor(totalDays / w.splitDays);
@@ -1003,15 +1028,160 @@ export function PlanWizard() {
       </div>`;
   }
   const last = w.step === STEPS;
+  if (w.editTpl && w.step > 3) w.step = 3;
   const footer = w.step === 1
     ? `<button class="btn solid" data-action="plan-next">Continue</button>`
-    : `<button class="btn ghost back" data-action="plan-prev">Back</button><button class="btn solid" data-action="plan-next">${last ? 'Save Plan' : 'Continue'}</button>`;
+    : `<button class="btn ghost back" data-action="plan-prev">Back</button><button class="btn solid" data-action="plan-next">${last ? (w.fromId ? 'Start Plan' : 'Save Plan') : 'Continue'}</button>`;
   return `
   <div class="wiz-screen">
     ${statusBar()}
-    <div class="nav"><button class="icon-btn" data-action="plan-headback">${I.chevL}</button><span class="nav-title">${w.editing ? 'Edit Plan' : 'Create a Plan'}</span></div>
+    <div class="nav"><button class="icon-btn" data-action="plan-headback">${I.chevL}</button><span class="nav-title">${w.editing || w.editTpl ? 'Edit Plan' : w.fromId ? 'Start a Plan' : 'Create a Plan'}</span></div>
     <div class="wiz-header"><div class="wiz-progress">${segs}</div><span class="wiz-count">${w.step} of ${STEPS}</span></div>
     <div class="wiz-body">${body}</div>
     <div class="wiz-footer">${footer}</div>
+  </div>`;
+}
+
+/* ---- Plans tab: every plan you've made, ready to start again ---- */
+const planLen = t => plural(t.length || 28, 'day');
+const planRunText = t => planRunning(t.id) ? 'In progress' : planRuns(t.id) ? `Started ${plural(planRuns(t.id), 'time')}` : 'Not started yet';
+// ---- a plan's mark: one small square per day of its split, in that day's workout color ----
+// Squares fill a 3-row grid column by column (top to bottom), so longer splits grow a little wider
+// than tall. Rest days are pale squares so the rhythm of the split shows.
+export function planDots(t, cell = 9) {
+  const days = (t.days || []).slice(0, t.splitDays || (t.days || []).length).slice(0, 10);
+  const n = Math.max(1, days.length), ROWS = 3, gap = 2, rad = 2;
+  const rows = Math.min(ROWS, n), cols = Math.ceil(n / ROWS);
+  const color = d => { if (!d || d.type !== 'workout') return '#dddbe6'; const w = (t.ws && t.ws[d.workoutId]) || db.workouts.find(x => x.id === d.workoutId); return w ? w.color : '#dddbe6'; };
+  const W = cols * cell + (cols - 1) * gap, H = ROWS * cell + (ROWS - 1) * gap, top = (ROWS - rows) * (cell + gap) / 2;
+  const sq = days.map((d, i) => `<rect x="${Math.floor(i / ROWS) * (cell + gap)}" y="${top + (i % ROWS) * (cell + gap)}" width="${cell}" height="${cell}" rx="${rad}" fill="${color(d)}"/>`).join('');
+  return `<svg class="plan-dots" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${sq}</svg>`;
+}
+// A plan card on My Plans, drawn like the active plan on home: name and split, a progress bar
+// when it's running, the day lineup as numbered circles in each workout's color, then actions.
+function planCard(t, { meta = '', actions = '' } = {}) {
+  const running = !t.inbox && planRunning(t.id), pt = running ? planToday() : null;
+  // each workout in the plan once, in the order it first comes up: small icon tile in its color, then its name
+  const seen = new Set(), works = [];
+  for (const day of t.days.slice(0, t.splitDays)) { const m = planDayMeta(day, t.ws); if (m.w && !seen.has(m.w.id)) { seen.add(m.w.id); works.push(m.w); } }
+  const rows = works.map(w => `<div class="plc-work"><span class="wcard-tile tint plc-tile" style="--wc:${w.color}"${tex(w)}>${WORKOUT_ICONS[w.icon] || ''}</span><span class="plc-wname">${esc(w.name)}</span></div>`).join('');
+  const prog = pt && pt.status === 'active' ? (() => { const pct = Math.round((pt.dayNum - 1) / pt.total * 100); return `
+        <div class="hm2-prog">
+          <div class="hm2-progtop"><span>Day ${pt.dayNum} of ${pt.total}</span><span class="tnum">${pct}%</span></div>
+          <div class="hm2-progbar"><span style="width:${pct}%"></span></div>
+        </div>`; })() : '';
+  return `
+      <div class="hm2-card hm2-plan plc-card${running ? ' live' : ''}">
+        <div class="hm2-planhead"><div class="plan-id">${planDots(t)}<div>
+          <div class="hm2-planname">${esc(t.name)}</div>
+          <div class="hm2-planmeta">${t.splitDays} day split${meta ? ` · ${meta}` : ''}${running ? ' · <span class="plc-live">In progress</span>' : ''}</div>
+        </div></div>${t.inbox ? '' : `<button class="hm2-kebab" data-action="plancard-menu" data-id="${t.id}" aria-label="Plan options">${I.kebab}</button>`}</div>
+        ${prog}
+        <div class="hm2-today">Workouts Used</div>
+        <div class="plc-lineup">${rows || '<div class="plc-names">Rest days only</div>'}</div>
+        <div class="wcard-actions plc-actions">${actions}</div>
+      </div>`;
+}
+function inboxSection() {
+  const items = (db.inbox || []).filter(e => !isWorkoutEntry(e)).slice().reverse();
+  if (!items.length) return '';
+  return `
+    <div class="wl-list pl-inbox">
+      <div class="wl-label">Plans sent to you (${items.length})</div>
+      ${items.map(e => planCard(inboxPlan(e), { meta: `Sent ${D.short(new Date(e.at))}`,
+        actions: `<button class="wpill" data-action="inbox-discard" data-id="${e.id}">Discard</button><button class="wpill dark" data-action="plan-details" data-id="in:${e.id}">View</button>` })).join('')}
+    </div>`;
+}
+export function planLibraryList() {
+  const list = [...(db.plans || [])].sort((a, b) => planRunning(b.id) - planRunning(a.id) || String(b.lastStarted || b.createdAt || '').localeCompare(String(a.lastStarted || a.createdAt || '')));
+  if (!list.length) return inboxSection() + '<div class="mg-empty">No plans yet. Tap Create to make one.</div>';
+  return inboxSection() + `
+    <div class="wl-list">
+      <div class="wl-label">Your Plans (${list.length})</div>
+      ${list.map(t => planCard(t, { actions: `<button class="wpill" data-action="plan-details" data-id="${t.id}">Details</button>${planRunning(t.id) ? '' : `<button class="wpill dark" data-action="plan-start" data-id="${t.id}">Setup Plan</button>`}` })).join('')}
+    </div>`;
+}
+// a plan from your list, or one sent to you ("in:<id>")
+export function planById(id) {
+  if (String(id).startsWith('in:')) { const e = (db.inbox || []).find(x => x.id === id.slice(3)); return e ? inboxPlan(e) : null; }
+  return (db.plans || []).find(x => x.id === id) || null;
+}
+export function PlanDetailScreen() {
+  const t = planById(state.planDetail);
+  if (!t) return '';
+  const running = !t.inbox && planRunning(t.id);
+  const rows = t.days.slice(0, t.splitDays).map((day, i) => {
+    const m = planDayMeta(day, t.ws), w = m.w;
+    const inner = `${dayBadge(m, i)}<span class="plan-daytext"><span class="plan-dayname ${m.cls === 'empty' ? 'empty' : ''}">${esc(w ? w.name : m.cls === 'empty' ? 'Workout was deleted' : m.name)}</span>${m.sub ? `<span class="plan-daysub">${esc(m.sub)}</span>` : ''}</span>`;
+    return w && !t.inbox ? `<button class="plan-dayrow" data-action="workout-details" data-id="${w.id}">${inner}<span class="plan-daychev">${I.smChevR}</span></button>` : `<div class="plan-dayrow">${inner}</div>`;
+  }).join('');
+  return `
+  <div class="cw-screen lu-screen pd-screen">
+    ${statusBar()}
+    <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">Plan Details</span><button class="icon-btn pd-kebab pd-trash" data-action="plandetail-delete" aria-label="${t.inbox ? 'Discard plan' : 'Delete plan'}">${I.trash24}</button></div>
+    <div class="cw-body">
+      <div class="lu-head"><div class="lu-titlerow plan-id">${planDots(t, 10)}<div><div class="lu-title">${esc(t.name)}</div></div></div></div>
+      <div class="cw-listlabel">Workout Lineup (${t.splitDays} day split)</div>
+      <div class="plan-daycard pd-lineup">${rows}</div>
+    </div>
+    <div class="cw-footer pd-foot">
+      <button class="pd-share" data-action="plan-share">${I.share}<span>Share</span></button>
+      ${running ? '<button class="btn solid lu-go" disabled>In progress</button>' : `<button class="btn solid lu-go" data-action="plan-start" data-id="${t.id}">Setup Plan</button>`}
+    </div>
+  </div>`;
+}
+// Start Plan → pick the dates that work for you (the plan wizard's schedule step on its own)
+export function PlanScheduleScreen() {
+  const w = state.planwiz; if (!w) return '';
+  const totalDays = daysBetween(w.start, w.end) + 1;
+  const f = (k, label, val) => `<button class="plan-datefield ${w.pick === k ? 'on' : ''}" data-action="plan-pickfield" data-k="${k}"><div class="pf-label">${label}</div><div class="pf-value">${val}</div></button>`;
+  return `
+  <div class="wiz-screen ps-screen">
+    ${statusBar()}
+    <div class="nav"><button class="icon-btn" data-action="back">${I.chevL}</button><span class="nav-title">${esc(w.name)}</span></div>
+    <div class="wiz-body">
+      <div class="wiz-title">Set your schedule</div>
+      <div class="wiz-help">Your ${plural(w.splitDays, 'day')} split repeats between these dates. Pick what works for you.</div>
+      <div class="plan-datefields">
+        ${f('start', 'Start date', D.short(parseDay(w.start)))}
+        ${f('end', 'End date', D.short(parseDay(w.end)))}
+        <div class="plan-datefield"><div class="pf-label"># of Days</div><div class="pf-value tnum">${totalDays}</div></div>
+      </div>${w.err ? `<div class="wiz-err">${esc(w.err)}</div>` : ''}
+      ${planCalendar(w)}
+    </div>
+    <div class="wiz-footer"><button class="btn solid" data-action="plan-sched-start">Start Plan</button></div>
+  </div>`;
+}
+// A plan link was opened: slide up over home
+export function PlanInviteSheet() {
+  const e = (db.inbox || []).find(x => x.id === state.invite); if (!e) return '';
+  if (isWorkoutEntry(e)) {
+    const w = inboxWorkout(e), list = w.exercises.map(x => `<li><span>${esc(x.name)}</span><span class="tnum">${x.sets} × ${x.reps}</span></li>`).join('');
+    return `
+  <div class="scrim" data-action="invite-close">
+    <div class="sheet pi-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="pi-body">
+        <div class="vs-title">You’ve been sent a workout</div>
+        <div class="vs-sub">Add it to your workouts to use it anytime.</div>
+        <div class="wcard pi-card"><div class="wcard-top"><div class="wcard-tile tint" style="--wc:${w.color}"${tex(w)}>${WORKOUT_ICONS[w.icon] || ''}</div><div class="wcard-text"><div class="wcard-name">${esc(w.name)}</div><div class="wcard-sub">${plural(w.exercises.length, 'exercise')}</div></div></div>
+          <ul class="pi-exlist">${list}</ul></div>
+      </div>
+      <div class="ug-actions pi-actions"><button class="ug-btn" data-action="invite-close">Close</button><button class="ug-btn dark" data-action="inbox-add-workout" data-id="${e.id}">Add Workout</button></div>
+    </div>
+  </div>`;
+  }
+  const t = inboxPlan(e), nWork = new Set(t.days.filter(d => d.type === 'workout').map(d => d.workoutId)).size;
+  return `
+  <div class="scrim" data-action="invite-close">
+    <div class="sheet pi-sheet" data-stop>
+      <div class="sheet-grab"></div>
+      <div class="pi-body">
+        <div class="vs-title">You’ve been sent a workout plan</div>
+        <div class="vs-sub">Take a look. If it fits, start it on your own schedule.</div>
+        <div class="wcard pi-card"><div class="wcard-top plan-id">${planDots(t)}<div class="wcard-text"><div class="wcard-name">${esc(t.name)}</div><div class="wcard-sub">${t.splitDays} day split · ${planLen(t)}</div><div class="wcard-sub">${plural(nWork, 'workout')}</div></div></div></div>
+      </div>
+      <div class="ug-actions pi-actions"><button class="ug-btn" data-action="invite-close">Close</button><button class="ug-btn dark" data-action="invite-view">View Plan</button></div>
+    </div>
   </div>`;
 }

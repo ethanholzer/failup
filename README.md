@@ -278,3 +278,15 @@ Only the current goal is drawn (no past goal lines, and the y-axis ignores them)
 - "Share FailMore with Friends" now shares https://failmore.app/.
 - Storage keeps its original names on purpose, so nothing logged is lost: `failup.v1`, `failup.v1.savedAt`, the `failup-photos` photo database, and `window.__failup` for debugging. Backups made before the rename still import.
 - The web app's own address is still ethanholzer.github.io/failup, so its link-preview tags still point there.
+
+## Equipment icons from Figma (Nov 19)
+- The six generic equipment icons (Barbell, Dumbbell, Bodyweight, Cable Machine, Smith Machine, Specialized Machine) are Ethan's own, from the Graphics page of the Overload Figma file. They're filled shapes on a 78 × 78 grid in `EQ_ICONS` (ui.js), colored with currentColor; the `eqi` class turns off the outline stroke the older line icons used. `assets/equipment/*.svg` holds the same icons in purple.
+
+## Saved machines and location tags
+- A saved machine is always a Specialized Machine. Names are unique (any letter case).
+- `locations` is a list of tags. No tags means the machine is available everywhere; a workout with no location sees every machine.
+- One-time migration (`migrateMachineTags` in store.js, flag `db.eqTagsV`): the old single location becomes the first tag, and machines sharing a name are numbered ("Leg Extension 1", "Leg Extension 2"). Nothing logged changes.
+- Auto-pick: a linked machine tagged here (or untagged), the one last used for that exercise at this gym, else the newest saved.
+- Picking a machine tagged elsewhere adds this gym tag; picking one not linked to the exercise links it.
+- Merge combines tags, exercise links, sets and goals; the most recent goal wins. `removeLocation()` only removes the tag.
+- Test: /tmp/claude-0/t/machines.cjs [port].

@@ -138,7 +138,9 @@ function freshDb() {
     sessions: [],                  // finished workouts, oldest first
     goalEdits: [],                 // manual goal changes { key, weight, at }
     active: null,                  // the workout in progress (or paused)
-    plan: null,                    // { name, splitDays, days, start, end }
+    plan: null,                    // { id, name, splitDays, days, start, end }
+    planHistory: [],               // plans that finished or were ended { ...plan, endedOn }
+    plans: [],                     // your plans to start again { id, name, splitDays, days, length }
     settings: { units: 'lbs', location: '' },
     exCustom: SEED_CUSTOM.map(e => ({ ...e })),
     exOverrides: {},
@@ -179,10 +181,43 @@ function replaceDb(next) {
   for (const k of Object.keys(db)) delete db[k];
   Object.assign(db, next);
   db.settings = { units: 'lbs', location: '', ...(db.settings || {}) };
-  if (!Array.isArray(db.suggestions)) db.suggestions = [];   // goal suggestions waiting on a yes/no
+  if (!Array.isArray(db.suggestions)) db.suggestions = [];
+  if (!Array.isArray(db.planHistory)) db.planHistory = [];
+  if (!Array.isArray(db.inbox)) db.inbox = [];   // plans sent to you by link
+  migratePlans();   // goal suggestions waiting on a yes/no
   migrateColors();
+  migrateMachineTags();
   buildExercises();
   invalidate();
+}
+// One-time move to location tags. A machine's old single location becomes its first tag,
+// and machines that shared a name (one per gym before) get numbered: Leg Extension 1, Leg Extension 2.
+// Only names and tags change; every set, goal and photo stays on the same machine.
+function migrateMachineTags() {
+  if (!Array.isArray(db.equipment)) db.equipment = [];
+  if (db.eqTagsV >= 1) { for (const sv of db.equipment) if (!Array.isArray(sv.locations)) sv.locations = []; return; }
+  for (const sv of db.equipment) {
+    const l = Array.isArray(sv.locations) && sv.locations.length ? sv.locations : [sv.location];
+    sv.locations = [...new Set(l.filter(Boolean))];
+    sv.location = sv.locations[0] || '';
+  }
+  numberDuplicateNames();
+  db.eqTagsV = 1;
+}
+export function numberDuplicateNames() {
+  const key = n => String(n || '').trim().toLowerCase();
+  const groups = new Map();
+  for (const sv of db.equipment) { const k = key(sv.name); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(sv); }
+  const taken = new Set(db.equipment.map(sv => key(sv.name)));
+  for (const [, list] of groups) {
+    if (list.length < 2) continue;
+    const base = list[0].name.trim();
+    let n = 1;
+    for (const sv of list) {
+      while (taken.has(key(`${base} ${n}`))) n++;
+      sv.name = `${base} ${n}`; taken.add(key(sv.name)); n++;
+    }
+  }
 }
 
 // Diff the live exercise list against the library so library updates still
@@ -272,9 +307,20 @@ export const photoSrc = ref => !ref ? null : ref.startsWith('idb:') ? (photoCach
 export const eqById = ref => ref && ref.startsWith('eq:') ? db.equipment.find(e => 'eq:' + e.id === ref) : null;
 export function eqLabel(ref) { const sv = eqById(ref); return sv ? sv.name : (ref && ref.startsWith('eq:') ? 'Removed equipment' : genericOf(ref || 'Bodyweight')); }
 // a saved machine can live at more than one location (same model at home and at the rec center)
-export const eqLocs = sv => (sv.locations && sv.locations.length ? sv.locations : [sv.location]).filter(Boolean);
-export const eqAt = (sv, loc) => eqLocs(sv).includes(loc);
-export const eqLocText = sv => eqLocs(sv).join(', ');
+// Locations are tags on a saved machine. No tags: it's available everywhere.
+// No location set for the workout: every machine is available.
+export const eqLocs = sv => (Array.isArray(sv.locations) ? sv.locations : []).filter(Boolean);
+export const eqTagged = (sv, loc) => !!loc && eqLocs(sv).includes(loc);
+export const eqAt = (sv, loc) => !loc || !eqLocs(sv).length || eqLocs(sv).includes(loc);
+export const eqLocText = sv => eqLocs(sv).join(', ') || 'Any location';
+export function setEqLocs(sv, l) { sv.locations = [...new Set((l || []).filter(Boolean))]; sv.location = sv.locations[0] || ''; }
+export const eqNameTaken = (name, exceptId) => db.equipment.some(x => x.id !== exceptId && x.name.trim().toLowerCase() === String(name).trim().toLowerCase());
+// Deleting a location only takes its tag off machines; a machine left with none is available everywhere.
+export function removeLocation(name) {
+  db.locations = db.locations.filter(l => l !== name);
+  for (const sv of db.equipment) if (eqLocs(sv).includes(name)) setEqLocs(sv, eqLocs(sv).filter(l => l !== name));
+  if (db.settings.location === name) db.settings.location = '';
+}
 export const eqLocation = ref => (eqById(ref) || {}).location || null;
 export const eqUnits = ref => (eqById(ref) || {}).units || db.settings.units;
 export const unitLabel = u => u === 'kg' ? 'kg' : u === 'simple' ? '' : 'lbs';
@@ -349,7 +395,7 @@ export function moveToGeneric() {
   return plan;
 }
 // saved machines for an exercise (at a location when given)
-export const machinesFor = (exId, location) => db.equipment.filter(sv => (!location || eqAt(sv, location)) && machineFor(exId, sv));
+export const machinesFor = (exId, location) => db.equipment.filter(sv => eqAt(sv, location) && machineFor(exId, sv));
 // exercises a machine is for: picked when it was saved (or later), or already logged / given a goal on it
 export const machineExercises = sv => EXERCISES.filter(x => machineFor(x.id, sv));
 
@@ -473,6 +519,55 @@ export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMont
 export const parseDay = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
 export const daysBetween = (a, b) => Math.round((parseDay(b) - parseDay(a)) / 86400000);
 export const addDays = (k, n) => { const d = parseDay(k); d.setDate(d.getDate() + n); return dayKey(d); };
+
+// ---- your plans ----
+// A plan you made lives in db.plans and can be started again. db.plan is the run in progress
+// (with planId pointing at its plan) and planHistory holds finished or ended runs.
+const planSig = p => `${p.name}|${p.splitDays}|${JSON.stringify((p.days || []).slice(0, p.splitDays))}`;
+function migratePlans() {
+  // every run (finished or in progress) gets a plan in your list, so nothing you ran goes missing
+  if (!Array.isArray(db.plans)) db.plans = [];
+  const runs = [...db.planHistory, ...(db.plan ? [db.plan] : [])].sort((a, b) => (a.start < b.start ? -1 : 1));
+  for (const r of runs) {
+    if (r.planId && (db.plans.some(x => x.id === r.planId) || r.planDeleted)) continue;
+    let t = db.plans.find(x => planSig(x) === planSig(r));
+    if (!t) { t = { id: uid('pt'), name: r.name, splitDays: r.splitDays, days: r.days.slice(0, r.splitDays), length: daysBetween(r.start, r.end) + 1, createdAt: r.start }; db.plans.push(t); }
+    t.lastStarted = r.start; r.planId = t.id;
+  }
+}
+// how many times a plan has been started
+export const planRuns = id => db.planHistory.filter(r => r.planId === id).length + (db.plan && db.plan.planId === id ? 1 : 0);
+export const planRunning = id => !!(db.plan && db.plan.planId === id && (planToday() || {}).status !== 'ended');
+
+// ---- past plans ----
+// Ending a plan (or replacing a finished one) files it in planHistory with the day it stopped.
+export function archivePlan(plan = db.plan, today = dayKey()) {
+  if (!plan) return;
+  const endedOn = today < plan.end ? (today < plan.start ? plan.start : today) : plan.end;
+  db.planHistory.push({ ...plan, id: plan.id || 'p' + Date.now().toString(36), endedOn });
+  if (plan === db.plan) db.plan = null;
+}
+// Biggest goal increases during a plan: per exercise + equipment + volume, the goal in place when
+// the plan started (or the first one set during it) against the last one set during it.
+const toLbs = (w, u) => u === 'kg' ? w * 2.20462 : w;
+export function planGains(from, to, limit = 3) {
+  const inRange = at => { const k = dayKey(new Date(at)); return k >= from && k <= to; };
+  const before = at => dayKey(new Date(at)) < from;
+  const byKey = new Map();
+  for (const g of db.goalEdits) { if (!byKey.has(g.key)) byKey.set(g.key, []); byKey.get(g.key).push(g); }
+  const out = [];
+  for (const [key, evs] of byKey) {
+    const during = evs.filter(g => inRange(g.at) && g.weight != null).sort((a, b) => (a.at < b.at ? -1 : 1));
+    if (!during.length) continue;
+    const prior = evs.filter(g => before(g.at) && g.weight != null).sort((a, b) => (a.at < b.at ? -1 : 1)).pop();
+    const first = prior ? prior.weight : during[0].weight, last = during[during.length - 1].weight;
+    if (!(last > first)) continue;
+    const [exId, ref, vol] = key.split('|'), [sets, reps] = vol.split('x').map(Number);
+    const unit = eqUnits(ref);
+    out.push({ exId, ref, sets, reps, first, last, unit, gain: last - first, rank: unit === 'simple' ? 0 : toLbs(last - first, unit) });
+  }
+  return out.sort((a, b) => b.rank - a.rank || b.gain - a.gain).slice(0, limit);
+}
 
 // Today's place in the plan: { index, day, dayNum, total } or a status.
 export function planToday(plan = db.plan, today = dayKey()) {

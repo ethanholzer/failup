@@ -8,21 +8,22 @@
 import { state, WORKOUT_COLORS, PURPLE } from './data.js';
 import { I, fmt, esc, wt, wtTight, eqName, D, WORKOUT_ICONS } from './ui.js';
 import {
-  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, MACHINE_TYPES, isMachineType, SPECIAL, isSpecial, machinesFor, machineExercises, genericMovePlan, moveToGeneric, repointRef, eqLocText, invalidate, eqLocs, eqAt, increment,
-  goalFor, goalKey, setGoal, volumeSuggestion, dismissVolumeSuggestion, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf, eqKind,
+  db, load, save, loadPhotos, putPhoto, EXERCISES, exById, uid, GENERIC, eqById, eqLabel, eqUnits, eqType, eqTypes, eqUse, TYPE_ORDER, MACHINE_TYPES, isMachineType, SPECIAL, isSpecial, machinesFor, machineExercises, genericMovePlan, moveToGeneric, repointRef, eqLocText, invalidate, eqLocs, eqAt, eqTagged, setEqLocs, eqNameTaken, increment,
+  archivePlan, planRunning, planToday, goalFor, goalKey, setGoal, volumeSuggestion, dismissVolumeSuggestion, derived, isFail, lastDone, dayKey, addDays, parseDay, daysBetween, genericOf, eqKind,
   exportData, importData, clearExerciseData, resetAll, isBodyweight,
  volumeDots,
 } from './store.js';
+import { receivePlan, adoptPlan, adoptWorkout, isWorkoutEntry, planLink, workoutLink, shareLink, codeFrom } from './plan-share.js';
 import {
   TrackerScreen, VolumeModal, ExercisesScreen, FilterSheet, exListInner, ColorPickerSheet, IconPickerSheet,
-  ExerciseWizard, EquipmentWizard, eqWizResults, EquipmentRelatedScreen, ExerciseDetailScreen, ExerciseHistoryScreen, EquipmentListScreen, EquipmentDetailScreen,
+  ExerciseWizard, EquipmentWizard, EqExercisePickSheet, exSelText, eqPickFoot, eqWizResults, EquipmentRelatedScreen, ExerciseDetailScreen, ExerciseHistoryScreen, EquipmentListScreen, EquipmentDetailScreen,
   EquipmentSwapScreen, EquipmentSwapSheet, PrefTypeSheet, AddEquipSheet, addEquipOptions, LocationSheet, EquipmentTypesSheet, NewLocationScreen, ConfirmSheet, MenuSheet, mergeExList, MergeExerciseScreen,
   MergeEquipmentScreen, SettingsScreen, EQ_TYPES, defaultRef,
 } from './screens-library.js';
-import { HomeScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts, ShareAskSheet, SafetySheet } from './screens-home.js';
+import { HomeScreen, PlansScreen, HowItWorksScreen, GoalsScreen, FEEL_SEGS, RPE_NOTES, rpeLabel, countdownParts, ShareAskSheet, SafetySheet } from './screens-home.js';
 import {
   QuickSelectScreen, WorkoutsScreen, AssignDayScreen, CreateWorkoutScreen, LineupScreen, WorkoutDetailsScreen,
-  WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard,
+  WorkoutSessionScreen, ActiveSetSheet, OverloadGoalSheet, UpdateGoalSheet, GoalAskSheet, PauseSheet, SessionLogScreen, PlanWizard, PlanDetailScreen, PlanScheduleScreen, PlanInviteSheet, planById,
   listCtx, keepCurrentExercise, NotesSheet, vol, exInfo, workingSets, pendingSuggestion, restOf, restLeft, mmss, nextTarget, rpeOf, rpeNum, setPurple, sessionStats,
 } from './screens-workout.js';
 import { UPPER_BODY, LOWER_BODY, LINKS } from './data.js';
@@ -61,12 +62,12 @@ const SCREENS = {
   exhistory: ExerciseHistoryScreen, equipment: EquipmentListScreen, eqdetail: EquipmentDetailScreen,
   swap: () => EquipmentSwapScreen(swapRef(), swapExId()), details: WorkoutDetailsScreen, newloc: NewLocationScreen,
   mergeex: MergeExerciseScreen, mergeeq: MergeEquipmentScreen, complete: SessionLogScreen, log: SessionLogScreen,
-  settings: SettingsScreen, howto: HowItWorksScreen, goals: GoalsScreen,
+  settings: SettingsScreen, howto: HowItWorksScreen, goals: GoalsScreen, plans: PlansScreen, plandetail: PlanDetailScreen, planschedule: PlanScheduleScreen,
 };
 const MODALS = {
   volume: VolumeModal, muscle: () => FilterSheet('muscle'), equipment: () => FilterSheet('equipment'),
   color: ColorPickerSheet, icon: IconPickerSheet, setwidget: ActiveSetSheet, goal: OverloadGoalSheet, notes: NotesSheet,
-  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, addequip: AddEquipSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, safety: SafetySheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
+  swap: () => EquipmentSwapSheet(swapRef(), swapExId(), swapLocation()), preftype: PrefTypeSheet, addequip: AddEquipSheet, updategoal: UpdateGoalSheet, goalask: GoalAskSheet, location: LocationSheet, planinvite: PlanInviteSheet, eqexpick: EqExercisePickSheet, eqtypes: EquipmentTypesSheet, shareask: ShareAskSheet, safety: SafetySheet, confirm: ConfirmSheet, pause: PauseSheet, menu: MenuSheet,
 };
 const NEEDS_SESSION = ['session', 'lineup'];
 function screenHTML() {
@@ -103,6 +104,7 @@ function render() {
   if (flip) animateExpandables(flip);
   if (pipFrom != null && state.session && state.session.exIndex !== pipFrom) { slideCurrentPip(pipFrom, state.session.exIndex); animatePip(pipFrom); rollNumber(pipFrom + 1, state.session.exIndex > pipFrom ? 1 : -1); }
   lastExIndex = state.session ? state.session.exIndex : null;
+  if (state.inviteQueue && state.screen === 'home' && !state.modal) { state.invite = state.inviteQueue; state.inviteQueue = null; state.modal = 'planinvite'; }   // a plan link was opened
   let modal = '';
   try { modal = state.modal && MODALS[state.modal] ? MODALS[state.modal]() : ''; } catch (err) { console.error(err); state.modal = null; }
   overlay.innerHTML = modal;
@@ -579,11 +581,23 @@ const exUse = (exId, id) => db.sessions.reduce((n, s) => n + s.exercises.reduce(
 // Most used saved machine of a kind at a location: most sets of this exercise first, then most sets overall.
 // A saved machine is picked automatically only for "Specialized Machine" exercises, and only one
 // that's listed for (or has been used for) this exercise at this location; the most used wins.
+// Picking a saved machine: a machine linked to this exercise that's tagged with this gym (or has no tags).
+// Several fit: the one you last used for this exercise at this gym. Never used here: the newest one saved.
+function lastUsedAt(exId, location, cands) {
+  const refs = new Set(cands.map(x => 'eq:' + x.id));
+  const done = db.sessions.filter(ss => !location || ss.location === location).sort((a, b) => (a.finishedAt < b.finishedAt ? 1 : -1));
+  for (const ss of done) for (const e of ss.exercises) {
+    if (e.exId !== exId) continue;
+    const used = [...e.sets.map(x => x.equip || e.equip), e.equip].find(r => refs.has(r));
+    if (used) return eqById(used);
+  }
+  return null;
+}
 function pickSavedFor(type, location, exId) {
   if (type !== SPECIAL) return null;
   const here = machinesFor(exId, location);
   if (!here.length) return null;
-  return here.map(x => [x, exUse(exId, x.id), eqUse(x.id)]).sort((a, b) => b[1] - a[1] || b[2] - a[2] || a[0].name.localeCompare(b[0].name))[0][0];
+  return lastUsedAt(exId, location, here) || here[here.length - 1];   // saved machines are kept oldest first
 }
 // the workout's preferred generic kind for a session exercise
 const prefOf = e => e.pref || genericOf(eqById(e.equip) ? eqType(eqById(e.equip)) : e.equip);
@@ -777,8 +791,8 @@ function resetPicker() {
 }
 function setLocation(target, name) {
   if (target === 'lineup') { state.session.location = name; db.settings.location = name; applyLocationDefaults(state.session, true); }
-  else if (target === 'equipment') { const sv = db.equipment.find(x => x.id === state.eqDetail); if (sv) { const l = eqLocs(sv); if (!l.includes(name)) l.push(name); sv.locations = l; sv.location = l[0]; } }
-  else if (target === 'eqwiz') state.eqwiz.location = name;
+  else if (target === 'equipment') { const sv = db.equipment.find(x => x.id === state.eqDetail); if (sv) setEqLocs(sv, [...eqLocs(sv), name]); }
+  else if (target === 'eqwiz') { const w = state.eqwiz; if (!w.locations.includes(name)) w.locations.push(name); }
 }
 function openWorkoutEditor(wid) {
   const w = db.workouts.find(x => x.id === wid);
@@ -802,9 +816,10 @@ function applySwap(ref) {
   if (sw.owner === 'tracker') { state.tracker.equip = ref; state.tracker.volume = defaultVolume(state.tracker.exId, ref); return; }
   const it = swapTarget(); if (!it) return;
   const old = it.equip; it.equip = ref; it.manual = true;
+  const note = tagAndLink(ref, it.exId, swapLocation());
   if (sw.owner === 'session' || sw.owner === 'lineup') it.sets && it.sets.forEach(st => { delete st.equip; });
   if (it.goal) syncGoal(it);
-  if (!['session', 'lineup'].includes(sw.owner) || !state.session) { toast('Equipment swapped'); return; }
+  if (!['session', 'lineup'].includes(sw.owner) || !state.session) { toast(note || 'Equipment swapped'); return; }
   const sv = eqById(ref), steps = [];
   const G = it.goal || { sets: 3, reps: 8 };
   const oldGoal = goalFor(it.exId, old, G.sets, G.reps);
@@ -815,13 +830,18 @@ function applySwap(ref) {
       run: () => { setGoal(it.exId, ref, G.sets, G.reps, oldGoal); syncGoal(it); toast('Goal brought over'); next(); }, no: next }));
     void u;
   }
-  if (sv && !eqAt(sv, state.session.location)) {
-    steps.push(next => confirm({ title: `Training at ${esc(sv.location)}?`, label: 'Yes', cancel: 'Close',
-      text: `${esc(sv.name)} is saved at ${esc(sv.location)}. Is this workout at ${esc(sv.location)} today?`,
-      run: () => { setLocation('lineup', sv.location); toast(`Workout at ${sv.location}`); next(); }, no: next }));
-  }
   const run = i => { if (i < steps.length) steps[i](() => run(i + 1)); };
-  if (steps.length) run(0); else toast('Equipment swapped');
+  if (steps.length) run(0); else toast(note || 'Equipment swapped');
+}
+// Picking a saved machine teaches FailMore where it is and what it's for: a tagged machine picked at
+// another gym gets that gym's tag, and an exercise it wasn't linked to gets linked. Returns a toast line.
+function tagAndLink(ref, exId, location) {
+  const sv = eqById(ref); if (!sv) return '';
+  let tagged = false;
+  if (location && eqLocs(sv).length && !eqTagged(sv, location)) { setEqLocs(sv, [...eqLocs(sv), location]); tagged = true; }
+  const x = exById(exId);
+  if (x && !(x.equipment || []).includes(ref)) x.equipment = [...(x.equipment || []), ref];
+  return tagged ? `${sv.name} tagged at ${location}` : '';
 }
 function swapTarget() {
   const sw = state.swap;
@@ -875,19 +895,82 @@ function openTracker(exId, ref) {
   state.tracker = { exId, equip: ref, range: 'All', volume: defaultVolume(exId, ref) };
   go('tracker');
 }
-function openPlanWizard(edit) {
-  const today = dayKey(), p = edit && db.plan;
+// edit: change the running plan. fromId: start one of your plans again (opens on the schedule step).
+function openPlanWizard(edit, fromId = null) {
+  const today = dayKey(), p = edit && db.plan, t = !edit && fromId && db.plans.find(x => x.id === fromId);
   state.planwiz = p
     ? { step: 1, name: p.name, splitDays: p.splitDays, days: p.days.map(d => ({ ...d })), start: p.start, end: p.end, month: p.start.slice(0, 7), pick: 'start', editing: true }
+    : t ? { step: 4, name: t.name, splitDays: t.splitDays, days: t.days.map(d => ({ ...d })), start: today, end: addDays(today, (t.length || 28) - 1), month: today.slice(0, 7), pick: 'start', editing: false, fromId: t.id }
     : { step: 1, name: '', splitDays: 7, days: Array.from({ length: 7 }, () => ({ type: 'empty' })), start: today, end: addDays(today, 27), month: today.slice(0, 7), pick: 'start', editing: false };
   while (state.planwiz.days.length < 10) state.planwiz.days.push({ type: 'empty' });
   go('planwiz');
 }
+// Start Plan on a plan's details: just the schedule, with today and the plan's usual length
+function openPlanSchedule(id) {
+  const t = db.plans.find(x => x.id === id); if (!t) return;
+  const today = dayKey();
+  state.planwiz = { step: 4, name: t.name, splitDays: t.splitDays, days: t.days.map(d => ({ ...d })), start: today, end: addDays(today, (t.length || 28) - 1), month: today.slice(0, 7), pick: 'start', editing: false, fromId: t.id };
+  go('planschedule');
+}
+function savePlanWizard(w) {
+  const body = { name: w.name.trim(), splitDays: w.splitDays, days: w.days.slice(0, w.splitDays).map(x => ({ ...x })), length: daysBetween(w.start, w.end) + 1 };
+  let t = db.plans.find(x => x.id === (w.editing && db.plan ? db.plan.planId : w.fromId));
+  if (t) Object.assign(t, body); else { t = { id: uid('pt'), createdAt: dayKey(), ...body }; db.plans.push(t); }   // your plans keep what you saved last
+  if (!w.editing && db.plan) archivePlan();   // starting a plan files the one before it under History
+  if (!w.editing) t.lastStarted = w.start;
+  db.plan = { ...(w.editing && db.plan ? db.plan : { id: uid('p') }), planId: t.id, name: body.name, splitDays: body.splitDays, days: body.days, start: w.start, end: w.end };
+  home(); toast(w.editing ? 'Plan updated' : w.fromId ? 'Plan started' : 'Plan saved');
+}
+function sharePlan(t) {
+  planLink(t, id => (t.ws && t.ws[id]) || db.workouts.find(x => x.id === id))
+    .then(url => shareLink(url, t.name, `Here’s my FailMore plan, ${t.name}. Want to do it with me?`))
+    .then(r => { if (r === 'copied') toast('Link copied'); else if (r === 'failed') toast('That link couldn’t be shared'); });
+}
+function shareWorkout(w) {
+  workoutLink(w)
+    .then(url => shareLink(url, w.name, `Here’s my FailMore workout, ${w.name}. Want to try it?`))
+    .then(r => { if (r === 'copied') toast('Link copied'); else if (r === 'failed') toast('That link couldn’t be shared'); });
+}
+function confirmDeletePlan(t, after = () => {}) {
+  confirm({ title: 'Delete this plan?', danger: true, label: 'Delete',
+    text: `${esc(t.name)} is removed from your plans. Its history stays${planRunning(t.id) ? ', and the run in progress keeps going' : ''}.`,
+    run: () => { db.plans = db.plans.filter(x => x !== t); for (const r of [...db.planHistory, ...(db.plan ? [db.plan] : [])]) if (r.planId === t.id) r.planDeleted = true; after(); toast('Plan deleted'); } });
+}
+// Edit a plan from your list: name, split and days (dates are picked when it's set up). The running one edits its run too.
+function openPlanEditor(id) {
+  if (db.plan && db.plan.planId === id && planRunning(id)) return openPlanWizard(true);
+  const t = db.plans.find(x => x.id === id); if (!t) return;
+  const today = dayKey();
+  state.planwiz = { step: 1, name: t.name, splitDays: t.splitDays, days: t.days.map(d => ({ ...d })), start: today, end: addDays(today, (t.length || 28) - 1), month: today.slice(0, 7), pick: 'start', editing: false, editTpl: t.id };
+  while (state.planwiz.days.length < 10) state.planwiz.days.push({ type: 'empty' });
+  go('planwiz');
+}
+// A plan link (web: #plan=…, iOS: failmore.app/plan/#… or failmore://plan#…): file it under Plans sent to you and offer it on home
+function takeLink(text) {
+  return receivePlan(text).then(e => {
+    if (!e) { toast('That plan link didn’t work'); render(); return; }
+    state.inviteQueue = e.id;
+    if (!(state.session && state.session.started) && state.screen !== 'onboard') home();
+    render();
+  });
+}
 function freshExWizard(extra = {}) { state.exwiz = { step: 1, name: '', primary: null, secondary: [], equipment: [], saved: [], photo: null, ...extra }; }
 // Save a machine. ctxEx: the exercise it's being saved for (pre-picked on the last step).
+// Steps: name, locations (optional), units, exercises (optional), photo (optional).
+const EQW_LAST = 5;
+// list a machine on exactly these exercises (logged history and goals on it are never touched)
+function linkExercises(sv, exIds) {
+  const ref = 'eq:' + sv.id, want = new Set(exIds || []);
+  for (const x of EXERCISES) {
+    const has = (x.equipment || []).includes(ref);
+    if (want.has(x.id) && !has) x.equipment = [...(x.equipment || []), ref];
+    else if (!want.has(x.id) && has) x.equipment = x.equipment.filter(k => k !== ref);
+  }
+}
 function freshEqWizard(returnTo, ctxEx = null) {
-  state.eqwiz = { step: 1, location: (state.session && state.session.location) || db.settings.location || db.locations[0] || '', name: '',
-    units: db.settings.units === 'kg' ? 'kg' : 'lbs', photo: null, returnTo, ctxEx, };
+  const here = state.session && state.session.location;
+  state.eqwiz = { step: 1, name: '', locations: here ? [here] : [], units: db.settings.units === 'kg' ? 'kg' : 'lbs', photo: null,
+    q: '', exIds: ctxEx && exById(ctxEx) ? [ctxEx] : [], returnTo, ctxEx };
 }
 
 // Replace one equipment ref with another everywhere (merge / delete).
@@ -1214,6 +1297,7 @@ function handle(a, d, el, ex) {
     case 'workout-menu': {
       const w = db.workouts.find(x => x.id === d.id);
       menu({ title: w.name, items: [
+        { label: 'Share Workout', icon: I.share, run: () => shareWorkout(w) },
         { label: 'Edit Workout', icon: I.editPen, run: () => openWorkoutEditor(w.id) },
         { label: 'Duplicate Workout', icon: COPY_ICON, run: () => {   // "Chest & Arms" → "Chest & Arms 2", then 3…
           const base = w.name.replace(/\s+\d+$/, '');
@@ -1494,6 +1578,47 @@ function handle(a, d, el, ex) {
       state.tracker = { exId, equip: ref, range: 'All', volume: { sets, reps } }; go('tracker'); break;
     }
     case 'share-app': shareApp(); return false;
+    case 'open-machines': go('equipment'); break;
+    case 'plans-tab': state.plansTab = d.tab; break;
+    case 'plan-details': state.planDetail = d.id; go('plandetail'); break;
+    case 'plans-create':
+    case 'plan-start': {   // starting a plan while another runs: that one moves to History
+      const open = () => {
+        if (a === 'plans-create') return openPlanWizard(false);
+        let id = d.id;
+        if (String(id).startsWith('in:')) {   // a plan sent to you: it joins your plans (with its workouts) as you start it
+          const e = db.inbox.find(x => x.id === id.slice(3)); if (!e) return;
+          id = adoptPlan(e).id; state.planDetail = id; toast('Added to your plans');
+        }
+        openPlanSchedule(id);
+      };
+      const cur = db.plan && (planToday() || {}).status !== 'ended' ? db.plan : null;
+      if (cur) confirm({ title: a === 'plans-create' ? 'Make a new plan?' : 'Start this plan?', label: 'Continue',
+        text: `${esc(cur.name)} is running now. Starting another moves it to History. Your workout data stays.`, run: open });
+      else open();
+      break;
+    }
+    case 'plandetail-delete': {   // Plan Details trash button: delete your plan, or discard one sent to you
+      const t = planById(state.planDetail); if (!t) break;
+      if (t.inbox) confirm({ title: 'Discard this plan?', danger: true, label: 'Discard', text: `${esc(t.name)} is removed from Plans sent to you.`,
+        run: () => { db.inbox = (db.inbox || []).filter(x => x.id !== t.inbox); back(); toast('Plan discarded'); } });
+      else confirmDeletePlan(t, back);
+      break;
+    }
+    case 'plancard-menu': {   // My Plans card kebab
+      const t = db.plans.find(x => x.id === d.id); if (!t) break;
+      menu({ title: t.name, items: [
+        { label: 'Share Plan', icon: I.share, run: () => sharePlan(t) },
+        { label: 'Edit Plan', icon: I.editPen, run: () => openPlanEditor(t.id) },
+        { label: 'Delete Plan', icon: I.trash24, danger: true, run: () => confirmDeletePlan(t) },
+      ] });
+      break;
+    }
+    case 'inbox-add-workout': {   // a workout sent to you → your workouts
+      const e = (db.inbox || []).find(x => x.id === d.id); if (!e) break;
+      const w = adoptWorkout(e); state.modal = null; state.invite = null;
+      toast(`${w ? w.name : 'Workout'} added to your workouts`); break;
+    }
     case 'home-go-mini':
     case 'home-go': {
       const to = d.to;
@@ -1505,7 +1630,7 @@ function handle(a, d, el, ex) {
       menu({ title: db.plan.name, items: [
         { label: 'Edit Plan', icon: I.editPen, run: () => openPlanWizard(true) },
         { label: 'End Plan', icon: I.trash24, danger: true, run: () => confirm({ title: 'End this plan?', danger: true, label: 'End Plan',
-          text: 'Ending this plan will remove it from your homescreen, it will not erase your workout data.', run: () => { db.plan = null; } }) },
+          text: 'Ending this plan moves it to Plans. Your workout data stays.', run: () => { archivePlan(); toast('Plan moved to Plans'); } }) },
       ] });
       break;
     case 'plan-next': {
@@ -1516,11 +1641,28 @@ function handle(a, d, el, ex) {
         if (days.some(x => x.type === 'empty' || (x.type === 'workout' && !db.workouts.some(k => k.id === x.workoutId)))) { w.err = 'Pick a workout or rest for every day.'; break; }
         if (!days.some(x => x.type === 'workout')) { w.err = 'Add at least one workout day.'; break; }
       }
+      if (w.editTpl && w.step === 3) {   // a plan from your list: save name, split and days
+        const t = db.plans.find(x => x.id === w.editTpl);
+        if (t) Object.assign(t, { name: w.name.trim(), splitDays: w.splitDays, days: w.days.slice(0, w.splitDays).map(x => ({ ...x })) });
+        back(); toast('Plan updated'); break;
+      }
       if (w.step === 4 && w.end < w.start) { w.err = 'The end date needs to be after the start date.'; break; }
       if (w.step < 5) { w.step++; break; }
-      db.plan = { name: w.name.trim(), splitDays: w.splitDays, days: w.days.slice(0, w.splitDays), start: w.start, end: w.end };
-      home(); toast(w.editing ? 'Plan updated' : 'Plan saved'); break;
+      savePlanWizard(w); break;
     }
+    case 'plan-sched-start': {   // the stand-alone schedule page
+      const w = state.planwiz; w.err = null;
+      if (w.end < w.start) { w.err = 'The end date needs to be after the start date.'; break; }
+      savePlanWizard(w); break;
+    }
+    case 'plan-share': { const t = planById(state.planDetail); if (t) sharePlan(t); break; }
+    case 'inbox-discard': {
+      db.inbox = (db.inbox || []).filter(x => x.id !== d.id);
+      if (state.screen === 'plandetail') back();
+      toast('Plan discarded'); break;
+    }
+    case 'invite-close': state.modal = null; state.invite = null; break;   // it waits under Plans sent to you
+    case 'invite-view': state.modal = null; state.planDetail = 'in:' + state.invite; state.invite = null; go('plandetail'); break;
     case 'plan-prev': state.planwiz.err = null; state.planwiz.step = Math.max(1, state.planwiz.step - 1); break;
     case 'plan-headback': if (state.planwiz.step > 1) { state.planwiz.err = null; state.planwiz.step--; } else back(); break;
     case 'plan-edit': state.planwiz.step = +d.step; break;
@@ -1628,7 +1770,8 @@ function handle(a, d, el, ex) {
     case 'machine-notnow': s.noMachinePrompt = [...(s.noMachinePrompt || []), cur().exId]; break;
     case 'edit-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail);
-      state.eqwiz = { step: 1, editId: sv.id, location: sv.location, name: sv.name, units: sv.units, photo: sv.photo, returnTo: 'eqdetail', ctxEx: null };
+      state.eqwiz = { step: 1, editId: sv.id, name: sv.name, locations: eqLocs(sv).slice(), units: sv.units, photo: sv.photo,
+        q: '', exIds: machineExercises(sv).map(x => x.id), returnTo: 'eqdetail', ctxEx: null };
       go('eqwiz'); break;
     }
     case 'eqrel-open': {   // Related Exercises → Add
@@ -1636,56 +1779,67 @@ function handle(a, d, el, ex) {
       state.eqRel = { q: '', exIds: machineExercises(sv).map(x => x.id) }; go('eqrelated'); break;
     }
     case 'eqrel-done': {
-      const sv = db.equipment.find(x => x.id === state.eqDetail), ref = 'eq:' + sv.id, want = new Set(state.eqRel.exIds);
-      for (const x of EXERCISES) {   // list the machine on the exercises picked (and off any un-picked)
-        const has = (x.equipment || []).includes(ref);
-        if (want.has(x.id) && !has) x.equipment = [...(x.equipment || []), ref];
-        else if (!want.has(x.id) && has) x.equipment = x.equipment.filter(k => k !== ref);
-      }
+      const sv = db.equipment.find(x => x.id === state.eqDetail);
+      linkExercises(sv, state.eqRel.exIds);
       back(); toast('Related exercises saved'); break;
     }
     case 'eq-units': { const sv = db.equipment.find(x => x.id === state.eqDetail); sv.units = d.unit; syncAllGoals(); break; }
     case 'eqwiz-next': {
       const w = state.eqwiz; w.err = null;
-      if (w.step === 1 && !db.locations.includes(w.location)) { w.err = 'Pick where this machine is.'; break; }
-      if (w.step === 2) {
+      if (w.step === 1) {
         const name = w.name.trim();
         if (!name) { w.err = 'Give the machine a name.'; break; }
-        if (db.equipment.some(x => x.id !== w.editId && x.location === w.location && x.name.toLowerCase() === name.toLowerCase())) { w.err = `There’s already a ${name} at ${w.location}.`; break; }
+        if (eqNameTaken(name, w.editId)) { w.err = `You already have a machine called ${name}. Try another name.`; break; }
       }
-      if (w.step < 4) { w.step++; break; }
+      if (w.step < EQW_LAST) { w.step++; break; }
       const prev = w.editId ? db.equipment.find(x => x.id === w.editId) : null;
-      const rec = { name: w.name.trim(), location: w.location, units: w.units, photo: w.photo || null,
+      const rec = { name: w.name.trim(), units: w.units, photo: w.photo || null,
         ...(prev ? {} : { type: SPECIAL, types: [SPECIAL] }) };   // an older saved machine keeps its kind
       let sv = prev;
-      if (prev && prev.locations && !prev.locations.includes(w.location)) delete prev.locations;
       if (prev) Object.assign(prev, rec); else { sv = { id: uid('e'), ...rec }; db.equipment.push(sv); }
+      setEqLocs(sv, w.locations.filter(l => db.locations.includes(l)));
       const ref = 'eq:' + sv.id;
-      const forEx = !prev && exById(w.ctxEx);   // a new machine belongs to the exercise it was saved on
-      if (forEx && !(forEx.equipment || []).includes(ref)) forEx.equipment = [...(forEx.equipment || []), ref];
+      linkExercises(sv, w.exIds);
       back();
       if (prev) { syncAllGoals(); toast('Machine saved'); break; }
       if (w.returnTo === 'exwiz') { if (!state.exwiz.saved.includes(ref)) state.exwiz.saved.push(ref); }
       else if (w.returnTo === 'swap') return handle('swap-pick', { ref }, el, ex);
       else if (w.returnTo === 'prompt' && state.session) {   // use it right away on the exercise you're doing
         const it = cur(); if (it && it.exId === w.ctxEx) { it.equip = ref; it.manual = true; syncGoal(it); }
-        if (state.session.location !== w.location) toast(`Saved at ${w.location}`); else toast('Machine saved');
-        break;
+        toast('Machine saved'); break;
       }
       toast('Machine saved'); break;
     }
     case 'eqwiz-prev': state.eqwiz.err = null; state.eqwiz.step = Math.max(1, state.eqwiz.step - 1); break;
     case 'eqwiz-headback': if (state.eqwiz.step > 1) { state.eqwiz.err = null; state.eqwiz.step--; } else back(); break;
-    case 'eqwiz-location': state.eqwiz.location = d.name; state.eqwiz.err = null; break;
+    case 'eqwiz-location': {   // tags: pick any number, or none for everywhere
+      const l = state.eqwiz.locations, i = l.indexOf(d.name);
+      if (i >= 0) l.splice(i, 1); else l.push(d.name);
+      break;
+    }
     case 'eqwiz-units': state.eqwiz.units = d.name; break;
-    case 'eqwiz-ex': {   // Related Exercises: pick or unpick
-      const w = state.eqRel, i = w.exIds.indexOf(d.id);
+    case 'eqwiz-ex': {   // wizard or Related Exercises: pick or unpick
+      const w = state.screen === 'eqwiz' ? state.eqwiz : state.eqRel, i = w.exIds.indexOf(d.id);
       if (i >= 0) w.exIds.splice(i, 1); else w.exIds.push(d.id);
       break;
     }
+    case 'eqwiz-addex': state.eqwiz.pick = { q: '', sel: [] }; state.modal = 'eqexpick'; break;   // step 4: open the exercise list
+    case 'eqpick-close': state.modal = null; state.eqwiz.pick = null; break;
+    case 'eqpick-add': { const w = state.eqwiz; for (const id of w.pick.sel) if (!w.exIds.includes(id)) w.exIds.push(id); w.pick = null; state.modal = null; break; }
+    case 'eqpick-ex': {   // check or uncheck in place, so the search keeps its place and the keyboard stays up
+      const p = state.eqwiz.pick, i = p.sel.indexOf(d.id);
+      if (i >= 0) p.sel.splice(i, 1); else p.sel.push(d.id);
+      const on = i < 0, row = el;
+      if (row) { row.classList.toggle('picked', on); row.setAttribute('aria-checked', on); const c = row.querySelector('.wiz-check'); if (c) { c.classList.toggle('on', on); c.innerHTML = on ? I.checkW : ''; } }
+      const head = overlay.querySelector('.eqp-count'); if (head) head.textContent = exSelText(p.sel.length);
+      const foot = overlay.querySelector('.eqp-foot');
+      if (foot) { const had = foot.classList.contains('on'); foot.innerHTML = eqPickFoot(p.sel.length); foot.classList.toggle('on', p.sel.length > 0); if (!had && p.sel.length) { foot.classList.remove('enter'); void foot.offsetWidth; foot.classList.add('enter'); } }
+      return false;
+    }
     case 'eqwiz-addloc': state.newLoc = { name: '', target: 'eqwiz' }; go('newloc'); break;
     case 'open-swap': state.swap = { owner: d.owner || listCtx().owner, index: +d.i || 0 }; state.modal = 'swap'; break;
-    case 'swap-all': state.modal = null; go('swap'); break;
+    case 'swap-all': state.modal = null; state.eqFilter = 'All'; go('swap'); break;
+    case 'eq-filter': state.eqFilter = d.name; return rerenderSwap();
     case 'close-swap': state.modal = null; state.swap.sel = null; break;
     case 'swap-pick': { const sw = state.swap; sw.sel = d.ref === swapRef() ? null : d.ref; return rerenderSwap(); }   // stage it; Save applies
     case 'swap-cancel': state.swap.sel = null; return rerenderSwap();
@@ -1699,7 +1853,7 @@ function handle(a, d, el, ex) {
     case 'delete-equipment': {
       const sv = db.equipment.find(x => x.id === state.eqDetail), ref = 'eq:' + sv.id;
       confirm({ title: 'Delete machine?', danger: true, label: 'Delete',
-        text: `${esc(sv.name)} at ${esc(sv.location)} will be removed. Workouts using it switch to ${esc(eqType(sv))}. Logged workouts keep their sets.`,
+        text: `${esc(sv.name)} will be removed. Workouts using it switch to ${esc(eqType(sv))}. Logged workouts keep their sets.`,
         run: () => { replaceRef(ref, e => genericFor(e, sv)); db.equipment.splice(db.equipment.indexOf(sv), 1); back(); toast('Equipment deleted'); } });
       break;
     }
@@ -1707,12 +1861,13 @@ function handle(a, d, el, ex) {
     case 'merge-pick-eq': {
       const A = db.equipment.find(x => x.id === state.eqDetail), B = db.equipment.find(x => x.id === d.id);
       confirm({ title: 'Merge machines?', label: 'Merge',
-        text: `${esc(A.name)}’s sets and goals are combined into ${esc(B.name)} at ${esc(B.location)}, and ${esc(A.name)} is removed. ${esc(B.name)} keeps everything it already has.`,
+        text: `${esc(A.name)}’s sets, goals, locations and exercises are combined into ${esc(B.name)}, and ${esc(A.name)} is removed. Where both have a goal, the most recent one stays.`,
         run: () => {
           const from = 'eq:' + A.id, to = 'eq:' + B.id;
           repointRef(from, to, A.units || db.settings.units, B.units || db.settings.units);   // combine A's sets and goals into B (B keeps its own)
           if (state.session) for (const e of state.session.exercises) if (e.equip === from) { e.equip = to; syncGoal(e); }
           if (!B.photo && A.photo) B.photo = A.photo;
+          setEqLocs(B, eqLocs(A).length && eqLocs(B).length ? [...eqLocs(B), ...eqLocs(A)] : []);   // either one everywhere: the merged one is too
           db.equipment.splice(db.equipment.indexOf(A), 1);
           state.eqDetail = B.id; state.stack.pop(); state.screen = 'eqdetail';
         } });
@@ -1731,11 +1886,11 @@ function handle(a, d, el, ex) {
       if (i >= 0) { if (t.length === 1) { toast('Keep at least one kind'); break; } t.splice(i, 1); } else t.push(d.name);
       sv.types = TYPE_ORDER.filter(x => t.includes(x)); sv.type = sv.types[0]; syncAllGoals(); break;
     }
-    case 'toggle-eqloc': {   // saved machine at one or more locations (keep at least one)
+    case 'toggle-eqloc': {   // location tags on a saved machine (none: available everywhere)
       const sv = db.equipment.find(x => x.id === state.eqDetail); if (!sv) break;
       const l = eqLocs(sv).slice(), i = l.indexOf(d.name);
-      if (i >= 0) { if (l.length === 1) { toast('Keep at least one location'); break; } l.splice(i, 1); } else l.push(d.name);
-      sv.locations = l; sv.location = l[0]; break;
+      if (i >= 0) l.splice(i, 1); else l.push(d.name);
+      setEqLocs(sv, l); break;
     }
     case 'add-location': state.newLoc = { name: '', target: state.locPick.target }; go('newloc'); break;
     case 'save-location': {
@@ -1845,7 +2000,7 @@ device.addEventListener('input', (e) => {
   if (t.matches('[data-search]')) { state.exercises.search = t.value; const l = document.getElementById('ex-list'); if (l) l.innerHTML = exListInner(); return; }
   if (t.matches('[data-exwizname]')) { state.exwiz.name = t.value; return; }
   if (t.matches('[data-eqwizname]')) { state.eqwiz.name = t.value; return; }
-  if (t.matches('[data-eqwizq]')) { state.eqRel.q = t.value; t.parentElement.classList.toggle('has-text', !!t.value); const l = document.getElementById('eqwiz-results'); if (l) l.innerHTML = eqWizResults(); const h = document.querySelector('.eqw-sechdr'); if (h) h.textContent = t.value ? 'Results' : 'Suggested'; return; }
+  if (t.matches('[data-eqwizq]')) { (state.modal === 'eqexpick' && state.eqwiz.pick ? state.eqwiz.pick : state.screen === 'eqwiz' ? state.eqwiz : state.eqRel).q = t.value; t.parentElement.classList.toggle('has-text', !!t.value); const l = document.getElementById('eqwiz-results'); if (l) l.innerHTML = eqWizResults(); const h = document.querySelector('.eqw-sechdr'); if (h) h.textContent = t.value ? 'Results' : 'Suggested'; return; }
   if (t.matches('[data-newloc]')) { state.newLoc.name = t.value; return; }
   if (t.matches('[data-planwizname]')) { state.planwiz.name = t.value; return; }
   if (t.matches('[data-cwname]')) { state.create.name = t.value; if (state.create.err) { state.create.err = null; const er = t.closest('.cw-body').querySelector('.wiz-err'); if (er) er.remove(); } return; }
@@ -1938,13 +2093,20 @@ function applyHash() {
   if (['home', 'quickselect', 'workouts', 'exercises', 'equipment', 'settings'].includes(h)) { home(); if (h !== 'home') go(h); }
   else if (h === 'session' && state.session) { state.stack = ['home']; state.screen = state.session.started ? 'session' : 'lineup'; }
 }
-window.addEventListener('hashchange', () => { applyHash(); render(); });
+window.addEventListener('hashchange', () => {
+  if (codeFrom(location.hash)) { const h = location.hash; history.replaceState(null, '', location.pathname + location.search); takeLink(h); return; }   // a plan link opened in this tab
+  applyHash(); render();
+});
 window.__failup = { db, state, render };   // handy for debugging in the console
 
 /* ---- boot ---- */
+const bootLink = codeFrom(location.hash) ? location.hash : null;   // opened from a plan link
+if (bootLink) history.replaceState(null, '', location.pathname + location.search);
 load();
 loadPhotos().finally(() => {
   applyHash();
+  window.__failmoreLink = url => { takeLink(url); return 'ok'; };
+  if (bootLink) takeLink(bootLink);
   // first launch: the intro (automated test browsers skip it unless #intro asks for it)
   if ((!db.settings.onboarded && !db.sessions.length && !navigator.webdriver && !location.hash) || location.hash === '#intro') startIntro();
   render();

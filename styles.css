@@ -3212,3 +3212,149 @@ button.rp:active { transform: scale(.97); }
 .device .cw-ex-card:not(.ro) .cw-ex-detail{ padding-bottom:4px !important; }
 .device .cw-ex-card .cw-actions{ padding-top:0 !important; }
 .device .cw-ex-card .cw-pref.ro{ background:transparent !important; box-shadow:none !important; }
+
+/* Figma equipment icons (Nov 19): filled shapes, so no outline stroke from the old line-icon rules */
+.device svg.eqi{ stroke:none !important; }
+.device .ph.kind > svg.eqi{ width:68% !important; height:68% !important; }
+
+/* ---- Saved Machines: location filter chips (selected is green) ---- */
+.eqf-chips{ display:flex; gap:8px; padding:4px 16px 4px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+.eqf-chips::-webkit-scrollbar{ display:none; }
+.eqf-chip{ flex:none; height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--hair, #e4e4e9); background:#fff; color:#111; font:inherit; font-size:0.9375rem; font-weight:600; white-space:nowrap; transition:transform .12s ease; }
+.eqf-chip:active{ transform:scale(.96); }
+.eqf-chip.on{ background:#e7f6ec; border-color:#1f9d55; color:#14532d; }
+.ae-screen .eqf-chips{ padding-top:12px; }
+
+/* section labels in sentence case */
+.xd-sechdr{ letter-spacing:0 !important; text-transform:none !important; font-size:0.8125rem !important; font-weight:600 !important; }
+
+/* ---- Save a Machine, step 4: Add an exercise cell + tall exercise sheet ---- */
+.eqw-addex .pk-ic.eqw-addic{ background:#eeebfd !important; color:#4a3bc4 !important; }
+.eqw-addex .pk-ic.eqw-addic svg{ width:24px; height:24px; }
+.eqw-addex .xd-eqname{ font-weight:600; }
+.eqp-sheet{ height:calc(100% - 56px); max-height:none; display:flex; flex-direction:column; padding-bottom:0; overflow:hidden; }
+.eqp-head{ display:flex; align-items:center; gap:12px; padding:14px 16px 10px; }
+.eqp-close{ flex:none; }
+.eqp-count{ font-size:1.0625rem; font-weight:700; color:#111; }
+.eqp-search{ margin:4px 16px 4px !important; }
+.eqp-body{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:12px; }
+.eqp-foot{ display:none; gap:12px; padding:14px 16px calc(20px + env(safe-area-inset-bottom)); background:#fff; box-shadow:0 0 4px rgba(0,0,0,.18); }
+.eqp-foot.on{ display:flex; }
+.eqp-foot .btn{ flex:1; }
+.eqp-foot.enter{ animation:trayUp .32s cubic-bezier(.16,.84,.3,1); }
+@media (prefers-reduced-motion: reduce){ .eqp-foot.enter{ animation:none; } }
+
+/* ---- exercise checklists (Save a Machine, Related Exercises, the picker sheet): same rows as the exercise list ---- */
+.eqw-list{ display:flex; flex-direction:column; background:#fff; }
+.wiz-body .eqw-list{ margin-left:-16px; margin-right:-16px; }
+.eqw-list .ex-row{ width:100%; text-align:left; display:flex; align-items:center; }
+.eqw-list .ex-row.picked{ background:#e7f6ec !important; }
+.eqw-list .ex-row.picked .ex-name{ color:#14532d; }
+.eqw-list .ex-tile{ width:48px; height:48px; border-radius:8px; flex:none; }
+.eqw-addex{ min-height:76px !important; }
+.eqw-addex .ex-tile.eqw-addic{ background:#eeebfd; color:#4a3bc4; display:flex; align-items:center; justify-content:center; }
+.eqw-addex .ex-tile.eqw-addic svg{ width:24px; height:24px; }
+.eqw-addex .ex-meta{ justify-content:center; }
+/* picker sheet spacing */
+.eqp-head{ padding:16px 16px 8px !important; }
+.eqp-search{ margin:8px 16px 12px !important; }
+.eqp-body .eqw-sechdr{ padding:0 16px; margin:4px 0 8px; }
+.eqp-body .eqw-list{ border-top:1px solid #ebebeb; }
+.wiz-body .eqw-sechdr{ margin-top:8px; }
+
+/* picker sheet close: flat grey rounded box, same as the nav back button */
+.eqp-sheet .eqp-close{ width:44px; height:44px; border-radius:12px !important; background:#ecebf3 !important; box-shadow:none !important; border:none !important; display:flex; align-items:center; justify-content:center; }
+.eqp-sheet .eqp-close:active{ transform:scale(.94); }
+
+/* picker sheet header: count centered, close on the left */
+.eqp-sheet .eqp-head{ display:grid !important; grid-template-columns:44px 1fr 44px; align-items:center; gap:8px; }
+.eqp-sheet .eqp-count{ grid-column:2; text-align:center; }
+
+/* ---- Plans page: past plan cards with their biggest goal jumps ---- */
+.pl-card{ padding:18px; }
+.pl-gains{ background:var(--bg); border-radius:16px; padding:4px 14px; display:flex; flex-direction:column; }
+.pl-gain{ display:flex; align-items:center; gap:12px; padding:12px 0; }
+.pl-gain + .pl-gain{ border-top:1px solid #e6e5ee; }
+.pl-gain .ex-tile{ width:48px; height:48px; border-radius:8px; flex:none; }
+.pl-gaintext{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.pl-gainname{ font-weight:700; font-size:1rem; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pl-gainsub{ font-size:0.875rem; color:var(--sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pl-gainnums{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex:none; }
+.pl-gainup{ display:flex; align-items:center; gap:4px; font-weight:800; font-size:1rem; color:#6C5CE7; }
+.pl-gainfrom{ font-size:0.875rem; color:var(--sec); white-space:nowrap; }
+.pl-nogain{ padding:14px 0; font-size:0.9375rem; color:var(--sec); }
+.pl-screen .wh-list{ padding-bottom:32px; }
+
+/* ---- My Plans: plan cards and plan details ---- */
+.wcard-tile.pl-tile, .lu-tile.pl-tile{ background:var(--tint, #ecebf3); display:flex; align-items:center; justify-content:center; }
+.pl-tile svg{ width:28px; height:28px; }
+.pl-libcard .wcard-sub.pl-live{ color:#14532d; font-weight:600; }
+.pd-facts{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:4px 0 20px; }
+.pd-facts .hm2-stat{ padding:12px; }
+.pd-facts .hm2-statnum{ font-size:1.5rem; }
+.pd-lineup{ margin-bottom:20px; }
+.pd-lineup .plan-dayrow{ width:100%; }
+.pd-actions{ margin:0 -16px 24px; }
+.pd-screen .cw-footer .btn[disabled]{ opacity:.45; }
+
+/* ---- plan calendar: purple ---- */
+.cal-num.range{ background:#eeebfd !important; color:#111 !important; }
+.cal-num.end{ background:#6C5CE7 !important; color:#fff !important; }
+.plan-datefield.on{ border-color:#6C5CE7 !important; box-shadow:inset 0 0 0 1px #6C5CE7 !important; }
+/* lineup: workout days sit in their workout color (set inline); rest days a quiet outline */
+.plan-daybadge.rest{ background:#fff !important; border:2px solid #c9c7d3 !important; color:#111 !important; }
+
+/* ---- plan details: facts as a line, share + start at the bottom ---- */
+.pd-facts{ display:block !important; grid-template-columns:none !important; margin:-4px 0 20px !important; font-size:0.9375rem; color:var(--sec); }
+.pd-foot{ display:flex; gap:12px; align-items:center; }
+.pd-foot .btn{ flex:1; }
+.pd-share{ flex:none; width:56px; height:56px; border-radius:16px; background:#ecebf3; border:none; display:flex; align-items:center; justify-content:center; color:#111; transition:transform .12s ease; }
+.pd-share svg{ width:24px; height:24px; }
+.pd-share:active{ transform:scale(.94); }
+
+/* ---- plan link invite sheet ---- */
+.pi-body{ padding:8px 20px 4px; display:flex; flex-direction:column; gap:6px; }
+.pi-card{ margin-top:14px; box-shadow:none !important; background:var(--bg); border-radius:16px; padding:14px; }
+.pi-actions{ padding:16px 20px 8px; }
+.ps-screen .wiz-body{ padding-bottom:40px; }
+.pd-screen .nav .pd-kebab{ margin-left:auto; }
+.pd-screen .cw-body{ padding-bottom:24px; }
+.pd-trash svg, .pd-trash svg path{ fill:#111 !important; }
+/* Plan Details: Share with its label; Setup Plan beside it */
+.pd-foot .pd-share{ width:auto; padding:0 22px; gap:8px; border-radius:999px; font:inherit; font-weight:700; font-size:1rem; }
+.pd-foot .pd-share svg{ width:22px; height:22px; }
+.pd-screen .lu-head{ margin-bottom:6px; }
+.pd-screen .lu-head{ margin-bottom:16px !important; }
+
+/* ---- My Plans: plan cards drawn like the active plan on home ---- */
+.wl-list .plc-card{ margin-bottom:14px; }
+.plc-card .hm2-planhead{ align-items:center; }
+.plc-live{ flex:none; font-size:0.8125rem; font-weight:700; color:#14532d; background:#e7f6ec; padding:5px 10px; border-radius:999px; }
+.plc-lineup{ background:var(--bg); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.plc-days{ display:flex; flex-wrap:wrap; gap:8px; }
+.plc-day{ display:flex; border-radius:50%; }
+.plc-day .plan-daybadge{ width:34px; height:34px; font-size:0.875rem; }
+.plc-day.today{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px #111; }
+.plc-names{ font-size:0.875rem; line-height:1.25rem; color:var(--sec); }
+.plc-actions{ margin-top:14px; }
+
+/* ---- plan mark: a cluster of workout-colored dots left of the plan name ---- */
+.plan-id{ display:flex !important; align-items:center; gap:12px; min-width:0; }
+.plan-dots{ flex:none; display:block; }
+/* My Plans card lineup: each workout once, small icon tile in its color + name */
+.plc-lineup{ gap:0 !important; padding:6px 14px !important; }
+.plc-work{ display:flex; align-items:center; gap:12px; padding:8px 0; }
+.plc-work + .plc-work{ border-top:1px solid #e6e5ee; }
+.plc-tile.wcard-tile{ width:36px !important; height:36px !important; min-width:36px; border-radius:10px !important; box-shadow:none !important; }
+.plc-tile svg{ width:22px !important; height:22px !important; }
+.plc-wname{ font-size:0.9375rem; font-weight:600; color:#111; }
+.plc-names{ padding:8px 0; }
+/* plan card kebab + in-progress in the meta line */
+.plc-card .hm2-planhead{ align-items:flex-start; }
+.plc-card .hm2-kebab{ background:#ecebf3; margin:0; }
+.hm2-planmeta .plc-live{ display:inline; padding:0; background:none; font-size:inherit; font-weight:700; color:#1f9d55; }
+/* workout invite: its exercises */
+.pi-exlist{ list-style:none; margin:12px 0 0; padding:0; max-height:220px; overflow-y:auto; }
+.pi-exlist li{ display:flex; justify-content:space-between; gap:12px; padding:8px 0; font-size:0.9375rem; color:#111; }
+.pi-exlist li + li{ border-top:1px solid #e6e5ee; }
+.pi-exlist li span:last-child{ color:var(--sec); flex:none; }
